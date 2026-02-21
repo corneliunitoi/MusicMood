@@ -1,0 +1,103 @@
+{
+  "totalHits": 170,
+  "genreStats": {
+    "Rock": {
+      "hits": 46,
+      "subStats": {
+        "Rock": 32,
+        "Alternative": 11,
+        "Metal": 3
+      }
+    },
+    "Jazz/Blues": {
+      "hits": 50,
+      "subStats": {
+        "Blues": 42,
+        "Jazz": 8
+      }
+    },
+    "Hip-Hop/Rap": {
+      "hits": 20,
+      "subStats": {
+        "R&B/Soul": 5,
+        "Hip-Hop/Rap": 14,
+        "Hip-Hop": 1
+      }
+    },
+    "Vocal": {
+      "hits": 1,
+      "subStats": {
+        "Vocal": 1
+      }
+    },
+    "Pop": {
+      "hits": 35,
+      "subStats": {
+        "Pop": 35
+      }
+    },
+    "Traditional Country": {
+      "hits": 1,
+      "subStats": {
+        "Traditional Country": 1
+      }
+    },
+    "Christian": {
+      "hits": 1,
+      "subStats": {
+        "Christian": 1
+      }
+    },
+    "Blues-Rock": {
+      "hits": 1,
+      "subStats": {
+        "Blues-Rock": 1
+      }
+    },
+    "Children's Music": {
+      "hits": 1,
+      "subStats": {
+        "Children's Music": 1
+      }
+    },
+    "Christian Pop": {
+      "hits": 1,
+      "subStats": {
+        "Christian Pop": 1
+      }
+    },
+    "Country/Folk": {
+      "hits": 1,
+      "subStats": {
+        "Country": 1
+      }
+    },
+    "Classical/Instrumental": {
+      "hits": 6,
+      "subStats": {
+        "Classical": 5,
+        "Soundtrack": 1
+      }
+    },
+    "Goth Rock": {
+      "hits": 3,
+      "subStats": {
+        "Goth Rock": 3
+      }
+    },
+    "Mandopop": {
+      "hits": 2,
+      "subStats": {
+        "Mandopop": 2
+      }
+    },
+    "Indie Rock": {
+      "hits": 1,
+      "subStats": {
+        "Indie Rock": 1
+      }
+    }
+  },
+  "cloudSynced": 170,
+  "lastScanned": "2026-02-21T22:45:51.143Z"
+}
