@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { fetchUserProfile, fetchUserPlaylists } from '../services/youtube'
 import { discoverPlaylistForMood } from '../services/musicEngine'
 import { syncLocalTracksToSupabase, supabase } from '../services/supabaseService'
-import MoodBar, { moods } from './MoodBar'
+import MoodBar, { allMoods } from './MoodBar'
 import PlaylistView from './PlaylistView'
+import TasteGraphSetup from './TasteGraphSetup'
 import TasteAnalyzer from './TasteAnalyzer'
 import Player from './Player'
 import MoodHistory from './MoodHistory'
@@ -50,7 +51,11 @@ function Dashboard({ token, onLogout }) {
                 setPlaylists(playlistsData)
             } catch (err) {
                 console.error(err)
-                setError('Failed to load YouTube data. Please try again.')
+                if (err.message === 'Unauthorized') {
+                    onLogout();
+                } else {
+                    setError(err.message || 'Failed to load YouTube data. Please try again.')
+                }
             } finally {
                 setLoading(false)
             }
@@ -96,7 +101,7 @@ function Dashboard({ token, onLogout }) {
         )
     }
 
-    const currentMoodObj = moods.find(m => m.id === selectedMood)
+    const currentMoodObj = allMoods.find(m => m.id === selectedMood)
 
     const handleMoodSelect = async (moodId) => {
         setSelectedMood(moodId);
@@ -104,7 +109,7 @@ function Dashboard({ token, onLogout }) {
         setError(null);
 
         try {
-            const moodObj = moods.find(m => m.id === moodId);
+            const moodObj = allMoods.find(m => m.id === moodId);
             const discovered = await discoverPlaylistForMood(moodObj, tasteProfile?.topGenres, token, playlists);
             setActivePlaylist(discovered);
 
@@ -143,7 +148,7 @@ function Dashboard({ token, onLogout }) {
             });
         } catch (err) {
             console.error("Discovery failed:", err);
-            // Optionally set a specialized error state here, but for now just log it
+            setError(err.message || 'We could not uncover a mix for this mood right now. Check your YouTube API Key in .env!');
         } finally {
             setIsDiscovering(false);
         }
@@ -176,15 +181,33 @@ function Dashboard({ token, onLogout }) {
             </header>
 
             <main className="dashboard-main">
-                <TasteAnalyzer
-                    playlists={playlists}
-                    setPlaylists={setPlaylists}
-                    tasteProfile={tasteProfile}
-                    setTasteProfile={setTasteProfile}
-                    token={token}
-                />
+                {token !== 'guest' ? (
+                    <TasteAnalyzer
+                        playlists={playlists}
+                        setPlaylists={setPlaylists}
+                        tasteProfile={tasteProfile}
+                        setTasteProfile={setTasteProfile}
+                        token={token}
+                    />
+                ) : !tasteProfile ? (
+                    <TasteGraphSetup onSave={setTasteProfile} />
+                ) : (
+                    <div className="taste-profile-container fade-in" style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', margin: '1rem auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span className="taste-label">Graph Linked Genres:</span>
+                            <button className="btn-text" style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem' }} onClick={() => setTasteProfile(null)}>Edit Graph</button>
+                        </div>
+                        <div className="taste-tags">
+                            {tasteProfile.topGenres.map((genre, index) => (
+                                <span key={index} className="taste-tag fade-in-up" style={{ animationDelay: `${index * 0.1}s` }}>
+                                    {genre}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
-                <h1 className="mood-prompt fade-in-up">How are you feeling right now?</h1>
+                <h1 className="mood-prompt fade-in-up" style={{ marginTop: '2rem' }}>How are you feeling right now?</h1>
 
                 <MoodBar selectedMood={selectedMood} onSelectMood={handleMoodSelect} />
 

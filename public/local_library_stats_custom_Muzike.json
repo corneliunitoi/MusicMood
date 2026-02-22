@@ -1,0 +1,1964 @@
+{
+  "totalHits": 14100,
+  "genreStats": {
+    "Atmospheric Black/Avantgarde Metal": {
+      "hits": 9,
+      "subStats": {
+        "Atmospheric Black/Avantgarde Metal": 9
+      }
+    },
+    "Arcturus - Arcturian (2015)": {
+      "hits": 2,
+      "subStats": {
+        "Arcturus - Arcturian (2015)": 2
+      }
+    },
+    "Behold... The Arctopus": {
+      "hits": 6,
+      "subStats": {
+        "Behold... The Arctopus": 6
+      }
+    },
+    "Psychedelic / Post-Rock": {
+      "hits": 10,
+      "subStats": {
+        "Psychedelic / Post-Rock": 10
+      }
+    },
+    "Psychedelic / Female Vocal": {
+      "hits": 10,
+      "subStats": {
+        "Psychedelic / Female Vocal": 10
+      }
+    },
+    "Rock": {
+      "hits": 1286,
+      "subStats": {
+        "Alternative": 143,
+        "Rock": 559,
+        "Metal": 501,
+        "Indie Rock": 8,
+        "Industrial": 60,
+        "Punk": 4,
+        "Classic Rock": 11
+      }
+    },
+    "Electronic/Dance": {
+      "hits": 2706,
+      "subStats": {
+        "Electronic": 554,
+        "Dance": 7,
+        "Avant-Garde": 2088,
+        "Avantgarde": 45,
+        "Dubstep": 12
+      }
+    },
+    "ÉLectronique": {
+      "hits": 4,
+      "subStats": {
+        "ÉLectronique": 4
+      }
+    },
+    "ElectróNica": {
+      "hits": 5,
+      "subStats": {
+        "ElectróNica": 5
+      }
+    },
+    "Pop": {
+      "hits": 8,
+      "subStats": {
+        "Pop": 8
+      }
+    },
+    "Progressive Metal": {
+      "hits": 357,
+      "subStats": {
+        "Progressive Metal": 357
+      }
+    },
+    "Avant": {
+      "hits": 8,
+      "subStats": {
+        "Avant": 8
+      }
+    },
+    "Death Metal": {
+      "hits": 74,
+      "subStats": {
+        "Death Metal": 74
+      }
+    },
+    "New Age": {
+      "hits": 239,
+      "subStats": {
+        "New Age": 239
+      }
+    },
+    "Black Metal": {
+      "hits": 126,
+      "subStats": {
+        "Black Metal": 126
+      }
+    },
+    "Deathspell Omega": {
+      "hits": 8,
+      "subStats": {
+        "Deathspell Omega": 8
+      }
+    },
+    "Avant-Garde Black Metal": {
+      "hits": 26,
+      "subStats": {
+        "Avant-Garde Black Metal": 26
+      }
+    },
+    "Mathcore": {
+      "hits": 24,
+      "subStats": {
+        "Mathcore": 24
+      }
+    },
+    "Dir En Grey": {
+      "hits": 2,
+      "subStats": {
+        "Dir En Grey": 2
+      }
+    },
+    "J-Pop": {
+      "hits": 1,
+      "subStats": {
+        "J-Pop": 1
+      }
+    },
+    "Heavy Metal": {
+      "hits": 28,
+      "subStats": {
+        "Heavy Metal": 28
+      }
+    },
+    "Alt. Rock": {
+      "hits": 36,
+      "subStats": {
+        "Alt. Rock": 36
+      }
+    },
+    "Circus-Core": {
+      "hits": 17,
+      "subStats": {
+        "Circus-Core": 17
+      }
+    },
+    "Hardcore": {
+      "hits": 26,
+      "subStats": {
+        "Hardcore": 26
+      }
+    },
+    "Post-Hardcore": {
+      "hits": 20,
+      "subStats": {
+        "Post-Hardcore": 20
+      }
+    },
+    "Dysrhythmia": {
+      "hits": 6,
+      "subStats": {
+        "Dysrhythmia": 6
+      }
+    },
+    "2003-Pretest": {
+      "hits": 2,
+      "subStats": {
+        "2003-Pretest": 2
+      }
+    },
+    "2006-Barriers & Passages": {
+      "hits": 2,
+      "subStats": {
+        "2006-Barriers & Passages": 2
+      }
+    },
+    "Acoustic": {
+      "hits": 23,
+      "subStats": {
+        "Acoustic": 23
+      }
+    },
+    "Post Rock": {
+      "hits": 373,
+      "subStats": {
+        "Post Rock": 373
+      }
+    },
+    "Other": {
+      "hits": 80,
+      "subStats": {
+        "Other": 80
+      }
+    },
+    "Alternative & Punk": {
+      "hits": 32,
+      "subStats": {
+        "Alternative & Punk": 32
+      }
+    },
+    "Alternative Rock": {
+      "hits": 70,
+      "subStats": {
+        "Alternative Rock": 70
+      }
+    },
+    "Indie": {
+      "hits": 66,
+      "subStats": {
+        "Indie": 66
+      }
+    },
+    "Avantgarde Black Metal": {
+      "hits": 20,
+      "subStats": {
+        "Avantgarde Black Metal": 20
+      }
+    },
+    "Ephel Duath": {
+      "hits": 6,
+      "subStats": {
+        "Ephel Duath": 6
+      }
+    },
+    "2003. The Painter'S Palette": {
+      "hits": 9,
+      "subStats": {
+        "2003. The Painter'S Palette": 9
+      }
+    },
+    "Sludge": {
+      "hits": 12,
+      "subStats": {
+        "Sludge": 12
+      }
+    },
+    "Atmospheric Mathcore/Experimental": {
+      "hits": 10,
+      "subStats": {
+        "Atmospheric Mathcore/Experimental": 10
+      }
+    },
+    "Forgotten Silence": {
+      "hits": 10,
+      "subStats": {
+        "Forgotten Silence": 10
+      }
+    },
+    "Progressive Rock": {
+      "hits": 808,
+      "subStats": {
+        "Progressive Rock": 808
+      }
+    },
+    "Experimental Progressive Metal": {
+      "hits": 6,
+      "subStats": {
+        "Experimental Progressive Metal": 6
+      }
+    },
+    "Progressive Metal, Experimental, Math Metal, Ambient": {
+      "hits": 8,
+      "subStats": {
+        "Progressive Metal, Experimental, Math Metal, Ambient": 8
+      }
+    },
+    "Unknown": {
+      "hits": 35,
+      "subStats": {
+        "Unknown": 35
+      }
+    },
+    "Igorrr - Savage Sinusoid": {
+      "hits": 11,
+      "subStats": {
+        "Igorrr - Savage Sinusoid": 11
+      }
+    },
+    "Progressive Death Metal/Fusion": {
+      "hits": 12,
+      "subStats": {
+        "Progressive Death Metal/Fusion": 12
+      }
+    },
+    "Extreme Instrumental Tech-Metal": {
+      "hits": 17,
+      "subStats": {
+        "Extreme Instrumental Tech-Metal": 17
+      }
+    },
+    "Post-Metal": {
+      "hits": 35,
+      "subStats": {
+        "Post-Metal": 35
+      }
+    },
+    "Post-Rock": {
+      "hits": 588,
+      "subStats": {
+        "Post-Rock": 588
+      }
+    },
+    "Technical Death | Progressive Metal": {
+      "hits": 8,
+      "subStats": {
+        "Technical Death | Progressive Metal": 8
+      }
+    },
+    "Instrumental Metal": {
+      "hits": 6,
+      "subStats": {
+        "Instrumental Metal": 6
+      }
+    },
+    "Avant-Prog / Experimental / Noise Rock": {
+      "hits": 5,
+      "subStats": {
+        "Avant-Prog / Experimental / Noise Rock": 5
+      }
+    },
+    "Experimental Metal": {
+      "hits": 33,
+      "subStats": {
+        "Experimental Metal": 33
+      }
+    },
+    "Kayo Dot": {
+      "hits": 1,
+      "subStats": {
+        "Kayo Dot": 1
+      }
+    },
+    "Avant-Garde Metal": {
+      "hits": 65,
+      "subStats": {
+        "Avant-Garde Metal": 65
+      }
+    },
+    "Atmospheric Gothic Metal / Neofolk / Neoclassical": {
+      "hits": 1,
+      "subStats": {
+        "Atmospheric Gothic Metal / Neofolk / Neoclassical": 1
+      }
+    },
+    "Pivixki": {
+      "hits": 8,
+      "subStats": {
+        "Pivixki": 8
+      }
+    },
+    "Progressive Rock / Avant-Garde": {
+      "hits": 13,
+      "subStats": {
+        "Progressive Rock / Avant-Garde": 13
+      }
+    },
+    "Experimental - Art Rock": {
+      "hits": 15,
+      "subStats": {
+        "Experimental - Art Rock": 15
+      }
+    },
+    "Progressive Metal, Avant-Garde Metal": {
+      "hits": 41,
+      "subStats": {
+        "Progressive Metal, Avant-Garde Metal": 41
+      }
+    },
+    "Ethnic Ambient": {
+      "hits": 131,
+      "subStats": {
+        "Ethnic Ambient": 131
+      }
+    },
+    "Cyber Gothic": {
+      "hits": 20,
+      "subStats": {
+        "Cyber Gothic": 20
+      }
+    },
+    "Doom": {
+      "hits": 17,
+      "subStats": {
+        "Doom": 17
+      }
+    },
+    "Âäîëü Ïóòè ê Ïîäíåáåñíîé": {
+      "hits": 1,
+      "subStats": {
+        "Âäîëü Ïóòè ê Ïîäíåáåñíîé": 1
+      }
+    },
+    "Chinnes Gothic": {
+      "hits": 1,
+      "subStats": {
+        "Chinnes Gothic": 1
+      }
+    },
+    "Gothic": {
+      "hits": 51,
+      "subStats": {
+        "Gothic": 51
+      }
+    },
+    "Classical/Instrumental": {
+      "hits": 1545,
+      "subStats": {
+        "Instrumental": 97,
+        "Soundtrack": 525,
+        "Classical": 923
+      }
+    },
+    "Senmuth": {
+      "hits": 19,
+      "subStats": {
+        "Senmuth": 19
+      }
+    },
+    "Dark Music, Dark Electro, Ethnic": {
+      "hits": 9,
+      "subStats": {
+        "Dark Music, Dark Electro, Ethnic": 9
+      }
+    },
+    "Ethnic": {
+      "hits": 78,
+      "subStats": {
+        "Ethnic": 78
+      }
+    },
+    "New Age, Ethnic": {
+      "hits": 12,
+      "subStats": {
+        "New Age, Ethnic": 12
+      }
+    },
+    "Meditative": {
+      "hits": 9,
+      "subStats": {
+        "Meditative": 9
+      }
+    },
+    "Ethno Ambient": {
+      "hits": 32,
+      "subStats": {
+        "Ethno Ambient": 32
+      }
+    },
+    "Ancient Egyptian Ethno Metal": {
+      "hits": 35,
+      "subStats": {
+        "Ancient Egyptian Ethno Metal": 35
+      }
+    },
+    "Ethno, Ambient, Doom, Industrial": {
+      "hits": 36,
+      "subStats": {
+        "Ethno, Ambient, Doom, Industrial": 36
+      }
+    },
+    "Ethnic-Doom-Industrial": {
+      "hits": 14,
+      "subStats": {
+        "Ethnic-Doom-Industrial": 14
+      }
+    },
+    "Aggro-Industrial-Gothic-Doom": {
+      "hits": 13,
+      "subStats": {
+        "Aggro-Industrial-Gothic-Doom": 13
+      }
+    },
+    "Dark Ethno Ambient": {
+      "hits": 9,
+      "subStats": {
+        "Dark Ethno Ambient": 9
+      }
+    },
+    "Ethno Industrial Metal": {
+      "hits": 11,
+      "subStats": {
+        "Ethno Industrial Metal": 11
+      }
+    },
+    "Ethnic,Ambient": {
+      "hits": 9,
+      "subStats": {
+        "Ethnic,Ambient": 9
+      }
+    },
+    "Ambient": {
+      "hits": 126,
+      "subStats": {
+        "Ambient": 126
+      }
+    },
+    "Ethno Dark Ritual Ambient": {
+      "hits": 5,
+      "subStats": {
+        "Ethno Dark Ritual Ambient": 5
+      }
+    },
+    "Ethno Orchestral Experimental Music": {
+      "hits": 8,
+      "subStats": {
+        "Ethno Orchestral Experimental Music": 8
+      }
+    },
+    "Ethnic Experimental Music": {
+      "hits": 9,
+      "subStats": {
+        "Ethnic Experimental Music": 9
+      }
+    },
+    "Experimental Ethno Metal": {
+      "hits": 10,
+      "subStats": {
+        "Experimental Ethno Metal": 10
+      }
+    },
+    "Experimental Music": {
+      "hits": 13,
+      "subStats": {
+        "Experimental Music": 13
+      }
+    },
+    "Ethno Experimental Metal Ambient": {
+      "hits": 18,
+      "subStats": {
+        "Ethno Experimental Metal Ambient": 18
+      }
+    },
+    "Experimental": {
+      "hits": 10,
+      "subStats": {
+        "Experimental": 10
+      }
+    },
+    "Experimental Ethno Ambient": {
+      "hits": 9,
+      "subStats": {
+        "Experimental Ethno Ambient": 9
+      }
+    },
+    "Electronica, Ambient": {
+      "hits": 21,
+      "subStats": {
+        "Electronica, Ambient": 21
+      }
+    },
+    "Ethnic Metal": {
+      "hits": 6,
+      "subStats": {
+        "Ethnic Metal": 6
+      }
+    },
+    "Experimental Rock": {
+      "hits": 19,
+      "subStats": {
+        "Experimental Rock": 19
+      }
+    },
+    "Oriental Metal": {
+      "hits": 8,
+      "subStats": {
+        "Oriental Metal": 8
+      }
+    },
+    "Ethno Ambient, Ritual": {
+      "hits": 5,
+      "subStats": {
+        "Ethno Ambient, Ritual": 5
+      }
+    },
+    "Experimental Ethno Djent Meditation": {
+      "hits": 6,
+      "subStats": {
+        "Experimental Ethno Djent Meditation": 6
+      }
+    },
+    "Exometal": {
+      "hits": 8,
+      "subStats": {
+        "Exometal": 8
+      }
+    },
+    "Ethnic Dark Ambient": {
+      "hits": 14,
+      "subStats": {
+        "Ethnic Dark Ambient": 14
+      }
+    },
+    "Sympho, Industrial": {
+      "hits": 12,
+      "subStats": {
+        "Sympho, Industrial": 12
+      }
+    },
+    "Industrial Experimental Metal": {
+      "hits": 10,
+      "subStats": {
+        "Industrial Experimental Metal": 10
+      }
+    },
+    "Ethnic, Ambient, Electronic, Industrial": {
+      "hits": 5,
+      "subStats": {
+        "Ethnic, Ambient, Electronic, Industrial": 5
+      }
+    },
+    "Ethnic, Ritual, Ambient": {
+      "hits": 12,
+      "subStats": {
+        "Ethnic, Ritual, Ambient": 12
+      }
+    },
+    "Ethnic, Ritual, Industrial , Ambient": {
+      "hits": 14,
+      "subStats": {
+        "Ethnic, Ritual, Industrial , Ambient": 14
+      }
+    },
+    "Industrial, Ethnic": {
+      "hits": 9,
+      "subStats": {
+        "Industrial, Ethnic": 9
+      }
+    },
+    "Ethnic Experimental Metal": {
+      "hits": 6,
+      "subStats": {
+        "Ethnic Experimental Metal": 6
+      }
+    },
+    "Jazz-Iz-Christ": {
+      "hits": 1,
+      "subStats": {
+        "Jazz-Iz-Christ": 1
+      }
+    },
+    "Solo": {
+      "hits": 5,
+      "subStats": {
+        "Solo": 5
+      }
+    },
+    "Live": {
+      "hits": 1,
+      "subStats": {
+        "Live": 1
+      }
+    },
+    "Sleepytime Gorilla Museum": {
+      "hits": 4,
+      "subStats": {
+        "Sleepytime Gorilla Museum": 4
+      }
+    },
+    "Psychedelic | Doom Metal": {
+      "hits": 3,
+      "subStats": {
+        "Psychedelic | Doom Metal": 3
+      }
+    },
+    "Subterranean Masquerade": {
+      "hits": 2,
+      "subStats": {
+        "Subterranean Masquerade": 2
+      }
+    },
+    "Avantgarde Metal": {
+      "hits": 10,
+      "subStats": {
+        "Avantgarde Metal": 10
+      }
+    },
+    "Experimental Rock | Avant-Garde": {
+      "hits": 6,
+      "subStats": {
+        "Experimental Rock | Avant-Garde": 6
+      }
+    },
+    "Dark Folk": {
+      "hits": 16,
+      "subStats": {
+        "Dark Folk": 16
+      }
+    },
+    "Art Rock": {
+      "hits": 33,
+      "subStats": {
+        "Art Rock": 33
+      }
+    },
+    "Psychedelic": {
+      "hits": 51,
+      "subStats": {
+        "Psychedelic": 51
+      }
+    },
+    "Drone": {
+      "hits": 8,
+      "subStats": {
+        "Drone": 8
+      }
+    },
+    "Unexpect": {
+      "hits": 5,
+      "subStats": {
+        "Unexpect": 5
+      }
+    },
+    "Mathcore|Deathcore|Electropop": {
+      "hits": 5,
+      "subStats": {
+        "Mathcore|Deathcore|Electropop": 5
+      }
+    },
+    "Rock, Metal": {
+      "hits": 11,
+      "subStats": {
+        "Rock, Metal": 11
+      }
+    },
+    "Vulture Industries": {
+      "hits": 2,
+      "subStats": {
+        "Vulture Industries": 2
+      }
+    },
+    "Post-Rock, Post-Metal, Ambient, Modern Classic": {
+      "hits": 8,
+      "subStats": {
+        "Post-Rock, Post-Metal, Ambient, Modern Classic": 8
+      }
+    },
+    "Jazz/Blues": {
+      "hits": 609,
+      "subStats": {
+        "Jazz": 580,
+        "Blues": 29
+      }
+    },
+    "Hip-Hop/Rap": {
+      "hits": 66,
+      "subStats": {
+        "Hip-Hop": 66
+      }
+    },
+    "Jazz, Fusion, Hip-Hop": {
+      "hits": 17,
+      "subStats": {
+        "Jazz, Fusion, Hip-Hop": 17
+      }
+    },
+    "Instrumental Hip-Hop": {
+      "hits": 13,
+      "subStats": {
+        "Instrumental Hip-Hop": 13
+      }
+    },
+    "Jazz, Hip-Hop, Fusion": {
+      "hits": 2,
+      "subStats": {
+        "Jazz, Hip-Hop, Fusion": 2
+      }
+    },
+    "Dark Jazz": {
+      "hits": 77,
+      "subStats": {
+        "Dark Jazz": 77
+      }
+    },
+    "Bohren & Der Club Of Gore": {
+      "hits": 9,
+      "subStats": {
+        "Bohren & Der Club Of Gore": 9
+      }
+    },
+    "Contemporary Jazz |  Fusion": {
+      "hits": 5,
+      "subStats": {
+        "Contemporary Jazz |  Fusion": 5
+      }
+    },
+    "Hidden Orchestra": {
+      "hits": 2,
+      "subStats": {
+        "Hidden Orchestra": 2
+      }
+    },
+    "Nu-Jazz, Acid Jazz, Trip-Hop, Experimental": {
+      "hits": 1,
+      "subStats": {
+        "Nu-Jazz, Acid Jazz, Trip-Hop, Experimental": 1
+      }
+    },
+    "Math Rock": {
+      "hits": 8,
+      "subStats": {
+        "Math Rock": 8
+      }
+    },
+    "Post-Jazz": {
+      "hits": 63,
+      "subStats": {
+        "Post-Jazz": 63
+      }
+    },
+    "Nu-Jazz": {
+      "hits": 9,
+      "subStats": {
+        "Nu-Jazz": 9
+      }
+    },
+    "Modal Jazz": {
+      "hits": 8,
+      "subStats": {
+        "Modal Jazz": 8
+      }
+    },
+    "Shining": {
+      "hits": 7,
+      "subStats": {
+        "Shining": 7
+      }
+    },
+    "Pop Rock": {
+      "hits": 11,
+      "subStats": {
+        "Pop Rock": 11
+      }
+    },
+    "Jazz & Funk": {
+      "hits": 13,
+      "subStats": {
+        "Jazz & Funk": 13
+      }
+    },
+    "Jazz Fusion": {
+      "hits": 8,
+      "subStats": {
+        "Jazz Fusion": 8
+      }
+    },
+    "Electronica": {
+      "hits": 12,
+      "subStats": {
+        "Electronica": 12
+      }
+    },
+    "The Kilimanjaro Darkjazz Ensemble": {
+      "hits": 8,
+      "subStats": {
+        "The Kilimanjaro Darkjazz Ensemble": 8
+      }
+    },
+    "Nu Jazz": {
+      "hits": 42,
+      "subStats": {
+        "Nu Jazz": 42
+      }
+    },
+    "Psychedelic Rock": {
+      "hits": 6,
+      "subStats": {
+        "Psychedelic Rock": 6
+      }
+    },
+    "Glitch-Hop": {
+      "hits": 4,
+      "subStats": {
+        "Glitch-Hop": 4
+      }
+    },
+    "Downtempo, Glitch": {
+      "hits": 5,
+      "subStats": {
+        "Downtempo, Glitch": 5
+      }
+    },
+    "Glitch/IDM/Downtempo/Ambient": {
+      "hits": 12,
+      "subStats": {
+        "Glitch/IDM/Downtempo/Ambient": 12
+      }
+    },
+    "IDM/Experimental": {
+      "hits": 1,
+      "subStats": {
+        "IDM/Experimental": 1
+      }
+    },
+    "Instrumental Rock": {
+      "hits": 94,
+      "subStats": {
+        "Instrumental Rock": 94
+      }
+    },
+    "Doom Metal, Post-Metal": {
+      "hits": 36,
+      "subStats": {
+        "Doom Metal, Post-Metal": 36
+      }
+    },
+    "Ambient, Drone Ambient": {
+      "hits": 4,
+      "subStats": {
+        "Ambient, Drone Ambient": 4
+      }
+    },
+    "Post": {
+      "hits": 2,
+      "subStats": {
+        "Post": 2
+      }
+    },
+    "Neo-Classical": {
+      "hits": 118,
+      "subStats": {
+        "Neo-Classical": 118
+      }
+    },
+    "FOLK / AMERICANA": {
+      "hits": 5,
+      "subStats": {
+        "FOLK / AMERICANA": 5
+      }
+    },
+    "FOLK / ROOTS": {
+      "hits": 5,
+      "subStats": {
+        "FOLK / ROOTS": 5
+      }
+    },
+    "Piano": {
+      "hits": 11,
+      "subStats": {
+        "Piano": 11
+      }
+    },
+    "Unclassifiable": {
+      "hits": 5,
+      "subStats": {
+        "Unclassifiable": 5
+      }
+    },
+    "Post-Rock, Instrumental": {
+      "hits": 17,
+      "subStats": {
+        "Post-Rock, Instrumental": 17
+      }
+    },
+    "Post-Black Metal": {
+      "hits": 7,
+      "subStats": {
+        "Post-Black Metal": 7
+      }
+    },
+    "Shoegaze": {
+      "hits": 8,
+      "subStats": {
+        "Shoegaze": 8
+      }
+    },
+    "Film": {
+      "hits": 27,
+      "subStats": {
+        "Film": 27
+      }
+    },
+    "Space": {
+      "hits": 14,
+      "subStats": {
+        "Space": 14
+      }
+    },
+    "Chaotic Hardcore \\ Mathcore": {
+      "hits": 30,
+      "subStats": {
+        "Chaotic Hardcore \\ Mathcore": 30
+      }
+    },
+    "Doom Metal": {
+      "hits": 8,
+      "subStats": {
+        "Doom Metal": 8
+      }
+    },
+    "Sludge Metal": {
+      "hits": 5,
+      "subStats": {
+        "Sludge Metal": 5
+      }
+    },
+    "Post Rock/Experimental": {
+      "hits": 28,
+      "subStats": {
+        "Post Rock/Experimental": 28
+      }
+    },
+    "God Is An Astronaut": {
+      "hits": 4,
+      "subStats": {
+        "God Is An Astronaut": 4
+      }
+    },
+    "Post-Rock, Ambient": {
+      "hits": 88,
+      "subStats": {
+        "Post-Rock, Ambient": 88
+      }
+    },
+    "Hammock": {
+      "hits": 1,
+      "subStats": {
+        "Hammock": 1
+      }
+    },
+    "Ambient, Post-Rock": {
+      "hits": 4,
+      "subStats": {
+        "Ambient, Post-Rock": 4
+      }
+    },
+    "1998-The Mosquito Control": {
+      "hits": 1,
+      "subStats": {
+        "1998-The Mosquito Control": 1
+      }
+    },
+    "1999-The Red Sea": {
+      "hits": 1,
+      "subStats": {
+        "1999-The Red Sea": 1
+      }
+    },
+    "2001-Celestial-SGNL-05": {
+      "hits": 4,
+      "subStats": {
+        "2001-Celestial-SGNL-05": 4
+      }
+    },
+    "2001-SGNL-05": {
+      "hits": 1,
+      "subStats": {
+        "2001-SGNL-05": 1
+      }
+    },
+    "2002-Oceanic": {
+      "hits": 3,
+      "subStats": {
+        "2002-Oceanic": 3
+      }
+    },
+    "2004-Panopticon": {
+      "hits": 4,
+      "subStats": {
+        "2004-Panopticon": 4
+      }
+    },
+    "2006-In The Absence Of Truth": {
+      "hits": 2,
+      "subStats": {
+        "2006-In The Absence Of Truth": 2
+      }
+    },
+    "2009-Wavering Radiant": {
+      "hits": 2,
+      "subStats": {
+        "2009-Wavering Radiant": 2
+      }
+    },
+    "Folk Doom Black": {
+      "hits": 1,
+      "subStats": {
+        "Folk Doom Black": 1
+      }
+    },
+    "Dark Metal": {
+      "hits": 1,
+      "subStats": {
+        "Dark Metal": 1
+      }
+    },
+    "Ambient/Post Rock": {
+      "hits": 1,
+      "subStats": {
+        "Ambient/Post Rock": 1
+      }
+    },
+    "Ambient Post Doom": {
+      "hits": 1,
+      "subStats": {
+        "Ambient Post Doom": 1
+      }
+    },
+    "Folk/Doom Metal": {
+      "hits": 1,
+      "subStats": {
+        "Folk/Doom Metal": 1
+      }
+    },
+    "Doom Metal/Post-Rock": {
+      "hits": 1,
+      "subStats": {
+        "Doom Metal/Post-Rock": 1
+      }
+    },
+    "IDM": {
+      "hits": 8,
+      "subStats": {
+        "IDM": 8
+      }
+    },
+    "1987-Pain Of Mind": {
+      "hits": 1,
+      "subStats": {
+        "1987-Pain Of Mind": 1
+      }
+    },
+    "1991-The Word As Law": {
+      "hits": 1,
+      "subStats": {
+        "1991-The Word As Law": 1
+      }
+    },
+    "Neurosis": {
+      "hits": 7,
+      "subStats": {
+        "Neurosis": 7
+      }
+    },
+    "1996-Through Silver In Blood": {
+      "hits": 1,
+      "subStats": {
+        "1996-Through Silver In Blood": 1
+      }
+    },
+    "1999-Times Of Grace": {
+      "hits": 1,
+      "subStats": {
+        "1999-Times Of Grace": 1
+      }
+    },
+    "2000-Souvereign": {
+      "hits": 1,
+      "subStats": {
+        "2000-Souvereign": 1
+      }
+    },
+    "2001-A Sun That Never Sets": {
+      "hits": 1,
+      "subStats": {
+        "2001-A Sun That Never Sets": 1
+      }
+    },
+    "2003-Neurosis & Jarboe (Neurosis & Jarboe)": {
+      "hits": 1,
+      "subStats": {
+        "2003-Neurosis & Jarboe (Neurosis & Jarboe)": 1
+      }
+    },
+    "2004-The Eye Of Every Storm": {
+      "hits": 1,
+      "subStats": {
+        "2004-The Eye Of Every Storm": 1
+      }
+    },
+    "Screamo": {
+      "hits": 21,
+      "subStats": {
+        "Screamo": 21
+      }
+    },
+    "Instrumental Prog.": {
+      "hits": 10,
+      "subStats": {
+        "Instrumental Prog.": 10
+      }
+    },
+    "Postrock": {
+      "hits": 8,
+      "subStats": {
+        "Postrock": 8
+      }
+    },
+    "Progressive Post-Rock": {
+      "hits": 14,
+      "subStats": {
+        "Progressive Post-Rock": 14
+      }
+    },
+    "Drone Ambient": {
+      "hits": 1,
+      "subStats": {
+        "Drone Ambient": 1
+      }
+    },
+    "Instrumental Atmospheric Black": {
+      "hits": 11,
+      "subStats": {
+        "Instrumental Atmospheric Black": 11
+      }
+    },
+    "Violet Cold": {
+      "hits": 1,
+      "subStats": {
+        "Violet Cold": 1
+      }
+    },
+    "Fusion": {
+      "hits": 71,
+      "subStats": {
+        "Fusion": 71
+      }
+    },
+    "Jazz-Rock": {
+      "hits": 34,
+      "subStats": {
+        "Jazz-Rock": 34
+      }
+    },
+    "Studio": {
+      "hits": 7,
+      "subStats": {
+        "Studio": 7
+      }
+    },
+    "Jazz Rock; Fusion": {
+      "hits": 11,
+      "subStats": {
+        "Jazz Rock; Fusion": 11
+      }
+    },
+    "Progressive": {
+      "hits": 54,
+      "subStats": {
+        "Progressive": 54
+      }
+    },
+    "Stoner": {
+      "hits": 3,
+      "subStats": {
+        "Stoner": 3
+      }
+    },
+    "Doom | Stoner Metal": {
+      "hits": 6,
+      "subStats": {
+        "Doom | Stoner Metal": 6
+      }
+    },
+    "Heavy Prog": {
+      "hits": 6,
+      "subStats": {
+        "Heavy Prog": 6
+      }
+    },
+    "Prog Rock": {
+      "hits": 23,
+      "subStats": {
+        "Prog Rock": 23
+      }
+    },
+    "Canvas Solaris": {
+      "hits": 6,
+      "subStats": {
+        "Canvas Solaris": 6
+      }
+    },
+    "Technical Progressive Metal": {
+      "hits": 17,
+      "subStats": {
+        "Technical Progressive Metal": 17
+      }
+    },
+    "Alternative Metal": {
+      "hits": 17,
+      "subStats": {
+        "Alternative Metal": 17
+      }
+    },
+    "Alt.Rock / Progressive Rock": {
+      "hits": 11,
+      "subStats": {
+        "Alt.Rock / Progressive Rock": 11
+      }
+    },
+    "1994-Awake": {
+      "hits": 2,
+      "subStats": {
+        "1994-Awake": 2
+      }
+    },
+    "1997-Falling Into Infinity": {
+      "hits": 2,
+      "subStats": {
+        "1997-Falling Into Infinity": 2
+      }
+    },
+    "DREAM_THEATER_S": {
+      "hits": 36,
+      "subStats": {
+        "DREAM_THEATER_S": 36
+      }
+    },
+    "2013-Dream Theater": {
+      "hits": 1,
+      "subStats": {
+        "2013-Dream Theater": 1
+      }
+    },
+    "Promos": {
+      "hits": 2,
+      "subStats": {
+        "Promos": 2
+      }
+    },
+    "Enochian Theory": {
+      "hits": 1,
+      "subStats": {
+        "Enochian Theory": 1
+      }
+    },
+    "Prog": {
+      "hits": 2,
+      "subStats": {
+        "Prog": 2
+      }
+    },
+    "Indukti": {
+      "hits": 1,
+      "subStats": {
+        "Indukti": 1
+      }
+    },
+    "Progressive Rock/Avant-Prog": {
+      "hits": 1,
+      "subStats": {
+        "Progressive Rock/Avant-Prog": 1
+      }
+    },
+    "Neo Classical Metal": {
+      "hits": 17,
+      "subStats": {
+        "Neo Classical Metal": 17
+      }
+    },
+    "KONG": {
+      "hits": 11,
+      "subStats": {
+        "KONG": 11
+      }
+    },
+    "Post Prog": {
+      "hits": 2,
+      "subStats": {
+        "Post Prog": 2
+      }
+    },
+    "Muse": {
+      "hits": 3,
+      "subStats": {
+        "Muse": 3
+      }
+    },
+    "Post-Progressive": {
+      "hits": 1,
+      "subStats": {
+        "Post-Progressive": 1
+      }
+    },
+    "Progressive Ambient": {
+      "hits": 3,
+      "subStats": {
+        "Progressive Ambient": 3
+      }
+    },
+    "Ozric Tentacles": {
+      "hits": 18,
+      "subStats": {
+        "Ozric Tentacles": 18
+      }
+    },
+    "1991 - Afterswish": {
+      "hits": 2,
+      "subStats": {
+        "1991 - Afterswish": 2
+      }
+    },
+    "2002 - Live At The Pongmasters Ball": {
+      "hits": 2,
+      "subStats": {
+        "2002 - Live At The Pongmasters Ball": 2
+      }
+    },
+    "Jazz Rock/Fusion": {
+      "hits": 18,
+      "subStats": {
+        "Jazz Rock/Fusion": 18
+      }
+    },
+    "Racer X": {
+      "hits": 3,
+      "subStats": {
+        "Racer X": 3
+      }
+    },
+    "Minimalism": {
+      "hits": 44,
+      "subStats": {
+        "Minimalism": 44
+      }
+    },
+    "Abstract": {
+      "hits": 7,
+      "subStats": {
+        "Abstract": 7
+      }
+    },
+    "Rock | Blues | Blues Rock | Hard Rock | Psychedelic Rock | Rhythm And Blues | Art Rock | Guitar Virtuoso | Classic Rock": {
+      "hits": 526,
+      "subStats": {
+        "Rock | Blues | Blues Rock | Hard Rock | Psychedelic Rock | Rhythm And Blues | Art Rock | Guitar Virtuoso | Classic Rock": 526
+      }
+    },
+    "Instrumental Progressive Metal": {
+      "hits": 9,
+      "subStats": {
+        "Instrumental Progressive Metal": 9
+      }
+    },
+    "Progressive Jazz Metal": {
+      "hits": 9,
+      "subStats": {
+        "Progressive Jazz Metal": 9
+      }
+    },
+    "Instrumental Rock/Metal": {
+      "hits": 15,
+      "subStats": {
+        "Instrumental Rock/Metal": 15
+      }
+    },
+    "Intrumental Rock": {
+      "hits": 13,
+      "subStats": {
+        "Intrumental Rock": 13
+      }
+    },
+    "Progressive Extreme Metal": {
+      "hits": 7,
+      "subStats": {
+        "Progressive Extreme Metal": 7
+      }
+    },
+    "Piano Instrumental": {
+      "hits": 5,
+      "subStats": {
+        "Piano Instrumental": 5
+      }
+    },
+    "Neoclassic Metal": {
+      "hits": 10,
+      "subStats": {
+        "Neoclassic Metal": 10
+      }
+    },
+    "Instrumental Guitar": {
+      "hits": 1,
+      "subStats": {
+        "Instrumental Guitar": 1
+      }
+    },
+    "Math Metal": {
+      "hits": 5,
+      "subStats": {
+        "Math Metal": 5
+      }
+    },
+    "Progressive Metal | Djent | Math Metal": {
+      "hits": 12,
+      "subStats": {
+        "Progressive Metal | Djent | Math Metal": 12
+      }
+    },
+    "Devin Townsend": {
+      "hits": 17,
+      "subStats": {
+        "Devin Townsend": 17
+      }
+    },
+    "2012 - By A Thread - Live In London (Box Set, 5CD) [InsideOut Music, 0505959, Germany]": {
+      "hits": 5,
+      "subStats": {
+        "2012 - By A Thread - Live In London (Box Set, 5CD) [InsideOut Music, 0505959, Germany]": 5
+      }
+    },
+    "Dying Fetus": {
+      "hits": 8,
+      "subStats": {
+        "Dying Fetus": 8
+      }
+    },
+    "Extremities": {
+      "hits": 6,
+      "subStats": {
+        "Extremities": 6
+      }
+    },
+    "Fleshgod Apocalypse": {
+      "hits": 5,
+      "subStats": {
+        "Fleshgod Apocalypse": 5
+      }
+    },
+    "2011-Agony": {
+      "hits": 1,
+      "subStats": {
+        "2011-Agony": 1
+      }
+    },
+    "Symphonic/Technical Death Metal": {
+      "hits": 24,
+      "subStats": {
+        "Symphonic/Technical Death Metal": 24
+      }
+    },
+    "Atmospheric | Industrial | Symphonic | Death Metal": {
+      "hits": 88,
+      "subStats": {
+        "Atmospheric | Industrial | Symphonic | Death Metal": 88
+      }
+    },
+    "Progeressive Metal": {
+      "hits": 7,
+      "subStats": {
+        "Progeressive Metal": 7
+      }
+    },
+    "Progressive Black Metal": {
+      "hits": 3,
+      "subStats": {
+        "Progressive Black Metal": 3
+      }
+    },
+    "2002 - Deliverance": {
+      "hits": 1,
+      "subStats": {
+        "2002 - Deliverance": 1
+      }
+    },
+    "2003 - Damnation": {
+      "hits": 1,
+      "subStats": {
+        "2003 - Damnation": 1
+      }
+    },
+    "2006 - Ghost Reveries": {
+      "hits": 1,
+      "subStats": {
+        "2006 - Ghost Reveries": 1
+      }
+    },
+    "2008 - Watershed": {
+      "hits": 1,
+      "subStats": {
+        "2008 - Watershed": 1
+      }
+    },
+    "2011 - Heritage": {
+      "hits": 1,
+      "subStats": {
+        "2011 - Heritage": 1
+      }
+    },
+    "Persefone": {
+      "hits": 1,
+      "subStats": {
+        "Persefone": 1
+      }
+    },
+    "Technical Death Metal": {
+      "hits": 54,
+      "subStats": {
+        "Technical Death Metal": 54
+      }
+    },
+    "Technical Metalcore": {
+      "hits": 11,
+      "subStats": {
+        "Technical Metalcore": 11
+      }
+    },
+    "Progmassiv": {
+      "hits": 1,
+      "subStats": {
+        "Progmassiv": 1
+      }
+    },
+    "Hardcore / Experimental": {
+      "hits": 80,
+      "subStats": {
+        "Hardcore / Experimental": 80
+      }
+    },
+    "Progressive Death Metal": {
+      "hits": 74,
+      "subStats": {
+        "Progressive Death Metal": 74
+      }
+    },
+    "Scar Symmetry": {
+      "hits": 1,
+      "subStats": {
+        "Scar Symmetry": 1
+      }
+    },
+    "Melodic Death Metal": {
+      "hits": 1,
+      "subStats": {
+        "Melodic Death Metal": 1
+      }
+    },
+    "Extreme Progressive Metal": {
+      "hits": 11,
+      "subStats": {
+        "Extreme Progressive Metal": 11
+      }
+    },
+    "2008 - Communion": {
+      "hits": 1,
+      "subStats": {
+        "2008 - Communion": 1
+      }
+    },
+    "2011 - The Great Mass": {
+      "hits": 1,
+      "subStats": {
+        "2011 - The Great Mass": 1
+      }
+    },
+    "Symphony": {
+      "hits": 1,
+      "subStats": {
+        "Symphony": 1
+      }
+    },
+    "J-Rock": {
+      "hits": 19,
+      "subStats": {
+        "J-Rock": 19
+      }
+    },
+    "Альтернативная музыка": {
+      "hits": 7,
+      "subStats": {
+        "Альтернативная музыка": 7
+      }
+    },
+    "Textures": {
+      "hits": 2,
+      "subStats": {
+        "Textures": 2
+      }
+    },
+    "Progressive Math Metal": {
+      "hits": 9,
+      "subStats": {
+        "Progressive Math Metal": 9
+      }
+    },
+    "Progressive/Extreme/Tech Metal": {
+      "hits": 9,
+      "subStats": {
+        "Progressive/Extreme/Tech Metal": 9
+      }
+    },
+    "Country & Folk": {
+      "hits": 9,
+      "subStats": {
+        "Country & Folk": 9
+      }
+    },
+    "Metalcore": {
+      "hits": 16,
+      "subStats": {
+        "Metalcore": 16
+      }
+    },
+    "Post-Metal / Sludge": {
+      "hits": 9,
+      "subStats": {
+        "Post-Metal / Sludge": 9
+      }
+    },
+    "Atmospheric Sludge Metal": {
+      "hits": 14,
+      "subStats": {
+        "Atmospheric Sludge Metal": 14
+      }
+    },
+    "Blackened Death Metal": {
+      "hits": 9,
+      "subStats": {
+        "Blackened Death Metal": 9
+      }
+    },
+    "1985-Energetic Disassembly": {
+      "hits": 2,
+      "subStats": {
+        "1985-Energetic Disassembly": 2
+      }
+    },
+    "1989-Control And Resistance": {
+      "hits": 3,
+      "subStats": {
+        "1989-Control And Resistance": 3
+      }
+    },
+    "Watchtower": {
+      "hits": 1,
+      "subStats": {
+        "Watchtower": 1
+      }
+    },
+    "Cinematic Black Metal": {
+      "hits": 8,
+      "subStats": {
+        "Cinematic Black Metal": 8
+      }
+    },
+    "Black": {
+      "hits": 10,
+      "subStats": {
+        "Black": 10
+      }
+    },
+    "Cinematic": {
+      "hits": 182,
+      "subStats": {
+        "Cinematic": 182
+      }
+    },
+    "Celtic": {
+      "hits": 27,
+      "subStats": {
+        "Celtic": 27
+      }
+    },
+    "Country/Folk": {
+      "hits": 52,
+      "subStats": {
+        "Folk": 52
+      }
+    },
+    "Symphonic Rock": {
+      "hits": 21,
+      "subStats": {
+        "Symphonic Rock": 21
+      }
+    },
+    "Cult": {
+      "hits": 15,
+      "subStats": {
+        "Cult": 15
+      }
+    },
+    "Apocalyptica": {
+      "hits": 3,
+      "subStats": {
+        "Apocalyptica": 3
+      }
+    },
+    "Klassik": {
+      "hits": 7,
+      "subStats": {
+        "Klassik": 7
+      }
+    },
+    "Klassik, Allgemein": {
+      "hits": 11,
+      "subStats": {
+        "Klassik, Allgemein": 11
+      }
+    },
+    "Gothic | Neoclassic": {
+      "hits": 36,
+      "subStats": {
+        "Gothic | Neoclassic": 36
+      }
+    },
+    "Celo Rock": {
+      "hits": 10,
+      "subStats": {
+        "Celo Rock": 10
+      }
+    },
+    "Contemporary Music": {
+      "hits": 2,
+      "subStats": {
+        "Contemporary Music": 2
+      }
+    },
+    "Darkwave": {
+      "hits": 18,
+      "subStats": {
+        "Darkwave": 18
+      }
+    },
+    "Folk / Americana": {
+      "hits": 11,
+      "subStats": {
+        "Folk / Americana": 11
+      }
+    },
+    "Avant Folk, Experimental": {
+      "hits": 11,
+      "subStats": {
+        "Avant Folk, Experimental": 11
+      }
+    },
+    "Modern Classical / Neofolk": {
+      "hits": 1,
+      "subStats": {
+        "Modern Classical / Neofolk": 1
+      }
+    },
+    "Neo-Folk": {
+      "hits": 12,
+      "subStats": {
+        "Neo-Folk": 12
+      }
+    },
+    "Neo Folk": {
+      "hits": 13,
+      "subStats": {
+        "Neo Folk": 13
+      }
+    },
+    "Cabaret": {
+      "hits": 16,
+      "subStats": {
+        "Cabaret": 16
+      }
+    },
+    "Orchestral": {
+      "hits": 15,
+      "subStats": {
+        "Orchestral": 15
+      }
+    },
+    ".": {
+      "hits": 1,
+      "subStats": {
+        ".": 1
+      }
+    },
+    "Shred": {
+      "hits": 1,
+      "subStats": {
+        "Shred": 1
+      }
+    },
+    "Acoustic Guitar": {
+      "hits": 1,
+      "subStats": {
+        "Acoustic Guitar": 1
+      }
+    },
+    "Symphonic": {
+      "hits": 8,
+      "subStats": {
+        "Symphonic": 8
+      }
+    },
+    "Modern Classical": {
+      "hits": 73,
+      "subStats": {
+        "Modern Classical": 73
+      }
+    },
+    "Symho": {
+      "hits": 2,
+      "subStats": {
+        "Symho": 2
+      }
+    },
+    "La Monte Young": {
+      "hits": 5,
+      "subStats": {
+        "La Monte Young": 5
+      }
+    },
+    "Contemporary": {
+      "hits": 10,
+      "subStats": {
+        "Contemporary": 10
+      }
+    },
+    "Minimal": {
+      "hits": 2,
+      "subStats": {
+        "Minimal": 2
+      }
+    },
+    "Post-Modern": {
+      "hits": 12,
+      "subStats": {
+        "Post-Modern": 12
+      }
+    },
+    "Neo-Classic": {
+      "hits": 31,
+      "subStats": {
+        "Neo-Classic": 31
+      }
+    },
+    "Ambient, New Age, World Music": {
+      "hits": 10,
+      "subStats": {
+        "Ambient, New Age, World Music": 10
+      }
+    },
+    "Score": {
+      "hits": 74,
+      "subStats": {
+        "Score": 74
+      }
+    },
+    "Electro": {
+      "hits": 5,
+      "subStats": {
+        "Electro": 5
+      }
+    },
+    "Classique": {
+      "hits": 4,
+      "subStats": {
+        "Classique": 4
+      }
+    },
+    "Soundtracks": {
+      "hits": 89,
+      "subStats": {
+        "Soundtracks": 89
+      }
+    },
+    "Tenhi": {
+      "hits": 6,
+      "subStats": {
+        "Tenhi": 6
+      }
+    }
+  },
+  "cloudSynced": 14100,
+  "lastScanned": "2026-02-22T09:42:52.804Z"
+}

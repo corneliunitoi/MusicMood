@@ -4,33 +4,53 @@ import YouTube from 'react-youtube';
 function Player({ playlist }) {
     const [isPlaying, setIsPlaying] = useState(true);
     const [playerConfig, setPlayerConfig] = useState(null);
+    const [currentTrack, setCurrentTrack] = useState({ title: '', author: '' });
 
     // YouTube Player Options
     const opts = {
         height: '0', // Invisible iframe
         width: '0',
         playerVars: {
-            listType: 'playlist',
-            list: playlist.id,
             autoplay: 1,
             controls: 0,
             modestbranding: 1,
         },
     };
 
+    if (playlist.type === 'video_list') {
+        opts.playerVars.playlist = playlist.id; // Comma separated video IDs
+    } else {
+        opts.playerVars.listType = 'playlist';
+        opts.playerVars.list = playlist.id;
+    }
+
     const handleReady = (event) => {
         setPlayerConfig(event.target);
+        setCurrentTrack({
+            title: event.target.getVideoData().title,
+            author: event.target.getVideoData().author
+        });
+        // Force unmute and set max volume in case browser or YouTube auto-muted it
+        event.target.unMute();
+        event.target.setVolume(100);
         event.target.playVideo();
     };
 
     const handleStateChange = (event) => {
         // -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering), 5 (video cued)
+        if (event.data === 1 || event.data === -1) {
+            // Update track info
+            const data = event.target.getVideoData();
+            if (data && data.title) {
+                setCurrentTrack({ title: data.title, author: data.author });
+            }
+        }
         if (event.data === 1) setIsPlaying(true);
         if (event.data === 2) setIsPlaying(false);
     };
 
     const togglePlay = () => {
-        if (!playerConfig) return;
+        if (!playerConfig || !playerConfig.pauseVideo) return;
         if (isPlaying) {
             playerConfig.pauseVideo();
         } else {
@@ -39,7 +59,7 @@ function Player({ playlist }) {
     };
 
     const nextTrack = () => {
-        if (playerConfig) {
+        if (playerConfig && playerConfig.nextVideo) {
             playerConfig.nextVideo();
         }
     };
@@ -64,8 +84,8 @@ function Player({ playlist }) {
                             </span>
                         )}
                     </span>
-                    <h3 className="player-title">{playlist.title}</h3>
-                    <p className="player-channel">{playlist.channelTitle || 'YouTube Mix'}</p>
+                    <h3 className="player-title">{currentTrack.title || playlist.title}</h3>
+                    <p className="player-channel">{currentTrack.author || playlist.channelTitle || 'YouTube Mix'}</p>
                 </div>
             </div>
 
@@ -92,6 +112,7 @@ function Player({ playlist }) {
             {/* Hidden actual YouTube Player */}
             <div className="hidden-player">
                 <YouTube
+                    videoId={playlist.firstVideoId}
                     opts={opts}
                     onReady={handleReady}
                     onStateChange={handleStateChange}

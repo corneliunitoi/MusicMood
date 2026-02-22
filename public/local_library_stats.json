@@ -1,103 +1,2692 @@
 {
-  "totalHits": 170,
+  "totalHits": 35985,
   "genreStats": {
-    "Rock": {
-      "hits": 46,
+    "0": {
+      "hits": 77,
       "subStats": {
-        "Rock": 32,
-        "Alternative": 11,
-        "Metal": 3
+        "0": 77
       }
     },
     "Jazz/Blues": {
-      "hits": 50,
+      "hits": 2545,
       "subStats": {
-        "Blues": 42,
-        "Jazz": 8
+        "Blues": 692,
+        "Jazz": 1813,
+        "Classic Blues": 30,
+        "Blues Gospel": 10
       }
     },
     "Hip-Hop/Rap": {
-      "hits": 20,
+      "hits": 217,
       "subStats": {
-        "R&B/Soul": 5,
-        "Hip-Hop/Rap": 14,
-        "Hip-Hop": 1
+        "R&B/Soul": 4,
+        "Hip-Hop": 142,
+        "Rap": 70,
+        "R&B": 1
       }
     },
-    "Vocal": {
-      "hits": 1,
+    "Rock": {
+      "hits": 7577,
       "subStats": {
-        "Vocal": 1
+        "Blues-Rock": 236,
+        "Classic Rock": 39,
+        "Rock": 5206,
+        "Industrial": 33,
+        "Blues Rock": 40,
+        "Alternative": 679,
+        "Punk": 15,
+        "Metal": 1042,
+        "Hard Rock": 275,
+        "Indie Rock": 12
       }
     },
     "Pop": {
-      "hits": 35,
+      "hits": 1335,
       "subStats": {
-        "Pop": 35
-      }
-    },
-    "Traditional Country": {
-      "hits": 1,
-      "subStats": {
-        "Traditional Country": 1
-      }
-    },
-    "Christian": {
-      "hits": 1,
-      "subStats": {
-        "Christian": 1
-      }
-    },
-    "Blues-Rock": {
-      "hits": 1,
-      "subStats": {
-        "Blues-Rock": 1
-      }
-    },
-    "Children's Music": {
-      "hits": 1,
-      "subStats": {
-        "Children's Music": 1
-      }
-    },
-    "Christian Pop": {
-      "hits": 1,
-      "subStats": {
-        "Christian Pop": 1
-      }
-    },
-    "Country/Folk": {
-      "hits": 1,
-      "subStats": {
-        "Country": 1
+        "Pop": 1329,
+        "Adult Contemporary": 6
       }
     },
     "Classical/Instrumental": {
+      "hits": 9604,
+      "subStats": {
+        "Soundtrack": 300,
+        "Classical": 7307,
+        "Baroque": 132,
+        "Opera": 1133,
+        "Vocal": 218,
+        "Instrumental": 514
+      }
+    },
+    "Unknown Genre": {
+      "hits": 111,
+      "subStats": {
+        "Unknown Genre": 111
+      }
+    },
+    "Gospel/Religious": {
+      "hits": 17,
+      "subStats": {
+        "Gospel": 17
+      }
+    },
+    "Waits": {
+      "hits": 20,
+      "subStats": {
+        "Waits": 20
+      }
+    },
+    "Electronic/Dance": {
+      "hits": 1035,
+      "subStats": {
+        "Avantgarde": 19,
+        "Electronic": 990,
+        "House": 5,
+        "Techno": 18,
+        "Dance": 3
+      }
+    },
+    "Beethoven Complete Symphonies - Karajan [SACD 6CD FLAC]": {
       "hits": 6,
       "subStats": {
-        "Classical": 5,
-        "Soundtrack": 1
+        "Beethoven Complete Symphonies - Karajan [SACD 6CD FLAC]": 6
       }
     },
-    "Goth Rock": {
-      "hits": 3,
+    "Other": {
+      "hits": 404,
       "subStats": {
-        "Goth Rock": 3
+        "Other": 404
       }
     },
-    "Mandopop": {
+    "Bests & Selections": {
       "hits": 2,
       "subStats": {
-        "Mandopop": 2
+        "Bests & Selections": 2
       }
     },
-    "Indie Rock": {
+    "Classical/Piano": {
+      "hits": 13,
+      "subStats": {
+        "Classical/Piano": 13
+      }
+    },
+    "Chamber Music": {
+      "hits": 22,
+      "subStats": {
+        "Chamber Music": 22
+      }
+    },
+    "Unknown": {
+      "hits": 271,
+      "subStats": {
+        "Unknown": 271
+      }
+    },
+    "Chamber": {
+      "hits": 4,
+      "subStats": {
+        "Chamber": 4
+      }
+    },
+    "Concerto": {
+      "hits": 4,
+      "subStats": {
+        "Concerto": 4
+      }
+    },
+    "Choral": {
+      "hits": 2,
+      "subStats": {
+        "Choral": 2
+      }
+    },
+    "Keyboard": {
+      "hits": 19,
+      "subStats": {
+        "Keyboard": 19
+      }
+    },
+    "General Classical": {
+      "hits": 6,
+      "subStats": {
+        "General Classical": 6
+      }
+    },
+    "Orchestral": {
+      "hits": 10,
+      "subStats": {
+        "Orchestral": 10
+      }
+    },
+    "Romantic": {
+      "hits": 14,
+      "subStats": {
+        "Romantic": 14
+      }
+    },
+    "Hugo Wolf - Anniversary Edition": {
+      "hits": 8,
+      "subStats": {
+        "Hugo Wolf - Anniversary Edition": 8
+      }
+    },
+    "Igor Stravinsky": {
+      "hits": 22,
+      "subStats": {
+        "Igor Stravinsky": 22
+      }
+    },
+    "Musique Instrumentale": {
+      "hits": 22,
+      "subStats": {
+        "Musique Instrumentale": 22
+      }
+    },
+    "Ensembles": {
+      "hits": 35,
+      "subStats": {
+        "Ensembles": 35
+      }
+    },
+    "Jean Sibelius - Complete Symphonies (Simon Rattle)": {
+      "hits": 7,
+      "subStats": {
+        "Jean Sibelius - Complete Symphonies (Simon Rattle)": 7
+      }
+    },
+    "Romanticism, Orchestral": {
+      "hits": 10,
+      "subStats": {
+        "Romanticism, Orchestral": 10
+      }
+    },
+    "Romanticism, Modern Classical": {
+      "hits": 4,
+      "subStats": {
+        "Romanticism, Modern Classical": 4
+      }
+    },
+    "Romanticism, Symphony": {
+      "hits": 3,
+      "subStats": {
+        "Romanticism, Symphony": 3
+      }
+    },
+    "Johannes Brahms": {
+      "hits": 5,
+      "subStats": {
+        "Johannes Brahms": 5
+      }
+    },
+    "Classique": {
+      "hits": 154,
+      "subStats": {
+        "Classique": 154
+      }
+    },
+    "Piano": {
+      "hits": 63,
+      "subStats": {
+        "Piano": 63
+      }
+    },
+    "Liszt - 19 Ungarische Rhapsodien - Roberto Szidon": {
+      "hits": 2,
+      "subStats": {
+        "Liszt - 19 Ungarische Rhapsodien - Roberto Szidon": 2
+      }
+    },
+    "Mahler - The Complete Works": {
+      "hits": 16,
+      "subStats": {
+        "Mahler - The Complete Works": 16
+      }
+    },
+    "Recital": {
+      "hits": 15,
+      "subStats": {
+        "Recital": 15
+      }
+    },
+    "Mussorgsky Pictures At An Exhibition": {
+      "hits": 10,
+      "subStats": {
+        "Mussorgsky Pictures At An Exhibition": 10
+      }
+    },
+    "": {
+      "hits": 228,
+      "subStats": {
+        "": 228
+      }
+    },
+    "Prokofiev": {
+      "hits": 5,
+      "subStats": {
+        "Prokofiev": 5
+      }
+    },
+    "London Symphony Orchestra (Gergiev)": {
+      "hits": 29,
+      "subStats": {
+        "London Symphony Orchestra (Gergiev)": 29
+      }
+    },
+    "Scottish National Orchestra (JäRvi)": {
+      "hits": 3,
+      "subStats": {
+        "Scottish National Orchestra (JäRvi)": 3
+      }
+    },
+    "Il Trittico": {
+      "hits": 6,
+      "subStats": {
+        "Il Trittico": 6
+      }
+    },
+    "La Boheme": {
+      "hits": 4,
+      "subStats": {
+        "La Boheme": 4
+      }
+    },
+    "La Fanciulla Del West": {
+      "hits": 4,
+      "subStats": {
+        "La Fanciulla Del West": 4
+      }
+    },
+    "Madama Buttrefly": {
+      "hits": 4,
+      "subStats": {
+        "Madama Buttrefly": 4
+      }
+    },
+    "Manon Lescaut": {
+      "hits": 4,
+      "subStats": {
+        "Manon Lescaut": 4
+      }
+    },
+    "Tosca": {
+      "hits": 4,
+      "subStats": {
+        "Tosca": 4
+      }
+    },
+    "Turandot": {
+      "hits": 4,
+      "subStats": {
+        "Turandot": 4
+      }
+    },
+    "Classical Music": {
       "hits": 1,
       "subStats": {
-        "Indie Rock": 1
+        "Classical Music": 1
+      }
+    },
+    "St. Petersburg Philharmonic Orchestra (Jansons)": {
+      "hits": 17,
+      "subStats": {
+        "St. Petersburg Philharmonic Orchestra (Jansons)": 17
+      }
+    },
+    "Andrei Nikolsky, Piano": {
+      "hits": 37,
+      "subStats": {
+        "Andrei Nikolsky, Piano": 37
+      }
+    },
+    "Howard Shelley, Piano": {
+      "hits": 15,
+      "subStats": {
+        "Howard Shelley, Piano": 15
+      }
+    },
+    "John Ogdon, Piano": {
+      "hits": 24,
+      "subStats": {
+        "John Ogdon, Piano": 24
+      }
+    },
+    "William Kapell, Piano": {
+      "hits": 1,
+      "subStats": {
+        "William Kapell, Piano": 1
+      }
+    },
+    "Stanislav Neigauz, Piano": {
+      "hits": 10,
+      "subStats": {
+        "Stanislav Neigauz, Piano": 10
+      }
+    },
+    "Dmitry Paperno, Piano": {
+      "hits": 1,
+      "subStats": {
+        "Dmitry Paperno, Piano": 1
+      }
+    },
+    "Vladimir Ashkenazy, Piano -- London Symphony Orchestra (Previn)": {
+      "hits": 12,
+      "subStats": {
+        "Vladimir Ashkenazy, Piano -- London Symphony Orchestra (Previn)": 12
+      }
+    },
+    "Alexander Ghindin, Piano -- Helsinki Philharmonic Orchestra (Ashkenazy)": {
+      "hits": 6,
+      "subStats": {
+        "Alexander Ghindin, Piano -- Helsinki Philharmonic Orchestra (Ashkenazy)": 6
+      }
+    },
+    "Benno Moiseiwitsch, Piano -- Philharmonia Orchestra (Rignold)": {
+      "hits": 3,
+      "subStats": {
+        "Benno Moiseiwitsch, Piano -- Philharmonia Orchestra (Rignold)": 3
+      }
+    },
+    "Sviatoslav Richter, Piano -- Warsaw Philharmonic Orchestra (Wislocki)": {
+      "hits": 3,
+      "subStats": {
+        "Sviatoslav Richter, Piano -- Warsaw Philharmonic Orchestra (Wislocki)": 3
+      }
+    },
+    "William Kapell, Piano -- Robin Hood Dell Orchestra (Reiner)": {
+      "hits": 28,
+      "subStats": {
+        "William Kapell, Piano -- Robin Hood Dell Orchestra (Reiner)": 28
+      }
+    },
+    "Emil Gilels, Piano": {
+      "hits": 9,
+      "subStats": {
+        "Emil Gilels, Piano": 9
+      }
+    },
+    "Martha Argerich, Piano -- RSO Berlin (Chailly)": {
+      "hits": 3,
+      "subStats": {
+        "Martha Argerich, Piano -- RSO Berlin (Chailly)": 3
+      }
+    },
+    "Alexis Weissenberg, Piano": {
+      "hits": 4,
+      "subStats": {
+        "Alexis Weissenberg, Piano": 4
+      }
+    },
+    "Benno Moiseiwitsch, Piano": {
+      "hits": 2,
+      "subStats": {
+        "Benno Moiseiwitsch, Piano": 2
+      }
+    },
+    "Idil Biret, Piano": {
+      "hits": 13,
+      "subStats": {
+        "Idil Biret, Piano": 13
+      }
+    },
+    "Josef LhéVinne, Piano": {
+      "hits": 1,
+      "subStats": {
+        "Josef LhéVinne, Piano": 1
+      }
+    },
+    "Sviatoslav Richter, Piano": {
+      "hits": 6,
+      "subStats": {
+        "Sviatoslav Richter, Piano": 6
+      }
+    },
+    "Romanticism, Concerto": {
+      "hits": 16,
+      "subStats": {
+        "Romanticism, Concerto": 16
+      }
+    },
+    "Arcadi Volodos, Piano": {
+      "hits": 2,
+      "subStats": {
+        "Arcadi Volodos, Piano": 2
+      }
+    },
+    "Lyubov Bruk, Mark Taimanov, Pianos": {
+      "hits": 8,
+      "subStats": {
+        "Lyubov Bruk, Mark Taimanov, Pianos": 8
+      }
+    },
+    "Wolfram Schmitt-Leonardy, Piano -- JanáčEk Philharmonic Orchestra (Kuchar)": {
+      "hits": 3,
+      "subStats": {
+        "Wolfram Schmitt-Leonardy, Piano -- JanáčEk Philharmonic Orchestra (Kuchar)": 3
+      }
+    },
+    "The Saint Petersburg Cappella (Chernushenko)": {
+      "hits": 15,
+      "subStats": {
+        "The Saint Petersburg Cappella (Chernushenko)": 15
+      }
+    },
+    "Oldies": {
+      "hits": 19,
+      "subStats": {
+        "Oldies": 19
+      }
+    },
+    "Schubert": {
+      "hits": 11,
+      "subStats": {
+        "Schubert": 11
+      }
+    },
+    "CD 01 [Symphony N.1; 1812 Overture]": {
+      "hits": 1,
+      "subStats": {
+        "CD 01 [Symphony N.1; 1812 Overture]": 1
+      }
+    },
+    "CD 02 [Symphony N.2; Francesca Da Rimini]": {
+      "hits": 1,
+      "subStats": {
+        "CD 02 [Symphony N.2; Francesca Da Rimini]": 1
+      }
+    },
+    "CD 03 [Symphony N.3; Hamlet--Fantasy Overture]": {
+      "hits": 1,
+      "subStats": {
+        "CD 03 [Symphony N.3; Hamlet--Fantasy Overture]": 1
+      }
+    },
+    "CD 04 [Symphony N.4; Marche Slave]": {
+      "hits": 1,
+      "subStats": {
+        "CD 04 [Symphony N.4; Marche Slave]": 1
+      }
+    },
+    "CD 05 [Symphony N.5; Capriccio Italien]": {
+      "hits": 1,
+      "subStats": {
+        "CD 05 [Symphony N.5; Capriccio Italien]": 1
+      }
+    },
+    "CD 06 [Symphony N.6; The Storm]": {
+      "hits": 1,
+      "subStats": {
+        "CD 06 [Symphony N.6; The Storm]": 1
+      }
+    },
+    "CD 07 [Manfred Symphony; Romeo & Juliet]": {
+      "hits": 1,
+      "subStats": {
+        "CD 07 [Manfred Symphony; Romeo & Juliet]": 1
+      }
+    },
+    "CD 08 [Hamlet--Overture & Incidental Music]": {
+      "hits": 1,
+      "subStats": {
+        "CD 08 [Hamlet--Overture & Incidental Music]": 1
+      }
+    },
+    "CD 09 [The Snow Maiden]": {
+      "hits": 1,
+      "subStats": {
+        "CD 09 [The Snow Maiden]": 1
+      }
+    },
+    "CD 10 [Orchestral Suites 1&2]": {
+      "hits": 1,
+      "subStats": {
+        "CD 10 [Orchestral Suites 1&2]": 1
+      }
+    },
+    "CD 11 [Orchestral Suites 3&4]": {
+      "hits": 1,
+      "subStats": {
+        "CD 11 [Orchestral Suites 3&4]": 1
+      }
+    },
+    "CD 12 [Swan Lake (I)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 12 [Swan Lake (I)]": 1
+      }
+    },
+    "CD 13 [Swan Lake (II); Var. Rococo Theme; Sym. 6]": {
+      "hits": 1,
+      "subStats": {
+        "CD 13 [Swan Lake (II); Var. Rococo Theme; Sym. 6]": 1
+      }
+    },
+    "CD 14 [Sleeping Beauty (I)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 14 [Sleeping Beauty (I)]": 1
+      }
+    },
+    "CD 15 [Sleeping Beauty (II)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 15 [Sleeping Beauty (II)]": 1
+      }
+    },
+    "CD 16 [The Nutcracker (I)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 16 [The Nutcracker (I)]": 1
+      }
+    },
+    "CD 17 [The Nutcracker (II); Orchestral Suites 3&4]": {
+      "hits": 1,
+      "subStats": {
+        "CD 17 [The Nutcracker (II); Orchestral Suites 3&4]": 1
+      }
+    },
+    "CD 18 [Piano Concertos 1&2]": {
+      "hits": 1,
+      "subStats": {
+        "CD 18 [Piano Concertos 1&2]": 1
+      }
+    },
+    "CD 19 [Piano Concerto N.3; Concert Fantasy]": {
+      "hits": 1,
+      "subStats": {
+        "CD 19 [Piano Concerto N.3; Concert Fantasy]": 1
+      }
+    },
+    "CD 20 [Violin Concerto; Shorter Violin Works]": {
+      "hits": 1,
+      "subStats": {
+        "CD 20 [Violin Concerto; Shorter Violin Works]": 1
+      }
+    },
+    "CD 21 [Cello Works; Serenade For Strings]": {
+      "hits": 1,
+      "subStats": {
+        "CD 21 [Cello Works; Serenade For Strings]": 1
+      }
+    },
+    "CD 22 [Liturgy Of St. John Chrysostom]": {
+      "hits": 1,
+      "subStats": {
+        "CD 22 [Liturgy Of St. John Chrysostom]": 1
+      }
+    },
+    "CD 23 [Secular Choral Works]": {
+      "hits": 1,
+      "subStats": {
+        "CD 23 [Secular Choral Works]": 1
+      }
+    },
+    "CD 24 [Piano Trio]": {
+      "hits": 1,
+      "subStats": {
+        "CD 24 [Piano Trio]": 1
+      }
+    },
+    "CD 25 [String Quartets 1&2; Quartet Movement]": {
+      "hits": 1,
+      "subStats": {
+        "CD 25 [String Quartets 1&2; Quartet Movement]": 1
+      }
+    },
+    "CD 26 [String Sextet; String Quartet N.3]": {
+      "hits": 1,
+      "subStats": {
+        "CD 26 [String Sextet; String Quartet N.3]": 1
+      }
+    },
+    "CD 28 [Piano Sonata,Op.80; 18 Piano Pieces]": {
+      "hits": 1,
+      "subStats": {
+        "CD 28 [Piano Sonata,Op.80; 18 Piano Pieces]": 1
+      }
+    },
+    "CD 29 [Shorter Piano Works]": {
+      "hits": 1,
+      "subStats": {
+        "CD 29 [Shorter Piano Works]": 1
+      }
+    },
+    "CD 30 [6 Pieces Single Theme; Piano Sonata,Op.37 Etc.]": {
+      "hits": 1,
+      "subStats": {
+        "CD 30 [6 Pieces Single Theme; Piano Sonata,Op.37 Etc.]": 1
+      }
+    },
+    "CD 31 [12 Piano Pieces,Op.40; Violin Concerto]": {
+      "hits": 1,
+      "subStats": {
+        "CD 31 [12 Piano Pieces,Op.40; Violin Concerto]": 1
+      }
+    },
+    "CD 32 [Evgeny Onegin (I)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 32 [Evgeny Onegin (I)]": 1
+      }
+    },
+    "CD 33 [Evgeny Onegin (II)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 33 [Evgeny Onegin (II)]": 1
+      }
+    },
+    "CD 34 [The Oprichnik (I)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 34 [The Oprichnik (I)]": 1
+      }
+    },
+    "CD 35 [The Oprichnik (II)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 35 [The Oprichnik (II)]": 1
+      }
+    },
+    "CD 36 [The Oprichnik (III)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 36 [The Oprichnik (III)]": 1
+      }
+    },
+    "CD 37 [Cherevichki (I)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 37 [Cherevichki (I)]": 1
+      }
+    },
+    "CD 38 [Cherevichki (II)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 38 [Cherevichki (II)]": 1
+      }
+    },
+    "CD 39 [Cherevichki (III)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 39 [Cherevichki (III)]": 1
+      }
+    },
+    "CD 40 [The Maid Of Orleans (I)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 40 [The Maid Of Orleans (I)]": 1
+      }
+    },
+    "CD 41 [The Maid Of Orleans (II)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 41 [The Maid Of Orleans (II)]": 1
+      }
+    },
+    "CD 42 [The Maid Of Orleans (III); Iolanta (I)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 42 [The Maid Of Orleans (III); Iolanta (I)]": 1
+      }
+    },
+    "CD 43 [Iolanta (II)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 43 [Iolanta (II)]": 1
+      }
+    },
+    "CD 44 [Pique Dame (I)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 44 [Pique Dame (I)]": 1
+      }
+    },
+    "CD 45 [Pique Dame (II)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 45 [Pique Dame (II)]": 1
+      }
+    },
+    "CD 46 [Charodeika (I)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 46 [Charodeika (I)]": 1
+      }
+    },
+    "CD 47 [Charodeika (II)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 47 [Charodeika (II)]": 1
+      }
+    },
+    "CD 48 [Charodeika (III); Etc.]": {
+      "hits": 1,
+      "subStats": {
+        "CD 48 [Charodeika (III); Etc.]": 1
+      }
+    },
+    "CD 49 [Mazeppa (I)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 49 [Mazeppa (I)]": 1
+      }
+    },
+    "CD 50 [Mazeppa (II)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 50 [Mazeppa (II)]": 1
+      }
+    },
+    "CD 51 [Songs (I)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 51 [Songs (I)]": 1
+      }
+    },
+    "CD 52 [Songs (II)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 52 [Songs (II)]": 1
+      }
+    },
+    "CD 53 [Songs (III)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 53 [Songs (III)]": 1
+      }
+    },
+    "CD 54 [Songs (IV)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 54 [Songs (IV)]": 1
+      }
+    },
+    "CD 55 [Songs (V)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 55 [Songs (V)]": 1
+      }
+    },
+    "CD 56 [Historical Recordings (I)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 56 [Historical Recordings (I)]": 1
+      }
+    },
+    "CD 57 [Historical Recordings (II)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 57 [Historical Recordings (II)]": 1
+      }
+    },
+    "CD 58 [Historical Recordings (III)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 58 [Historical Recordings (III)]": 1
+      }
+    },
+    "CD 59 [Historical Recordings (IV)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 59 [Historical Recordings (IV)]": 1
+      }
+    },
+    "CD 60 [Historical Recordings (V)]": {
+      "hits": 1,
+      "subStats": {
+        "CD 60 [Historical Recordings (V)]": 1
+      }
+    },
+    "Pyotr Ilyich Tchaikovsky - The Nutcracker": {
+      "hits": 2,
+      "subStats": {
+        "Pyotr Ilyich Tchaikovsky - The Nutcracker": 2
+      }
+    },
+    "The Top 100 Masterpieces Of Classical Music FLAC (1685-1928)-CD-R": {
+      "hits": 2,
+      "subStats": {
+        "The Top 100 Masterpieces Of Classical Music FLAC (1685-1928)-CD-R": 2
+      }
+    },
+    "Classical, Opera": {
+      "hits": 104,
+      "subStats": {
+        "Classical, Opera": 104
+      }
+    },
+    "Classical; Opera": {
+      "hits": 35,
+      "subStats": {
+        "Classical; Opera": 35
+      }
+    },
+    "Oper": {
+      "hits": 33,
+      "subStats": {
+        "Oper": 33
+      }
+    },
+    "01 Das Rheingold": {
+      "hits": 2,
+      "subStats": {
+        "01 Das Rheingold": 2
+      }
+    },
+    "02 Die Walkure": {
+      "hits": 4,
+      "subStats": {
+        "02 Die Walkure": 4
+      }
+    },
+    "03 Siegfried": {
+      "hits": 4,
+      "subStats": {
+        "03 Siegfried": 4
+      }
+    },
+    "04 Gotterdammerung": {
+      "hits": 4,
+      "subStats": {
+        "04 Gotterdammerung": 4
+      }
+    },
+    "Progressive Rock": {
+      "hits": 798,
+      "subStats": {
+        "Progressive Rock": 798
+      }
+    },
+    "Ambient": {
+      "hits": 35,
+      "subStats": {
+        "Ambient": 35
+      }
+    },
+    "New Age": {
+      "hits": 456,
+      "subStats": {
+        "New Age": 456
+      }
+    },
+    "Ambient New Age": {
+      "hits": 14,
+      "subStats": {
+        "Ambient New Age": 14
+      }
+    },
+    "Synthpop": {
+      "hits": 48,
+      "subStats": {
+        "Synthpop": 48
+      }
+    },
+    "Electro": {
+      "hits": 41,
+      "subStats": {
+        "Electro": 41
+      }
+    },
+    "Breaks": {
+      "hits": 16,
+      "subStats": {
+        "Breaks": 16
+      }
+    },
+    "None": {
+      "hits": 14,
+      "subStats": {
+        "None": 14
+      }
+    },
+    "Psychedelic": {
+      "hits": 12,
+      "subStats": {
+        "Psychedelic": 12
+      }
+    },
+    "Ballad": {
+      "hits": 1,
+      "subStats": {
+        "Ballad": 1
+      }
+    },
+    "Pop/Rock": {
+      "hits": 54,
+      "subStats": {
+        "Pop/Rock": 54
+      }
+    },
+    "Country/Folk": {
+      "hits": 1772,
+      "subStats": {
+        "Folk": 831,
+        "Country": 906,
+        "Traditional Country": 35
+      }
+    },
+    "Folk/Rock": {
+      "hits": 155,
+      "subStats": {
+        "Folk/Rock": 155
+      }
+    },
+    "Country Rock": {
+      "hits": 24,
+      "subStats": {
+        "Country Rock": 24
+      }
+    },
+    "Pop-Folk": {
+      "hits": 39,
+      "subStats": {
+        "Pop-Folk": 39
+      }
+    },
+    "Rock & Roll": {
+      "hits": 160,
+      "subStats": {
+        "Rock & Roll": 160
+      }
+    },
+    "Folk-Rock": {
+      "hits": 64,
+      "subStats": {
+        "Folk-Rock": 64
+      }
+    },
+    "Folk-Rock, Singer/Songwriter": {
+      "hits": 12,
+      "subStats": {
+        "Folk-Rock, Singer/Songwriter": 12
+      }
+    },
+    "Native American": {
+      "hits": 8,
+      "subStats": {
+        "Native American": 8
+      }
+    },
+    "Contemporary Christian": {
+      "hits": 12,
+      "subStats": {
+        "Contemporary Christian": 12
+      }
+    },
+    "Johnny Cash The Man In Black (5CD Box Set) (1991) [Flac][WwW.LoKoTorrents.CoM]": {
+      "hits": 5,
+      "subStats": {
+        "Johnny Cash The Man In Black (5CD Box Set) (1991) [Flac][WwW.LoKoTorrents.CoM]": 5
+      }
+    },
+    "Hip Hop": {
+      "hits": 50,
+      "subStats": {
+        "Hip Hop": 50
+      }
+    },
+    "Fusion": {
+      "hits": 41,
+      "subStats": {
+        "Fusion": 41
+      }
+    },
+    "Jazz Fusion": {
+      "hits": 17,
+      "subStats": {
+        "Jazz Fusion": 17
+      }
+    },
+    "Jazz\u0000": {
+      "hits": 4,
+      "subStats": {
+        "Jazz\u0000": 4
+      }
+    },
+    "Jazz, Vocal Jazz": {
+      "hits": 4,
+      "subStats": {
+        "Jazz, Vocal Jazz": 4
+      }
+    },
+    "Jazz | Blues | Soul": {
+      "hits": 4,
+      "subStats": {
+        "Jazz | Blues | Soul": 4
+      }
+    },
+    "Classic Female Blues": {
+      "hits": 44,
+      "subStats": {
+        "Classic Female Blues": 44
+      }
+    },
+    "Soul-Jazz, Rhythm & Blues": {
+      "hits": 12,
+      "subStats": {
+        "Soul-Jazz, Rhythm & Blues": 12
+      }
+    },
+    "Soul Jazz": {
+      "hits": 20,
+      "subStats": {
+        "Soul Jazz": 20
+      }
+    },
+    "Vocal Jazz": {
+      "hits": 173,
+      "subStats": {
+        "Vocal Jazz": 173
+      }
+    },
+    "Blues; Jazz": {
+      "hits": 11,
+      "subStats": {
+        "Blues; Jazz": 11
+      }
+    },
+    "Jazz-Funk, Soul": {
+      "hits": 8,
+      "subStats": {
+        "Jazz-Funk, Soul": 8
+      }
+    },
+    "Vocal Jazz, Soul": {
+      "hits": 10,
+      "subStats": {
+        "Vocal Jazz, Soul": 10
+      }
+    },
+    "Jazz Vocal": {
+      "hits": 24,
+      "subStats": {
+        "Jazz Vocal": 24
+      }
+    },
+    "Opera Stuff": {
+      "hits": 7,
+      "subStats": {
+        "Opera Stuff": 7
+      }
+    },
+    "Klassik": {
+      "hits": 41,
+      "subStats": {
+        "Klassik": 41
+      }
+    },
+    "Jussi Bjorling Recital": {
+      "hits": 24,
+      "subStats": {
+        "Jussi Bjorling Recital": 24
+      }
+    },
+    "Romanticism": {
+      "hits": 68,
+      "subStats": {
+        "Romanticism": 68
+      }
+    },
+    "Lieder": {
+      "hits": 44,
+      "subStats": {
+        "Lieder": 44
+      }
+    },
+    "Oper/Operette": {
+      "hits": 18,
+      "subStats": {
+        "Oper/Operette": 18
+      }
+    },
+    "Strauss - Elektra (Solti)": {
+      "hits": 2,
+      "subStats": {
+        "Strauss - Elektra (Solti)": 2
+      }
+    },
+    "Contemporary Celtic": {
+      "hits": 12,
+      "subStats": {
+        "Contemporary Celtic": 12
+      }
+    },
+    "Alt. Punk": {
+      "hits": 14,
+      "subStats": {
+        "Alt. Punk": 14
+      }
+    },
+    "Trip Hop": {
+      "hits": 22,
+      "subStats": {
+        "Trip Hop": 22
+      }
+    },
+    "Easy Listening": {
+      "hits": 48,
+      "subStats": {
+        "Easy Listening": 48
+      }
+    },
+    "Britpop": {
+      "hits": 21,
+      "subStats": {
+        "Britpop": 21
+      }
+    },
+    "Teen Pop": {
+      "hits": 3,
+      "subStats": {
+        "Teen Pop": 3
+      }
+    },
+    "Alternative Rock / Progressive": {
+      "hits": 77,
+      "subStats": {
+        "Alternative Rock / Progressive": 77
+      }
+    },
+    "Pop Rock": {
+      "hits": 43,
+      "subStats": {
+        "Pop Rock": 43
+      }
+    },
+    "Misc": {
+      "hits": 44,
+      "subStats": {
+        "Misc": 44
+      }
+    },
+    "Grunge": {
+      "hits": 28,
+      "subStats": {
+        "Grunge": 28
+      }
+    },
+    "Alt. Rock": {
+      "hits": 91,
+      "subStats": {
+        "Alt. Rock": 91
+      }
+    },
+    "Doom Gothic Metal": {
+      "hits": 12,
+      "subStats": {
+        "Doom Gothic Metal": 12
+      }
+    },
+    "Death/Doom Metal": {
+      "hits": 1,
+      "subStats": {
+        "Death/Doom Metal": 1
+      }
+    },
+    "A Cappella": {
+      "hits": 2,
+      "subStats": {
+        "A Cappella": 2
+      }
+    },
+    "Amorphis - Discography 1992-2015": {
+      "hits": 5,
+      "subStats": {
+        "Amorphis - Discography 1992-2015": 5
+      }
+    },
+    "Axel Rudi PELL": {
+      "hits": 1,
+      "subStats": {
+        "Axel Rudi PELL": 1
+      }
+    },
+    "Power Metal": {
+      "hits": 453,
+      "subStats": {
+        "Power Metal": 453
+      }
+    },
+    "Heavy Metal": {
+      "hits": 394,
+      "subStats": {
+        "Heavy Metal": 394
+      }
+    },
+    "Jazz-Rock; Fusion": {
+      "hits": 5,
+      "subStats": {
+        "Jazz-Rock; Fusion": 5
+      }
+    },
+    "Rock; Jazz-Rock": {
+      "hits": 23,
+      "subStats": {
+        "Rock; Jazz-Rock": 23
+      }
+    },
+    "Rock 'N' Roll": {
+      "hits": 54,
+      "subStats": {
+        "Rock 'N' Roll": 54
+      }
+    },
+    "Classic Rock,Rock & Roll": {
+      "hits": 10,
+      "subStats": {
+        "Classic Rock,Rock & Roll": 10
+      }
+    },
+    "Rock'N'Roll, Soundtrack": {
+      "hits": 13,
+      "subStats": {
+        "Rock'N'Roll, Soundtrack": 13
+      }
+    },
+    "Soundtrack, Rock & Roll": {
+      "hits": 12,
+      "subStats": {
+        "Soundtrack, Rock & Roll": 12
+      }
+    },
+    "Rock & Roll/Rockabilly/Ballad": {
+      "hits": 10,
+      "subStats": {
+        "Rock & Roll/Rockabilly/Ballad": 10
+      }
+    },
+    "Folk Rock, Country Rock, Ballad": {
+      "hits": 10,
+      "subStats": {
+        "Folk Rock, Country Rock, Ballad": 10
+      }
+    },
+    "Eros": {
+      "hits": 2,
+      "subStats": {
+        "Eros": 2
+      }
+    },
+    "Gothic Rock": {
+      "hits": 29,
+      "subStats": {
+        "Gothic Rock": 29
+      }
+    },
+    "Opera-Rock": {
+      "hits": 9,
+      "subStats": {
+        "Opera-Rock": 9
+      }
+    },
+    "Alternative Rock": {
+      "hits": 181,
+      "subStats": {
+        "Alternative Rock": 181
+      }
+    },
+    "Dub Reggae": {
+      "hits": 12,
+      "subStats": {
+        "Dub Reggae": 12
+      }
+    },
+    "Crossover": {
+      "hits": 16,
+      "subStats": {
+        "Crossover": 16
+      }
+    },
+    "Classical/Orchestral/Symphonic Metal": {
+      "hits": 12,
+      "subStats": {
+        "Classical/Orchestral/Symphonic Metal": 12
+      }
+    },
+    "Helloween": {
+      "hits": 3,
+      "subStats": {
+        "Helloween": 3
+      }
+    },
+    "Speed Power Metal": {
+      "hits": 17,
+      "subStats": {
+        "Speed Power Metal": 17
+      }
+    },
+    "Post Punk": {
+      "hits": 14,
+      "subStats": {
+        "Post Punk": 14
+      }
+    },
+    "Melodic Death Metal": {
+      "hits": 106,
+      "subStats": {
+        "Melodic Death Metal": 106
+      }
+    },
+    "Modern Death Metal": {
+      "hits": 11,
+      "subStats": {
+        "Modern Death Metal": 11
+      }
+    },
+    "Progressive Heavy Metal": {
+      "hits": 8,
+      "subStats": {
+        "Progressive Heavy Metal": 8
+      }
+    },
+    "Gothic Metal": {
+      "hits": 191,
+      "subStats": {
+        "Gothic Metal": 191
+      }
+    },
+    "Alternative Metal": {
+      "hits": 139,
+      "subStats": {
+        "Alternative Metal": 139
+      }
+    },
+    "Megadeth": {
+      "hits": 1,
+      "subStats": {
+        "Megadeth": 1
+      }
+    },
+    "Thrash Metal": {
+      "hits": 37,
+      "subStats": {
+        "Thrash Metal": 37
+      }
+    },
+    "Thrash  Metal": {
+      "hits": 8,
+      "subStats": {
+        "Thrash  Metal": 8
+      }
+    },
+    "Drum N Bass": {
+      "hits": 14,
+      "subStats": {
+        "Drum N Bass": 14
+      }
+    },
+    "Alt Rock": {
+      "hits": 11,
+      "subStats": {
+        "Alt Rock": 11
+      }
+    },
+    "Gothic": {
+      "hits": 63,
+      "subStats": {
+        "Gothic": 63
+      }
+    },
+    "Psychedelic Rock": {
+      "hits": 179,
+      "subStats": {
+        "Psychedelic Rock": 179
+      }
+    },
+    "ProgRock": {
+      "hits": 6,
+      "subStats": {
+        "ProgRock": 6
+      }
+    },
+    "7i Nch EP'S": {
+      "hits": 10,
+      "subStats": {
+        "7i Nch EP'S": 10
+      }
+    },
+    "Singles": {
+      "hits": 2,
+      "subStats": {
+        "Singles": 2
+      }
+    },
+    "Funk Rock": {
+      "hits": 15,
+      "subStats": {
+        "Funk Rock": 15
+      }
+    },
+    "Alternative Rock/Funk Metal": {
+      "hits": 14,
+      "subStats": {
+        "Alternative Rock/Funk Metal": 14
+      }
+    },
+    "Symphonic Power Metal": {
+      "hits": 53,
+      "subStats": {
+        "Symphonic Power Metal": 53
+      }
+    },
+    "Symphony Power Metal": {
+      "hits": 1,
+      "subStats": {
+        "Symphony Power Metal": 1
+      }
+    },
+    "2013 - Live From Chaos To Eternity": {
+      "hits": 2,
+      "subStats": {
+        "2013 - Live From Chaos To Eternity": 2
+      }
+    },
+    "Skunk Anansie": {
+      "hits": 4,
+      "subStats": {
+        "Skunk Anansie": 4
+      }
+    },
+    "Classical*": {
+      "hits": 12,
+      "subStats": {
+        "Classical*": 12
+      }
+    },
+    "Doom": {
+      "hits": 11,
+      "subStats": {
+        "Doom": 11
+      }
+    },
+    "Poetry": {
+      "hits": 23,
+      "subStats": {
+        "Poetry": 23
+      }
+    },
+    "The Killers - Greatest Hits": {
+      "hits": 40,
+      "subStats": {
+        "The Killers - Greatest Hits": 40
+      }
+    },
+    "AM Pop": {
+      "hits": 2,
+      "subStats": {
+        "AM Pop": 2
+      }
+    },
+    "Yngwie J. Malmsteen": {
+      "hits": 38,
+      "subStats": {
+        "Yngwie J. Malmsteen": 38
+      }
+    },
+    "2001 - Archives [8CD 2DVD 2001 HDCD Remastered Box Set Japan PCCY-01501]": {
+      "hits": 8,
+      "subStats": {
+        "2001 - Archives [8CD 2DVD 2001 HDCD Remastered Box Set Japan PCCY-01501]": 8
+      }
+    },
+    "Alcatrazz": {
+      "hits": 4,
+      "subStats": {
+        "Alcatrazz": 4
+      }
+    },
+    "Contemporary Pop/Rock": {
+      "hits": 46,
+      "subStats": {
+        "Contemporary Pop/Rock": 46
+      }
+    },
+    "Classical/Bel Canto": {
+      "hits": 20,
+      "subStats": {
+        "Classical/Bel Canto": 20
+      }
+    },
+    "Symphony": {
+      "hits": 20,
+      "subStats": {
+        "Symphony": 20
+      }
+    },
+    "Alternative Pop/Rock": {
+      "hits": 16,
+      "subStats": {
+        "Alternative Pop/Rock": 16
+      }
+    },
+    "Rick Wakeman  [1971-2010]": {
+      "hits": 315,
+      "subStats": {
+        "Rick Wakeman  [1971-2010]": 315
+      }
+    },
+    "General Rock": {
+      "hits": 21,
+      "subStats": {
+        "General Rock": 21
+      }
+    },
+    "Symphonic Rock": {
+      "hits": 30,
+      "subStats": {
+        "Symphonic Rock": 30
+      }
+    },
+    "Art Rock": {
+      "hits": 22,
+      "subStats": {
+        "Art Rock": 22
+      }
+    },
+    "Newage": {
+      "hits": 36,
+      "subStats": {
+        "Newage": 36
+      }
+    },
+    "Progressive": {
+      "hits": 26,
+      "subStats": {
+        "Progressive": 26
+      }
+    },
+    "Progressive Rock/Symphonic Prog/Progressive Rick": {
+      "hits": 9,
+      "subStats": {
+        "Progressive Rock/Symphonic Prog/Progressive Rick": 9
+      }
+    },
+    "Rock Progressive": {
+      "hits": 11,
+      "subStats": {
+        "Rock Progressive": 11
+      }
+    },
+    "1999 - The Art In Music Trilogy  [160 Kbps]": {
+      "hits": 35,
+      "subStats": {
+        "1999 - The Art In Music Trilogy  [160 Kbps]": 35
+      }
+    },
+    "General New Age": {
+      "hits": 13,
+      "subStats": {
+        "General New Age": 13
+      }
+    },
+    "Instrumental Rock": {
+      "hits": 19,
+      "subStats": {
+        "Instrumental Rock": 19
+      }
+    },
+    "Jazz Vocals": {
+      "hits": 13,
+      "subStats": {
+        "Jazz Vocals": 13
+      }
+    },
+    "Soundtracks": {
+      "hits": 13,
+      "subStats": {
+        "Soundtracks": 13
+      }
+    },
+    "Alt. Pop/Rock": {
+      "hits": 11,
+      "subStats": {
+        "Alt. Pop/Rock": 11
+      }
+    },
+    "Folklore": {
+      "hits": 49,
+      "subStats": {
+        "Folklore": 49
+      }
+    },
+    "AL DI MEOLA Studio Discography FLAC": {
+      "hits": 6,
+      "subStats": {
+        "AL DI MEOLA Studio Discography FLAC": 6
+      }
+    },
+    "Classical Solo Guitar": {
+      "hits": 18,
+      "subStats": {
+        "Classical Solo Guitar": 18
+      }
+    },
+    "Paco De Lucia - Full Discography (1965-2014) [FLAC.WEB]": {
+      "hits": 1,
+      "subStats": {
+        "Paco De Lucia - Full Discography (1965-2014) [FLAC.WEB]": 1
+      }
+    },
+    "Flamenco": {
+      "hits": 266,
+      "subStats": {
+        "Flamenco": 266
+      }
+    },
+    "Musique Du Monde": {
+      "hits": 16,
+      "subStats": {
+        "Musique Du Monde": 16
+      }
+    },
+    "Latin": {
+      "hits": 67,
+      "subStats": {
+        "Latin": 67
+      }
+    },
+    "International": {
+      "hits": 9,
+      "subStats": {
+        "International": 9
+      }
+    },
+    "Classical Guitar": {
+      "hits": 164,
+      "subStats": {
+        "Classical Guitar": 164
+      }
+    },
+    "Populara": {
+      "hits": 75,
+      "subStats": {
+        "Populara": 75
+      }
+    },
+    "Flac RIP": {
+      "hits": 2,
+      "subStats": {
+        "Flac RIP": 2
+      }
+    },
+    "Reggae": {
+      "hits": 252,
+      "subStats": {
+        "Reggae": 252
+      }
+    },
+    "Bosanski Hip-Hop | Reggae | Dub": {
+      "hits": 13,
+      "subStats": {
+        "Bosanski Hip-Hop | Reggae | Dub": 13
+      }
+    },
+    "Soul Funk": {
+      "hits": 16,
+      "subStats": {
+        "Soul Funk": 16
+      }
+    },
+    "Chorus": {
+      "hits": 12,
+      "subStats": {
+        "Chorus": 12
+      }
+    },
+    "Adult Alternative Pop": {
+      "hits": 13,
+      "subStats": {
+        "Adult Alternative Pop": 13
+      }
+    },
+    "Acoustic": {
+      "hits": 23,
+      "subStats": {
+        "Acoustic": 23
+      }
+    },
+    "Electronic, Alternative": {
+      "hits": 52,
+      "subStats": {
+        "Electronic, Alternative": 52
+      }
+    },
+    "World Music": {
+      "hits": 61,
+      "subStats": {
+        "World Music": 61
+      }
+    },
+    "Swing Jazz": {
+      "hits": 8,
+      "subStats": {
+        "Swing Jazz": 8
+      }
+    },
+    "Christian.Willisohn.Hold.On.B&W.Tour.Stockfish.Records.Ape.Cue": {
+      "hits": 1,
+      "subStats": {
+        "Christian.Willisohn.Hold.On.B&W.Tour.Stockfish.Records.Ape.Cue": 1
+      }
+    },
+    "Stockfish": {
+      "hits": 3,
+      "subStats": {
+        "Stockfish": 3
+      }
+    },
+    "SaraK_Chris_Jones_Live": {
+      "hits": 13,
+      "subStats": {
+        "SaraK_Chris_Jones_Live": 13
+      }
+    },
+    "Audiphile": {
+      "hits": 14,
+      "subStats": {
+        "Audiphile": 14
+      }
+    },
+    "Test & Demonstration CD": {
+      "hits": 111,
+      "subStats": {
+        "Test & Demonstration CD": 111
+      }
+    },
+    "Jazz*": {
+      "hits": 6,
+      "subStats": {
+        "Jazz*": 6
+      }
+    },
+    "Ska": {
+      "hits": 41,
+      "subStats": {
+        "Ska": 41
+      }
+    },
+    "Jazz+Funk": {
+      "hits": 34,
+      "subStats": {
+        "Jazz+Funk": 34
+      }
+    },
+    "Aussie Rock": {
+      "hits": 30,
+      "subStats": {
+        "Aussie Rock": 30
+      }
+    },
+    "General Neo-Lounge": {
+      "hits": 11,
+      "subStats": {
+        "General Neo-Lounge": 11
+      }
+    },
+    "Acid Jazz": {
+      "hits": 11,
+      "subStats": {
+        "Acid Jazz": 11
+      }
+    },
+    "Nu-Metal": {
+      "hits": 55,
+      "subStats": {
+        "Nu-Metal": 55
+      }
+    },
+    "Rock; Alternative Rock; Alternative; Hard Rock; Alternative Metal": {
+      "hits": 11,
+      "subStats": {
+        "Rock; Alternative Rock; Alternative; Hard Rock; Alternative Metal": 11
+      }
+    },
+    "Rock; Alternative Rock; Hard Rock; Alternative Metal; Alternative": {
+      "hits": 1,
+      "subStats": {
+        "Rock; Alternative Rock; Hard Rock; Alternative Metal; Alternative": 1
+      }
+    },
+    "Rock; Alternative; Hard Rock; Alternative Rock; Acoustic": {
+      "hits": 1,
+      "subStats": {
+        "Rock; Alternative; Hard Rock; Alternative Rock; Acoustic": 1
+      }
+    },
+    "General Alternative Rock": {
+      "hits": 1,
+      "subStats": {
+        "General Alternative Rock": 1
+      }
+    },
+    "General Metal": {
+      "hits": 11,
+      "subStats": {
+        "General Metal": 11
+      }
+    },
+    "MP3 Music": {
+      "hits": 140,
+      "subStats": {
+        "MP3 Music": 140
+      }
+    },
+    "Progressive Power Metal": {
+      "hits": 13,
+      "subStats": {
+        "Progressive Power Metal": 13
+      }
+    },
+    "Celelalte Cuvinte": {
+      "hits": 17,
+      "subStats": {
+        "Celelalte Cuvinte": 17
+      }
+    },
+    "Coma": {
+      "hits": 10,
+      "subStats": {
+        "Coma": 10
+      }
+    },
+    "Unplugged": {
+      "hits": 12,
+      "subStats": {
+        "Unplugged": 12
+      }
+    },
+    "Rap & Hip-Hop": {
+      "hits": 190,
+      "subStats": {
+        "Rap & Hip-Hop": 190
+      }
+    },
+    "Www.Dredg.Com": {
+      "hits": 1,
+      "subStats": {
+        "Www.Dredg.Com": 1
+      }
+    },
+    "Dredg": {
+      "hits": 9,
+      "subStats": {
+        "Dredg": 9
+      }
+    },
+    "PoP": {
+      "hits": 35,
+      "subStats": {
+        "PoP": 35
+      }
+    },
+    "New Age, Celtic": {
+      "hits": 136,
+      "subStats": {
+        "New Age, Celtic": 136
+      }
+    },
+    "Celtic": {
+      "hits": 14,
+      "subStats": {
+        "Celtic": 14
+      }
+    },
+    "Musik": {
+      "hits": 16,
+      "subStats": {
+        "Musik": 16
+      }
+    },
+    "Popular": {
+      "hits": 2,
+      "subStats": {
+        "Popular": 2
+      }
+    },
+    "Ambience": {
+      "hits": 14,
+      "subStats": {
+        "Ambience": 14
+      }
+    },
+    "Symphonic Metal": {
+      "hits": 35,
+      "subStats": {
+        "Symphonic Metal": 35
+      }
+    },
+    "Chanson": {
+      "hits": 26,
+      "subStats": {
+        "Chanson": 26
+      }
+    },
+    "VarièTéS": {
+      "hits": 1,
+      "subStats": {
+        "VarièTéS": 1
+      }
+    },
+    "Pop French": {
+      "hits": 22,
+      "subStats": {
+        "Pop French": 22
+      }
+    },
+    "Instrumental Pop": {
+      "hits": 22,
+      "subStats": {
+        "Instrumental Pop": 22
+      }
+    },
+    "Diverses": {
+      "hits": 25,
+      "subStats": {
+        "Diverses": 25
+      }
+    },
+    "Zamfir": {
+      "hits": 1,
+      "subStats": {
+        "Zamfir": 1
+      }
+    },
+    "National Folk": {
+      "hits": 9,
+      "subStats": {
+        "National Folk": 9
+      }
+    },
+    "Pan Flute": {
+      "hits": 1,
+      "subStats": {
+        "Pan Flute": 1
+      }
+    },
+    "Experimental": {
+      "hits": 21,
+      "subStats": {
+        "Experimental": 21
+      }
+    },
+    "Pre-Grunge Alternative Rock": {
+      "hits": 73,
+      "subStats": {
+        "Pre-Grunge Alternative Rock": 73
+      }
+    },
+    "Genre": {
+      "hits": 19,
+      "subStats": {
+        "Genre": 19
+      }
+    },
+    "Singer-Songwriter": {
+      "hits": 4,
+      "subStats": {
+        "Singer-Songwriter": 4
+      }
+    },
+    "Folk Rock": {
+      "hits": 34,
+      "subStats": {
+        "Folk Rock": 34
+      }
+    },
+    "General Pop": {
+      "hits": 22,
+      "subStats": {
+        "General Pop": 22
+      }
+    },
+    "Female Vocal": {
+      "hits": 12,
+      "subStats": {
+        "Female Vocal": 12
+      }
+    },
+    "American": {
+      "hits": 40,
+      "subStats": {
+        "American": 40
+      }
+    },
+    "World": {
+      "hits": 12,
+      "subStats": {
+        "World": 12
+      }
+    },
+    "Indie": {
+      "hits": 2,
+      "subStats": {
+        "Indie": 2
+      }
+    },
+    "Drum & Bass": {
+      "hits": 2,
+      "subStats": {
+        "Drum & Bass": 2
+      }
+    },
+    "Trip-Hop": {
+      "hits": 136,
+      "subStats": {
+        "Trip-Hop": 136
+      }
+    },
+    "Art-Rock": {
+      "hits": 12,
+      "subStats": {
+        "Art-Rock": 12
+      }
+    },
+    "Sympho Rock": {
+      "hits": 42,
+      "subStats": {
+        "Sympho Rock": 42
+      }
+    },
+    "2005-09 Light & Shade": {
+      "hits": 1,
+      "subStats": {
+        "2005-09 Light & Shade": 1
+      }
+    },
+    "Daytrotter Sessions": {
+      "hits": 8,
+      "subStats": {
+        "Daytrotter Sessions": 8
+      }
+    },
+    "Worldwide": {
+      "hits": 6,
+      "subStats": {
+        "Worldwide": 6
+      }
+    },
+    "No Doubt Discography": {
+      "hits": 16,
+      "subStats": {
+        "No Doubt Discography": 16
+      }
+    },
+    "Abstract": {
+      "hits": 14,
+      "subStats": {
+        "Abstract": 14
+      }
+    },
+    "Rap, Hip-Hop": {
+      "hits": 23,
+      "subStats": {
+        "Rap, Hip-Hop": 23
+      }
+    },
+    "Metalcore": {
+      "hits": 54,
+      "subStats": {
+        "Metalcore": 54
+      }
+    },
+    "Hardcore": {
+      "hits": 22,
+      "subStats": {
+        "Hardcore": 22
+      }
+    },
+    "Classical, Jazz, Latin, Lounge": {
+      "hits": 12,
+      "subStats": {
+        "Classical, Jazz, Latin, Lounge": 12
+      }
+    },
+    "Electronica": {
+      "hits": 31,
+      "subStats": {
+        "Electronica": 31
+      }
+    },
+    "Deep House": {
+      "hits": 4,
+      "subStats": {
+        "Deep House": 4
+      }
+    },
+    "Pink Martini - Hey Eugene!(2007)": {
+      "hits": 1,
+      "subStats": {
+        "Pink Martini - Hey Eugene!(2007)": 1
+      }
+    },
+    "Stoner Rock": {
+      "hits": 152,
+      "subStats": {
+        "Stoner Rock": 152
+      }
+    },
+    "Rodrigo Y Gabriela": {
+      "hits": 20,
+      "subStats": {
+        "Rodrigo Y Gabriela": 20
+      }
+    },
+    "Nu Jazz": {
+      "hits": 184,
+      "subStats": {
+        "Nu Jazz": 184
+      }
+    },
+    "Nu-Jazz": {
+      "hits": 46,
+      "subStats": {
+        "Nu-Jazz": 46
+      }
+    },
+    "Electronique": {
+      "hits": 37,
+      "subStats": {
+        "Electronique": 37
+      }
+    },
+    "Lounge, House, Pop": {
+      "hits": 19,
+      "subStats": {
+        "Lounge, House, Pop": 19
+      }
+    },
+    "Gothic-Doom Metal": {
+      "hits": 15,
+      "subStats": {
+        "Gothic-Doom Metal": 15
+      }
+    },
+    "Doom Metal": {
+      "hits": 5,
+      "subStats": {
+        "Doom Metal": 5
+      }
+    },
+    "Gothic Doom Metal": {
+      "hits": 8,
+      "subStats": {
+        "Gothic Doom Metal": 8
+      }
+    },
+    "[Pop": {
+      "hits": 3,
+      "subStats": {
+        "[Pop": 3
+      }
+    },
+    "Industrial/Thrash Metal": {
+      "hits": 3,
+      "subStats": {
+        "Industrial/Thrash Metal": 3
+      }
+    },
+    "Industrial Metal": {
+      "hits": 30,
+      "subStats": {
+        "Industrial Metal": 30
+      }
+    },
+    "The Verve.      ( Others )": {
+      "hits": 5,
+      "subStats": {
+        "The Verve.      ( Others )": 5
+      }
+    },
+    "Dream": {
+      "hits": 11,
+      "subStats": {
+        "Dream": 11
+      }
+    },
+    "Down Tempo": {
+      "hits": 18,
+      "subStats": {
+        "Down Tempo": 18
+      }
+    },
+    "Soul And R&B": {
+      "hits": 48,
+      "subStats": {
+        "Soul And R&B": 48
+      }
+    },
+    "Alternativ": {
+      "hits": 10,
+      "subStats": {
+        "Alternativ": 10
+      }
+    },
+    "Urma": {
+      "hits": 14,
+      "subStats": {
+        "Urma": 14
+      }
+    },
+    "SYMPHONIC ORCHESTRAL POWER METAL": {
+      "hits": 16,
+      "subStats": {
+        "SYMPHONIC ORCHESTRAL POWER METAL": 16
+      }
+    },
+    "SYMPHONIC POWER METAL": {
+      "hits": 9,
+      "subStats": {
+        "SYMPHONIC POWER METAL": 9
+      }
+    },
+    "Symphonic Operatic Power Metal": {
+      "hits": 2,
+      "subStats": {
+        "Symphonic Operatic Power Metal": 2
+      }
+    },
+    "Hard'N'Heavy": {
+      "hits": 18,
+      "subStats": {
+        "Hard'N'Heavy": 18
+      }
+    },
+    "INSTRUMENTAL NEOCLASSICAL POWER METAL": {
+      "hits": 2,
+      "subStats": {
+        "INSTRUMENTAL NEOCLASSICAL POWER METAL": 2
+      }
+    },
+    "POWER METAL": {
+      "hits": 14,
+      "subStats": {
+        "POWER METAL": 14
+      }
+    },
+    "Progressive Metal": {
+      "hits": 1,
+      "subStats": {
+        "Progressive Metal": 1
+      }
+    },
+    "Power": {
+      "hits": 12,
+      "subStats": {
+        "Power": 12
+      }
+    },
+    "Neoclassical Power Metal": {
+      "hits": 45,
+      "subStats": {
+        "Neoclassical Power Metal": 45
+      }
+    },
+    "Symphonic Gothic Metal": {
+      "hits": 7,
+      "subStats": {
+        "Symphonic Gothic Metal": 7
+      }
+    },
+    "GOTHIC": {
+      "hits": 4,
+      "subStats": {
+        "GOTHIC": 4
+      }
+    },
+    "Heavy": {
+      "hits": 18,
+      "subStats": {
+        "Heavy": 18
+      }
+    },
+    "SYMPHONIC ORCHESTRAL METAL": {
+      "hits": 2,
+      "subStats": {
+        "SYMPHONIC ORCHESTRAL METAL": 2
+      }
+    },
+    "DOOM METAL": {
+      "hits": 1,
+      "subStats": {
+        "DOOM METAL": 1
+      }
+    },
+    "NEOCLASSICAL HEAVY METAL": {
+      "hits": 1,
+      "subStats": {
+        "NEOCLASSICAL HEAVY METAL": 1
+      }
+    },
+    "Melodic": {
+      "hits": 4,
+      "subStats": {
+        "Melodic": 4
+      }
+    },
+    "GOTHIC LOVE METAL": {
+      "hits": 1,
+      "subStats": {
+        "GOTHIC LOVE METAL": 1
+      }
+    },
+    "NEOCLASSIC POWER METAL": {
+      "hits": 1,
+      "subStats": {
+        "NEOCLASSIC POWER METAL": 1
+      }
+    },
+    "Speed": {
+      "hits": 2,
+      "subStats": {
+        "Speed": 2
+      }
+    },
+    "SYMPHONIC NEOCLASSIC POWER METAL": {
+      "hits": 1,
+      "subStats": {
+        "SYMPHONIC NEOCLASSIC POWER METAL": 1
+      }
+    },
+    "SYMPHONIC ELECTRONIC METAL": {
+      "hits": 1,
+      "subStats": {
+        "SYMPHONIC ELECTRONIC METAL": 1
+      }
+    },
+    "HEAVY": {
+      "hits": 4,
+      "subStats": {
+        "HEAVY": 4
+      }
+    },
+    "Viking": {
+      "hits": 1,
+      "subStats": {
+        "Viking": 1
+      }
+    },
+    "Glam Metal": {
+      "hits": 3,
+      "subStats": {
+        "Glam Metal": 3
+      }
+    },
+    "Dark": {
+      "hits": 1,
+      "subStats": {
+        "Dark": 1
+      }
+    },
+    "Glam Rock": {
+      "hits": 2,
+      "subStats": {
+        "Glam Rock": 2
+      }
+    },
+    "Heavy Metall": {
+      "hits": 1,
+      "subStats": {
+        "Heavy Metall": 1
+      }
+    },
+    "Cello Metal": {
+      "hits": 1,
+      "subStats": {
+        "Cello Metal": 1
+      }
+    },
+    "Viking Folk Metal": {
+      "hits": 1,
+      "subStats": {
+        "Viking Folk Metal": 1
+      }
+    },
+    "Symphonic Orchestral Power Metal": {
+      "hits": 1,
+      "subStats": {
+        "Symphonic Orchestral Power Metal": 1
+      }
+    },
+    "NEOCLASSICAL POWER METAL": {
+      "hits": 2,
+      "subStats": {
+        "NEOCLASSICAL POWER METAL": 2
+      }
+    },
+    "POWER METAL OPERA": {
+      "hits": 4,
+      "subStats": {
+        "POWER METAL OPERA": 4
+      }
+    },
+    "Symphonic Cello Metal": {
+      "hits": 1,
+      "subStats": {
+        "Symphonic Cello Metal": 1
+      }
+    },
+    "Instrumental Folk Metal": {
+      "hits": 1,
+      "subStats": {
+        "Instrumental Folk Metal": 1
+      }
+    },
+    "SYMPHONIC EPIC POWER METAL": {
+      "hits": 2,
+      "subStats": {
+        "SYMPHONIC EPIC POWER METAL": 2
+      }
+    },
+    "Symphonic Power": {
+      "hits": 4,
+      "subStats": {
+        "Symphonic Power": 4
+      }
+    },
+    "Symphonic Power Folk Metal": {
+      "hits": 1,
+      "subStats": {
+        "Symphonic Power Folk Metal": 1
+      }
+    },
+    "Symphonic Operatic Metal": {
+      "hits": 7,
+      "subStats": {
+        "Symphonic Operatic Metal": 7
+      }
+    },
+    "Symphonic": {
+      "hits": 4,
+      "subStats": {
+        "Symphonic": 4
+      }
+    },
+    "Symphonic Gothic  Metal": {
+      "hits": 1,
+      "subStats": {
+        "Symphonic Gothic  Metal": 1
+      }
+    },
+    "Black": {
+      "hits": 1,
+      "subStats": {
+        "Black": 1
+      }
+    },
+    "Symphonic Folk Power Metal": {
+      "hits": 1,
+      "subStats": {
+        "Symphonic Folk Power Metal": 1
+      }
+    },
+    "Neoclassic Power Metal": {
+      "hits": 1,
+      "subStats": {
+        "Neoclassic Power Metal": 1
+      }
+    },
+    "Folk Heavy": {
+      "hits": 1,
+      "subStats": {
+        "Folk Heavy": 1
+      }
+    },
+    "Atmospheric Gothic Metal": {
+      "hits": 1,
+      "subStats": {
+        "Atmospheric Gothic Metal": 1
+      }
+    },
+    "Power Metall": {
+      "hits": 1,
+      "subStats": {
+        "Power Metall": 1
+      }
+    },
+    "Fantasy Power Metal": {
+      "hits": 1,
+      "subStats": {
+        "Fantasy Power Metal": 1
+      }
+    },
+    "Neo-Classical Metal": {
+      "hits": 1,
+      "subStats": {
+        "Neo-Classical Metal": 1
+      }
+    },
+    "Power Folk Metal": {
+      "hits": 1,
+      "subStats": {
+        "Power Folk Metal": 1
+      }
+    },
+    "Christian Neoclassical Power Metal": {
+      "hits": 2,
+      "subStats": {
+        "Christian Neoclassical Power Metal": 2
+      }
+    },
+    "Symphonic Neoclassical Power Metal": {
+      "hits": 1,
+      "subStats": {
+        "Symphonic Neoclassical Power Metal": 1
+      }
+    },
+    "Melodic Power Metal": {
+      "hits": 2,
+      "subStats": {
+        "Melodic Power Metal": 2
+      }
+    },
+    "Folk Symphonic Metal": {
+      "hits": 1,
+      "subStats": {
+        "Folk Symphonic Metal": 1
+      }
+    },
+    "Melodic Folk Death": {
+      "hits": 1,
+      "subStats": {
+        "Melodic Folk Death": 1
+      }
+    },
+    "Power Progressive Metal": {
+      "hits": 1,
+      "subStats": {
+        "Power Progressive Metal": 1
+      }
+    },
+    "Neoclassical Power METAL": {
+      "hits": 1,
+      "subStats": {
+        "Neoclassical Power METAL": 1
+      }
+    },
+    "Symphonic Gothic": {
+      "hits": 1,
+      "subStats": {
+        "Symphonic Gothic": 1
+      }
+    },
+    "DOOM": {
+      "hits": 1,
+      "subStats": {
+        "DOOM": 1
+      }
+    },
+    "HEAVY METAL": {
+      "hits": 1,
+      "subStats": {
+        "HEAVY METAL": 1
+      }
+    },
+    "Orchestral Atmospheric Power": {
+      "hits": 1,
+      "subStats": {
+        "Orchestral Atmospheric Power": 1
+      }
+    },
+    "Folk Viking Metal": {
+      "hits": 1,
+      "subStats": {
+        "Folk Viking Metal": 1
+      }
+    },
+    "Symphonic Folk Doom Metal": {
+      "hits": 1,
+      "subStats": {
+        "Symphonic Folk Doom Metal": 1
+      }
+    },
+    "Atmospheric Doom Metal": {
+      "hits": 1,
+      "subStats": {
+        "Atmospheric Doom Metal": 1
+      }
+    },
+    "MELODIC DEATH METAL": {
+      "hits": 1,
+      "subStats": {
+        "MELODIC DEATH METAL": 1
+      }
+    },
+    "Gothic Love Metal": {
+      "hits": 1,
+      "subStats": {
+        "Gothic Love Metal": 1
+      }
+    },
+    "Atmospheric Power Metal": {
+      "hits": 1,
+      "subStats": {
+        "Atmospheric Power Metal": 1
+      }
+    },
+    "Neoclassical Power": {
+      "hits": 1,
+      "subStats": {
+        "Neoclassical Power": 1
+      }
+    },
+    "Music": {
+      "hits": 7,
+      "subStats": {
+        "Music": 7
+      }
+    },
+    "Instrumental Rock; Hard Rock; Blues Rock": {
+      "hits": 1,
+      "subStats": {
+        "Instrumental Rock; Hard Rock; Blues Rock": 1
+      }
+    },
+    "Tehno": {
+      "hits": 1,
+      "subStats": {
+        "Tehno": 1
       }
     }
   },
-  "cloudSynced": 170,
-  "lastScanned": "2026-02-21T22:45:51.143Z"
+  "cloudSynced": 35985,
+  "lastScanned": "2026-02-22T09:25:53.595Z"
 }

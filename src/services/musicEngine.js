@@ -1,17 +1,79 @@
 const GENRE_HIERARCHY = {
-    "Pop": { keywords: ["pop", "hits", "top 40", "chart"], sub: { "K-Pop": ["kpop", "korean"], "Indie Pop": ["indie pop"] } },
-    "Rock": { keywords: ["rock", "grunge"], sub: { "Metal": ["metal", "heavy metal"], "Alternative": ["alt rock", "alternative", "alt"], "Punk": ["punk"], "Classic Rock": ["classic rock"] } },
-    "Hip-Hop/Rap": { keywords: ["hip hop", "hip-hop", "rap", "r&b"], sub: { "Trap": ["trap"], "Drill": ["drill"] } },
-    "Electronic/Dance": { keywords: ["edm", "dance", "electronic"], sub: { "House": ["house"], "Techno": ["techno"], "Trance": ["trance"], "Dubstep": ["dubstep"] } },
-    "Lofi/Chill": { keywords: ["lofi", "lo-fi", "chill", "relax", "vibes"], sub: { "Study": ["study"], "Ambient": ["ambient"], "Acoustic": ["acoustic"] } },
-    "Classical/Instrumental": { keywords: ["classical", "instrumental", "orchestra"], sub: { "Piano": ["piano"], "Violin": ["violin"], "Strings": ["strings"], "Cinematic": ["cinematic"], "Opera": ["opera", "aria", "vocal", "tenor", "soprano"] } },
-    "Jazz/Blues": { keywords: ["jazz", "blues"], sub: { "Soul": ["soul"], "Funk": ["funk"] } },
-    "Country/Folk": { keywords: ["country", "folk", "americana"], sub: {} },
-    "Latin": { keywords: ["latin", "reggaeton", "salsa", "bachata", "cumbia"], sub: {} }
+    "Pop": { keywords: ["pop", "hits", "top 40", "chart"], sub: { "K-Pop": ["kpop", "korean"], "Indie Pop": ["indie pop"], "Adult Contemporary": ["adult contemporary"], "Mandopop": ["mandopop"] }, exclude: ["rock", "punk", "metal"] },
+    "Rock": { keywords: ["rock", "grunge"], sub: { "Metal": ["metal", "heavy metal"], "Alternative": ["alt rock", "alternative", "alt"], "Punk": ["punk"], "Classic Rock": ["classic rock"], "Indie Rock": ["indie rock"], "Goth Rock": ["goth"], "Blues-Rock": ["blues-rock", "blues rock"], "Industrial": ["industrial"] }, exclude: [] },
+    "Hip-Hop/Rap": { keywords: ["hip hop", "hip-hop", "rap", "r&b"], sub: { "Trap": ["trap"], "Drill": ["drill"], "R&B/Soul": ["r&b", "soul"] }, exclude: ["rock", "country"] },
+    "Electronic/Dance": { keywords: ["edm", "dance", "electronic"], sub: { "House": ["house"], "Techno": ["techno"], "Trance": ["trance"], "Dubstep": ["dubstep"], "Avantgarde": ["avantgarde", "avant-garde"] }, exclude: ["acoustic", "classical"] },
+    "Lofi/Chill": { keywords: ["lofi", "lo-fi", "chill", "relax", "vibes"], sub: { "Study": ["study"], "Ambient": ["ambient"], "Acoustic": ["acoustic"] }, exclude: ["rock", "punk", "metal", "trap", "house", "techno", "dubstep"] },
+    "Classical/Instrumental": { keywords: ["classical", "instrumental", "orchestra", "baroque"], sub: { "Piano": ["piano"], "Violin": ["violin"], "Strings": ["strings"], "Cinematic": ["cinematic", "soundtrack"], "Opera": ["opera", "aria", "vocal", "tenor", "soprano"], "Baroque": ["baroque"] }, exclude: ["rock", "metal", "rap", "pop", "trap", "edm"] },
+    "Jazz/Blues": { keywords: ["jazz", "blues"], sub: { "Soul": ["soul", "gospel"], "Funk": ["funk"], "Classic Blues": ["classic blues"], "Blues Gospel": ["blues gospel"] }, exclude: ["rock", "metal", "punk", "trap"] },
+    "Country/Folk": { keywords: ["country", "folk", "americana"], sub: { "Traditional Country": ["traditional country"] }, exclude: ["rock", "metal", "rap", "electronics"] },
+    "Latin": { keywords: ["latin", "reggaeton", "salsa", "bachata", "cumbia"], sub: {}, exclude: [] },
+    "Gospel/Religious": { keywords: ["gospel", "christian", "spiritual", "worship"], sub: { "Christian Pop": ["christian pop"] }, exclude: ["metal", "death", "punk"] }
 };
 
 import { fetchPlaylistItems } from './youtube';
 import { enrichTrackMetadata } from './metadataEnricher';
+import { supabase } from './supabaseService';
+
+export const getSupabaseTracksForGenre = async (bucketGenre, limit = 200) => {
+    let query = supabase.from('local_metadata').select('*').limit(limit);
+
+    if (bucketGenre) {
+        const conditions = [];
+
+        // 1. Add the parts of the bucket name itself (e.g. "Lofi/Chill" -> "Lofi", "Chill")
+        const parts = bucketGenre.split('/');
+        parts.forEach(p => {
+            if (p) conditions.push(`genre.ilike.%${p}%`);
+        });
+
+        // 2. Add subgenres if we have them in the hierarchy mapped at the top of the file
+        const hierarchyData = GENRE_HIERARCHY[bucketGenre];
+        if (hierarchyData && hierarchyData.sub) {
+            Object.keys(hierarchyData.sub).forEach(subGenreName => {
+                conditions.push(`genre.ilike.%${subGenreName}%`);
+                // Also optionally add keywords if feeling aggressive, but subgenre names usually cover it
+                hierarchyData.sub[subGenreName].forEach(kw => {
+                    conditions.push(`genre.ilike.%${kw}%`);
+                });
+            });
+        }
+
+        if (conditions.length > 0) {
+            query = query.or(conditions.join(','));
+        } else {
+            query = query.ilike('genre', `%${bucketGenre}%`);
+        }
+    }
+
+    const { data, error } = await query;
+    if (error) {
+        console.error("Supabase query error:", error);
+        return [];
+    }
+
+    let results = data || [];
+
+    // Filter out excludes explicitly
+    if (bucketGenre && GENRE_HIERARCHY[bucketGenre] && GENRE_HIERARCHY[bucketGenre].exclude) {
+        const excludes = GENRE_HIERARCHY[bucketGenre].exclude;
+        results = results.filter(track => {
+            const trackGenreStr = (track.genre || "").toLowerCase();
+            return !excludes.some(ex => trackGenreStr.includes(ex));
+        });
+    }
+
+    // Force exclude heavy bands from chill/soft vibes just in case they bleed through via "Pop Rock" mapping
+    if (bucketGenre === 'Lofi/Chill' || bucketGenre === 'Classical/Instrumental') {
+        results = results.filter(track => {
+            const artist = (track.artist || "").toLowerCase();
+            const genre = (track.genre || "").toLowerCase();
+            return !artist.includes('shining') && !genre.includes('industrial') && !genre.includes('metal') && !genre.includes('rock');
+        });
+    }
+
+    return results;
+};
 
 export const buildTasteProfile = async (playlists, token) => {
     if (!playlists || playlists.length === 0 || !token) return null;
@@ -46,16 +108,46 @@ export const buildTasteProfile = async (playlists, token) => {
             if (result.success && result.genre) {
                 totalHits++;
 
-                // Try to map specific iTunes genres to our main buckets, or use directly
+                // Normalize genre string (trim, title-case) to handle "blues" vs "Blues" etc.
+                const normalizedGenre = result.genre
+                    ? result.genre.trim().replace(/\b\w/g, c => c.toUpperCase())
+                    : null;
+
+                // Filter out junk genres (album titles leaking in via iTunes metadata)
+                const JUNK_PATTERN = /complete recordings|album|vinyl|pack|\d{2,}\s*bit|vol\s*\d/i;
+                if (!normalizedGenre || JUNK_PATTERN.test(normalizedGenre)) return;
+
+                // Map specific iTunes genres to our main buckets
                 const itunesMap = {
+                    // Pop
                     "Pop": "Pop", "K-Pop": "Pop", "Singer/Songwriter": "Pop",
+                    "Adult Contemporary": "Pop", "Mandopop": "Pop", "Indie Pop": "Pop",
+                    // Rock
                     "Rock": "Rock", "Alternative": "Rock", "Metal": "Rock", "Punk": "Rock", "Hard Rock": "Rock",
-                    "Hip-Hop/Rap": "Hip-Hop/Rap", "Hip-Hop": "Hip-Hop/Rap", "Rap": "Hip-Hop/Rap", "R&B/Soul": "Hip-Hop/Rap",
-                    "Dance": "Electronic/Dance", "Electronic": "Electronic/Dance", "House": "Electronic/Dance", "Techno": "Electronic/Dance",
-                    "Classical": "Classical/Instrumental", "Instrumental": "Classical/Instrumental", "Soundtrack": "Classical/Instrumental",
+                    "Classic Rock": "Rock", "Indie Rock": "Rock", "Goth Rock": "Rock",
+                    "Blues-Rock": "Rock", "Blues Rock": "Rock", "Industrial": "Rock",
+                    // Hip-Hop/R&B
+                    "Hip-Hop/Rap": "Hip-Hop/Rap", "Hip-Hop": "Hip-Hop/Rap", "Rap": "Hip-Hop/Rap",
+                    "R&B/Soul": "Hip-Hop/Rap", "R&B": "Hip-Hop/Rap",
+                    // Electronic
+                    "Dance": "Electronic/Dance", "Electronic": "Electronic/Dance", "House": "Electronic/Dance",
+                    "Techno": "Electronic/Dance", "Trance": "Electronic/Dance", "Dubstep": "Electronic/Dance",
+                    "Avantgarde": "Electronic/Dance", "Avant-Garde": "Electronic/Dance",
+                    // Classical
+                    "Classical": "Classical/Instrumental", "Instrumental": "Classical/Instrumental",
+                    "Soundtrack": "Classical/Instrumental", "Baroque": "Classical/Instrumental",
+                    "Opera": "Classical/Instrumental", "Vocal": "Classical/Instrumental",
+                    // Jazz/Blues
                     "Jazz": "Jazz/Blues", "Blues": "Jazz/Blues", "Soul": "Jazz/Blues",
-                    "Country": "Country/Folk", "Folk": "Country/Folk",
-                    "Latin": "Latin", "Reggaeton": "Latin", "Salsa": "Latin", "Música Mexicana": "Latin", "Regional Mexican": "Latin"
+                    "Classic Blues": "Jazz/Blues", "Blues Gospel": "Jazz/Blues",
+                    // Country
+                    "Country": "Country/Folk", "Folk": "Country/Folk", "Traditional Country": "Country/Folk",
+                    // Latin
+                    "Latin": "Latin", "Reggaeton": "Latin", "Salsa": "Latin",
+                    "Música Mexicana": "Latin", "Regional Mexican": "Latin",
+                    // Gospel
+                    "Gospel": "Gospel/Religious", "Christian": "Gospel/Religious",
+                    "Christian Pop": "Gospel/Religious", "Children'S Music": "Gospel/Religious"
                 };
 
                 const mainGenre = itunesMap[result.genre] || result.genre;
@@ -127,10 +219,10 @@ export const buildTasteProfile = async (playlists, token) => {
     // Root Node
     nodes.push({ id: 'user', data: { label: 'Your Taste' }, position: { x: 0, y: 150 }, type: 'input' });
 
-    // Sort top main genres and take up to 5 instead of 3
+    // Sort top main genres and take up to 10
     const topGenresKeys = Object.keys(genreStats)
         .sort((a, b) => genreStats[b].hits - genreStats[a].hits)
-        .slice(0, 5);
+        .slice(0, 10);
 
     const statsStrings = [];
 
@@ -253,34 +345,103 @@ export const discoverPlaylistForMood = async (mood, tasteProfile, token, userPla
         }
     }
 
-    // 2. Fallback to generic YouTube Search
-    console.log("Discovery Engine searching YouTube for:", query);
+    const authHeaders = token === 'guest' ? {} : { Authorization: `Bearer ${token}` };
+    const authParams = token === 'guest' ? `&key=${import.meta.env.VITE_YOUTUBE_API_KEY}` : '';
 
-    const response = await fetch(
-        `${YOUTUBE_API_BASE}/search?part=snippet&type=playlist&q=${encodeURIComponent(query)}&maxResults=5`,
-        {
-            headers: { Authorization: `Bearer ${token}` },
+    // 2. Try to build a mix from the offline Supabase database
+    const localLibTracks = await getSupabaseTracksForGenre(matchedGenre);
+    if (localLibTracks && localLibTracks.length > 0) {
+        console.log(`Building mix from local library: ${localLibTracks.length} tracks found for ${matchedGenre}`);
+
+        // Pick top tracks, shuffle them and limit to 3 to aggressively save YouTube quota 
+        // (1 search = 100 quota units! 10 tracks = 1,000 quota per click)
+        const shuffled = localLibTracks.sort(() => 0.5 - Math.random()).slice(0, 3);
+        const resolvedVideoIds = [];
+        let firstThumbnail = null;
+
+        // Sequence lookups so we don't hammer the API in parallel and hit limits
+        for (const track of shuffled) {
+            try {
+                const trackQuery = `${track.artist} ${track.track_name} official audio`;
+                const ytRes = await fetch(
+                    `${YOUTUBE_API_BASE}/search?part=snippet&type=video&videoCategoryId=10&videoSyndicated=true&q=${encodeURIComponent(trackQuery)}&maxResults=1${authParams}`,
+                    { headers: authHeaders }
+                );
+                const ytData = await ytRes.json();
+
+                if (ytData.items && ytData.items.length > 0) {
+                    resolvedVideoIds.push(ytData.items[0].id.videoId);
+                    if (!firstThumbnail) {
+                        firstThumbnail = ytData.items[0].snippet.thumbnails.high?.url || ytData.items[0].snippet.thumbnails.default?.url;
+                    }
+                }
+            } catch (e) {
+                console.warn(`Could not resolve local track to YouTube: ${track.artist} - ${track.track_name}`);
+            }
         }
-    );
 
-    if (!response.ok) {
-        throw new Error('Failed to discover playlist from YouTube Search API');
+        if (resolvedVideoIds.length > 0) {
+            return {
+                id: resolvedVideoIds.join(','),
+                title: `${matchedGenre || mood.label} Local Mix`,
+                thumbnail: firstThumbnail,
+                channelTitle: 'Your Server',
+                matchedGenre: matchedGenre,
+                type: 'video_list',
+                firstVideoId: resolvedVideoIds[0]
+            };
+        }
     }
 
-    const data = await response.json();
+    // 3. Fallback to High-Quality Video Search
+    // We search for videos in the Music category (10) to avoid junk playlists
+    const hqQuery = `${query} official audio`;
+    console.log("Discovery Engine searching YouTube for Videos:", hqQuery);
 
-    if (!data.items || data.items.length === 0) {
-        throw new Error("No playlists found for this mood.");
+    let data;
+    try {
+        const response = await fetch(
+            `${YOUTUBE_API_BASE}/search?part=snippet&type=video&videoCategoryId=10&videoSyndicated=true&q=${encodeURIComponent(hqQuery)}&maxResults=15${authParams}`,
+            {
+                headers: authHeaders,
+            }
+        );
+        data = await response.json();
+    } catch (e) {
+        console.error("YouTube Search Fetch Exception:", e);
     }
 
-    // Pick a random playlist from the top 5 results to ensure freshness even if they click the same mood
-    const randomResult = data.items[Math.floor(Math.random() * data.items.length)];
+    if (!data || !data.items || data.items.length === 0) {
+        if (data && data.error) {
+            console.error("YouTube API Rejected Request:", data.error);
+        }
+
+        let titleFallback = `${matchedGenre || mood.label} Safe Mix`;
+
+        // Final ultimate mock fallback when discovery fails
+        console.log("Resorting to final mock fallback for UI demonstration.");
+        return {
+            id: '',
+            title: `Error: YouTube API Key Blocked`,
+            thumbnail: '',
+            channelTitle: 'Your Google Cloud Project has limited requests. Please try again tomorrow.',
+            matchedGenre: matchedGenre,
+            type: 'video_list',
+            firstVideoId: ''
+        };
+    }
+
+    // Extract video IDs
+    const videoIds = data.items.map(item => item.id.videoId);
+    const mainVideo = data.items[0];
 
     return {
-        id: randomResult.id.playlistId,
-        title: randomResult.snippet.title,
-        thumbnail: randomResult.snippet.thumbnails.high?.url || randomResult.snippet.thumbnails.default?.url,
-        channelTitle: randomResult.snippet.channelTitle,
-        matchedGenre: matchedGenre
+        id: videoIds.join(','),
+        title: `${matchedGenre || mood.label} Mix`,
+        thumbnail: mainVideo.snippet.thumbnails.high?.url || mainVideo.snippet.thumbnails.default?.url,
+        channelTitle: 'High Quality Auto-Mix',
+        matchedGenre: matchedGenre,
+        type: 'video_list',
+        firstVideoId: videoIds[0]
     };
 };

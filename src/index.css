@@ -304,6 +304,45 @@ h1 {
   transform: translateY(-2px) scale(1.05);
 }
 
+.mood-dropdown {
+  background: rgba(30, 41, 59, 0.5);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  padding: 0.75rem 2rem 0.75rem 1.5rem;
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: #f8fafc;
+  cursor: pointer;
+  appearance: none;
+  font-family: inherit;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  /* Custom Arrow */
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1.2rem;
+  min-width: 250px;
+}
+
+.mood-dropdown:hover {
+  background-color: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.mood-dropdown:focus {
+  outline: none;
+  border-color: #a855f7;
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
+}
+
+.mood-dropdown option {
+  background-color: #0f172a;
+  color: #f8fafc;
+  padding: 1rem;
+}
+
 .mood-emoji {
   font-size: 1.25rem;
 }
