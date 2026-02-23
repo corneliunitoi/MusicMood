@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import { getAuthUrl, handleAuthCallback, getAccessToken, logout } from './services/auth'
+import { signInAsGuest, supabase } from './services/supabaseService'
 
 import Dashboard from './components/Dashboard'
 
@@ -22,8 +23,11 @@ function App() {
     window.location.href = getAuthUrl()
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     logout()
+    if (token === 'guest') {
+      await supabase.auth.signOut();
+    }
     setToken(null)
   }
 
@@ -59,10 +63,20 @@ function App() {
           <button
             className="btn-secondary"
             style={{ marginTop: '1rem', width: '100%', background: 'rgba(255, 255, 255, 0.1)', color: 'white', border: '1px solid rgba(255, 255, 255, 0.2)', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-            onClick={() => {
-              localStorage.setItem('youtube_access_token', 'guest');
-              setToken('guest');
+            onClick={async () => {
+              setIsLoading(true);
+              try {
+                await signInAsGuest();
+                localStorage.setItem('youtube_access_token', 'guest');
+                setToken('guest');
+              } catch (e) {
+                console.error("Guest login failed:", e);
+                alert("Failed to start guest session.");
+              } finally {
+                setIsLoading(false);
+              }
             }}
+            disabled={isLoading}
           >
             Continue as Guest
           </button>

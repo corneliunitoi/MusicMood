@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { saveTasteGraphToSupabase } from '../services/supabaseService';
 
 const graphData = {
     nodes: [
@@ -101,17 +102,25 @@ function TasteGraphSetup({ onSave }) {
         });
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         // Map selected nodes to main music engine buckets
         const selectedBuckets = [...new Set(selectedNodes.map(n => n.group))];
 
         // Setup weights or simple top genres that discovery expects
         // Fallback to "Pop" if empty to ensure valid taste
-        onSave({
+        const defaultProfile = {
             topGenres: selectedBuckets.length > 0 ? selectedBuckets : ["Pop"],
             statsText: "Manually Picked Graph Vibes 📊",
             nodesPicked: selectedNodes.map(n => n.label)
-        });
+        };
+
+        try {
+            await saveTasteGraphToSupabase(defaultProfile);
+        } catch (e) {
+            console.error("Failed to save to Supabase:", e);
+        }
+
+        onSave(defaultProfile);
     };
 
     return (
