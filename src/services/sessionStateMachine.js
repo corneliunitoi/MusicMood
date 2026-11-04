@@ -392,11 +392,23 @@ class SessionStateMachine {
             const activeNode = GENRE_NODES[this.state.activeGenre];
             const genreQuery = activeNode ? activeNode.label.split('/')[0].trim() : 'Rock';
 
-            const { data, error } = await supabase
+            // First: Try to find a track that ALREADY has a pre-mapped youtube_id (Zero Quota!)
+            let { data, error } = await supabase
                 .from('local_metadata')
                 .select('*')
                 .ilike('genre', `%${genreQuery}%`)
+                .not('youtube_id', 'is', null)
                 .limit(40);
+
+            // If no pre-mapped tracks found, fallback to any tracks in this genre
+            if (!data || data.length === 0) {
+                const res = await supabase
+                    .from('local_metadata')
+                    .select('*')
+                    .ilike('genre', `%${genreQuery}%`)
+                    .limit(40);
+                data = res.data;
+            }
 
             if (error || !data || data.length === 0) return null;
 
@@ -406,7 +418,23 @@ class SessionStateMachine {
             if (available.length === 0) return null;
 
             const selected = available[Math.floor(Math.random() * available.length)];
+
+            // If already pre-mapped with youtube_id, return immediately (Zero Quota!)
+            if (selected.youtube_id) {
+                console.log(`[Zero-Quota Hit] Pre-mapped track: "${selected.artist} - ${selected.track_name}" -> ${selected.youtube_id}`);
+                return {
+                    id: selected.youtube_id,
+                    dbId: selected.id,
+                    artist: selected.artist,
+                    title: selected.track_name,
+                    genre: selected.genre,
+                    thumbnail: `https://i.ytimg.com/vi/${selected.youtube_id}/hqdefault.jpg`,
+                    source: 'local_library'
+                };
+            }
+
             return {
+                dbId: selected.id,
                 artist: selected.artist,
                 title: selected.track_name,
                 genre: selected.genre,
@@ -419,6 +447,9 @@ class SessionStateMachine {
     }
 
     async resolveTrackToYouTube(track, token) {
+        // If track already has resolved id from pre-mapping, skip YouTube API completely!
+        if (track.id) return track;
+
         const authHeaders = token === 'guest' ? {} : { Authorization: `Bearer ${token}` };
         const authParams = token === 'guest' ? `&key=${import.meta.env.VITE_YOUTUBE_API_KEY}` : '';
         const query = `${track.artist} ${track.title} official audio`;
@@ -430,8 +461,21 @@ class SessionStateMachine {
 
             if (data.items && data.items.length > 0) {
                 const item = data.items[0];
+                const resolvedId = item.id.videoId;
+
+                // Asynchronously cache youtube_id back to Supabase so it's permanently zero-quota next time
+                if (track.dbId && resolvedId) {
+                    supabase
+                        .from('local_metadata')
+                        .update({ youtube_id: resolvedId })
+                        .eq('id', track.dbId)
+                        .then(() => console.log(`[JIT Cache] Cached youtube_id for ${track.artist} - ${track.title}`))
+                        .catch(() => {});
+                }
+
                 return {
-                    id: item.id.videoId,
+                    id: resolvedId,
+                    dbId: track.dbId,
                     title: track.title,
                     artist: track.artist,
                     channelTitle: item.snippet.channelTitle,
