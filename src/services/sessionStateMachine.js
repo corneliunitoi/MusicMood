@@ -11,7 +11,7 @@
  */
 
 import { supabase, recordListenEvent } from './supabaseService';
-import { GENRE_NODES, getConnectedGenres, getMoodCompatibleGenres, violatesDealbreakers, normalizeWeights } from './tasteGraph';
+import { GENRE_FAMILIES, GENRE_NODES, getConnectedGenres, getMoodCompatibleGenres, violatesDealbreakers, normalizeWeights } from './tasteGraph';
 import { allMoods } from '../components/MoodBar';
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
@@ -414,15 +414,24 @@ class SessionStateMachine {
                 }
             }
 
-            // 1. Try Sourcing from Supabase Local Enriched Library
+            // 1. Try Sourcing from Supabase Local Enriched Library (Pre-mapped zero-quota tracks)
             const shouldTryLibrary = this.state.discoveryLevel < 0.8;
             if (shouldTryLibrary) {
                 const libCandidate = await this.sourceFromLocalLibrary();
-                if (libCandidate && this.passesGuards(libCandidate)) {
-                    const resolved = await this.resolveTrackToYouTube(libCandidate, token);
-                    if (resolved && this.passesGuards(resolved)) {
-                        this.commitTrack(resolved);
-                        return resolved;
+                if (libCandidate) {
+                    // If track already has pre-mapped 11-char YouTube ID, play immediately (Zero Quota!)
+                    if (libCandidate.id && this.passesGuards(libCandidate)) {
+                        this.commitTrack(libCandidate);
+                        return libCandidate;
+                    }
+                    
+                    // If track has metadata but no ID yet, resolve it
+                    if (this.passesMetadataGuards(libCandidate)) {
+                        const resolved = await this.resolveTrackToYouTube(libCandidate, token);
+                        if (resolved && this.passesGuards(resolved)) {
+                            this.commitTrack(resolved);
+                            return resolved;
+                        }
                     }
                 }
             }
@@ -434,6 +443,14 @@ class SessionStateMachine {
                 return ytCandidate;
             }
 
+            // 3. Resilient Fallback: If YouTube search was blocked/rate-limited, pick ANY valid pre-mapped track!
+            const emergencyTrack = await this.sourceEmergencyTrack();
+            if (emergencyTrack && this.passesGuards(emergencyTrack)) {
+                console.log(`[Emergency Fallback 🛡️] Played pre-mapped track: "${emergencyTrack.artist} - ${emergencyTrack.title}"`);
+                this.commitTrack(emergencyTrack);
+                return emergencyTrack;
+            }
+
             return null;
         } finally {
             this.isResolving = false;
@@ -441,10 +458,10 @@ class SessionStateMachine {
     }
 
     /**
-     * Strict Guard Verification Engine
+     * Strict Guard Verification for Metadata (Title, Artist, Dealbreakers)
      */
-    passesGuards(track) {
-        if (!track || !track.id || track.id.length !== 11) return false;
+    passesMetadataGuards(track) {
+        if (!track) return false;
 
         const title = (track.title || '').toLowerCase();
         const artist = (track.artist || track.channelTitle || '').toLowerCase();
@@ -457,17 +474,32 @@ class SessionStateMachine {
 
         if (!artist || artist.length < 2 || !title || title.length < 2) return false;
         if (JUNK_ARTIST_REGEX.test(artist) || JUNK_TITLE_REGEX.test(title)) {
-            console.log(`[Guard ❌] Rejected corrupted metadata: "${artist} - ${title}"`);
             return false;
         }
         if (NON_MUSIC_TERMS.some(t => title.includes(t) || artist.includes(t))) {
-            console.log(`[Guard ❌] Rejected non-music content: "${title}"`);
             return false;
         }
         if (COMPILATION_TERMS.some(t => title.includes(t))) {
-            console.log(`[Guard ❌] Rejected multi-track compilation / teaser: "${title}"`);
             return false;
         }
+
+        // Guard: Dealbreaker & Negative Query Guard
+        if (violatesDealbreakers(title + ' ' + artist, this.state.activeGenre, this.calibration.dealbreakers)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Strict Guard Verification Engine (Full Track with 11-char Video ID)
+     */
+    passesGuards(track) {
+        if (!track || !track.id || track.id.length !== 11) return false;
+        if (!this.passesMetadataGuards(track)) return false;
+
+        const artist = (track.artist || track.channelTitle || '').toLowerCase();
+        const title = (track.title || '').toLowerCase();
 
         // Guard 1: Anti-Loop Repetition Guard (50 tracks, 15 artists)
         if (this.state.recentTracks.includes(track.id)) {
@@ -476,12 +508,6 @@ class SessionStateMachine {
         }
         if (artist && this.state.recentArtists.slice(-15).includes(artist)) {
             console.log(`[Guard ❌] Satiation: Artist "${artist}" played in last 15 songs.`);
-            return false;
-        }
-
-        // Guard 2: Dealbreaker & Negative Query Guard
-        if (violatesDealbreakers(title + ' ' + artist, this.state.activeGenre, this.calibration.dealbreakers)) {
-            console.log(`[Guard ❌] Anti-Drift: "${title}" violates active dealbreaker.`);
             return false;
         }
 
@@ -516,25 +542,79 @@ class SessionStateMachine {
         this.notify();
     }
 
+    async sourceEmergencyTrack() {
+        try {
+            // Find any valid 11-char pre-mapped track from the catalog
+            const { data } = await supabase
+                .from('tracks')
+                .select('*')
+                .not('youtube_video_id', 'is', null)
+                .neq('youtube_video_id', 'CORRUPT_TAGS')
+                .limit(40);
+
+            if (!data || data.length === 0) return null;
+
+            const valid = data.filter(t => t.youtube_video_id && t.youtube_video_id.length === 11 && this.passesMetadataGuards(t));
+            if (valid.length === 0) return null;
+
+            const selected = valid[Math.floor(Math.random() * valid.length)];
+            return {
+                id: selected.youtube_video_id,
+                dbId: selected.id,
+                artist: selected.artist,
+                title: selected.title,
+                genre: selected.primary_genre_id || this.state.activeGenre,
+                thumbnail: `https://i.ytimg.com/vi/${selected.youtube_video_id}/hqdefault.jpg`,
+                source: 'emergency_zero_quota'
+            };
+        } catch (e) {
+            return null;
+        }
+    }
+
     async sourceFromLocalLibrary() {
         try {
             const activeGenreId = this.state.activeGenre;
+            const node = GENRE_NODES[activeGenreId];
 
-            // 1. Try to find a track in `tracks` that already has a pre-mapped youtube_video_id (Zero Quota!)
+            // Build candidate genre list: specific subgenre, parent family, and harmonic neighbors
+            const candidateGenreIds = [activeGenreId];
+            if (node?.group) {
+                const groupLower = node.group.toLowerCase();
+                candidateGenreIds.push(groupLower);
+                const parentId = Object.keys(GENRE_FAMILIES).find(k => GENRE_FAMILIES[k].label.toLowerCase() === groupLower);
+                if (parentId) candidateGenreIds.push(parentId);
+            }
+            const neighbors = getConnectedGenres(activeGenreId);
+            candidateGenreIds.push(...neighbors);
+
+            // 1. Try to find a track in `tracks` that already has a pre-mapped youtube_video_id in candidate genres (Zero Quota!)
             let { data, error } = await supabase
                 .from('tracks')
                 .select('*')
-                .eq('primary_genre_id', activeGenreId)
+                .in('primary_genre_id', candidateGenreIds)
                 .not('youtube_video_id', 'is', null)
-                .limit(40);
+                .neq('youtube_video_id', 'CORRUPT_TAGS')
+                .limit(60);
 
-            // 2. Fallback to unmapped tracks in this genre
+            // 2. If no pre-mapped track in candidate genres, try ANY pre-mapped track in the whole catalog
+            if (!data || data.length === 0) {
+                const anyMapped = await supabase
+                    .from('tracks')
+                    .select('*')
+                    .not('youtube_video_id', 'is', null)
+                    .neq('youtube_video_id', 'CORRUPT_TAGS')
+                    .limit(60);
+                data = anyMapped.data;
+            }
+
+            // 3. Fallback to unmapped tracks in candidate genres
             if (!data || data.length === 0) {
                 const res = await supabase
                     .from('tracks')
                     .select('*')
-                    .eq('primary_genre_id', activeGenreId)
-                    .limit(40);
+                    .in('primary_genre_id', candidateGenreIds)
+                    .limit(60);
                 data = res.data;
             }
 
@@ -560,7 +640,7 @@ class SessionStateMachine {
             const selected = available[Math.floor(Math.random() * available.length)];
 
             // If already pre-mapped with youtube_video_id, return immediately (Zero Quota!)
-            if (selected.youtube_video_id) {
+            if (selected.youtube_video_id && selected.youtube_video_id.length === 11) {
                 console.log(`[Zero-Quota Hit] Pre-mapped track: "${selected.artist} - ${selected.title}" -> ${selected.youtube_video_id}`);
                 return {
                     id: selected.youtube_video_id,
