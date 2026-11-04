@@ -96,6 +96,15 @@ async function scrapePlaylistTracks(playlistIdOrUrl) {
 
   const data = JSON.parse(match[1]);
 
+  if (data.alerts && Array.isArray(data.alerts)) {
+    for (const a of data.alerts) {
+      if (a.alertRenderer?.type === 'ERROR') {
+        const msg = a.alertRenderer?.text?.runs?.[0]?.text || a.alertRenderer?.text?.simpleText || 'Playlist is private or does not exist.';
+        throw new Error(`YouTube: ${msg}`);
+      }
+    }
+  }
+
   let playlistTitle = 'YouTube Playlist';
   try {
     playlistTitle = data.metadata?.playlistMetadataRenderer?.title ||

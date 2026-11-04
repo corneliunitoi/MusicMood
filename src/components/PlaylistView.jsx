@@ -1,48 +1,49 @@
 import { useState } from 'react';
 import { GENRE_FAMILIES, GENRE_NODES } from '../services/tasteGraph';
 import { fetchPlaylistTracks, ingestPlaylistTracks, inferGenreFromTitle } from '../services/youtubePlaylistIngester';
+import { fetchPlaylistItems } from '../services/youtube';
 import { sessionEngine } from '../services/sessionStateMachine';
 
 const CURATED_PRESETS = [
     {
-        id: 'PL6bPxvf5nM4uxkE8l0u_c0b_Z_u663k3t',
-        title: 'Classic Rock Anthems & Epics',
+        id: 'PL9xheEG-eSrSzt05VVCLfNRBjnNmRZtbx',
+        title: 'Classic Rock Greatest Hits',
         genre: 'classic_rock',
-        description: 'Legendary riffs, soaring solos, and stadium energy',
+        description: 'Legendary riffs, soaring solos, and timeless rock anthems',
         thumbnail: 'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=400&q=80',
-        count: 65
+        count: 100
     },
     {
-        id: 'PLx0sYbCqOb8TBPRdmBHs5IftVV9TPbo3C',
-        title: 'Progressive Rock & Metal Odyssey',
+        id: 'PLbouzmFCyUKZUZkyRZRX06N230bDX1hE8',
+        title: 'Best of Progressive Rock',
         genre: 'prog_metal',
-        description: 'Complex time signatures, heavy dynamics, and epic songwriting',
+        description: 'Complex time signatures, epic conceptual suites, and virtuosic mastery',
         thumbnail: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&q=80',
-        count: 55
+        count: 100
     },
     {
-        id: 'PL4QNnZJr8sRNKzL_eIq1iB2Z2W8xT49n6',
-        title: 'Atmospheric Post-Rock & Soundscapes',
-        genre: 'post_rock',
-        description: 'Cinematic builds, ethereal reverb, and deep emotional resonance',
+        id: 'PL_fMEPmm_e5f3sMPHnPGRpQ1kBoRLVVnD',
+        title: 'Heavy Metal Anthems & Ballads',
+        genre: 'heavy_metal',
+        description: 'Crushing distortion, thunderous drums, and soaring vocals',
         thumbnail: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=400&q=80',
-        count: 45
+        count: 18
     },
     {
-        id: 'PLOzDu-MXXLliO9fBNZOQTBDddoA3FzZUo',
-        title: 'Deep Ambient & Modern Classical',
-        genre: 'ambient',
-        description: 'Minimalist piano, lush textural drones, and zero-distraction headspace',
-        thumbnail: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=400&q=80',
-        count: 75
-    },
-    {
-        id: 'PLzCxunOM5WFI5rQsmB_U0v5hJ_j66hXq3',
-        title: 'Synthwave & Retrowave Cyberpunk',
+        id: 'PLOtNYlNIGer0jmWpFtTWqMkfP56iuZg1w',
+        title: 'Chillwave & Synthwave Retrowave',
         genre: 'synthwave',
-        description: 'Neon arpeggios, analog basslines, and retro-futuristic drive',
+        description: 'Neon arpeggios, analog basslines, and retro-futuristic night drives',
         thumbnail: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&q=80',
-        count: 50
+        count: 47
+    },
+    {
+        id: 'PL8F6B0753B2CCA128',
+        title: 'Top 100 Jazz Classics',
+        genre: 'jazz',
+        description: 'Silky saxophones, warm double bass, and sophisticated harmonies',
+        thumbnail: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=400&q=80',
+        count: 100
     }
 ];
 
@@ -68,15 +69,54 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
         setIngestResult(null);
         setIngestProgress(null);
 
+        let cleanId = (plIdOrUrl || '').trim();
+        if (cleanId.includes('list=')) {
+            const m = cleanId.match(/list=([a-zA-Z0-9_-]+)/);
+            if (m) cleanId = m[1];
+        }
+
         try {
-            const data = await fetchPlaylistTracks(plIdOrUrl);
-            const resolvedTitle = data.title || titleFallback || 'YouTube Playlist';
+            let loadedTracks = [];
+            let resolvedTitle = titleFallback || 'YouTube Playlist';
+
+            // 1. If user is signed in with Google OAuth, try official API with Bearer token (gives access to user's private & unlisted playlists!)
+            if (token && token !== 'guest') {
+                try {
+                    const apiItems = await fetchPlaylistItems(cleanId, token);
+                    if (apiItems && apiItems.length > 0) {
+                        loadedTracks = apiItems
+                            .filter(item => item && item.id && item.title !== 'Private video' && item.title !== 'Deleted video')
+                            .map(item => ({
+                                videoId: item.videoId || item.id,
+                                title: item.title,
+                                artist: item.artist || 'Unknown Artist',
+                                thumbnail: item.thumbnail || `https://i.ytimg.com/vi/${item.videoId || item.id}/hqdefault.jpg`,
+                            }));
+                    }
+                } catch (apiErr) {
+                    console.warn('[PlaylistView] OAuth playlist fetch notice:', apiErr.message);
+                }
+            }
+
+            // 2. If no tracks loaded yet (e.g. guest, public URL, or API rate limit), use zero-quota scraper
+            if (loadedTracks.length === 0) {
+                const data = await fetchPlaylistTracks(cleanId);
+                resolvedTitle = data.title || resolvedTitle;
+                loadedTracks = data.tracks || [];
+            }
+
+            if (loadedTracks.length === 0) {
+                throw new Error(
+                    "Found 0 playable tracks in this playlist. If this is a private playlist, ensure you are signed in with the Google account that owns it, or set the playlist visibility to 'Unlisted' or 'Public' on YouTube."
+                );
+            }
+
             setSelectedPlaylist({
-                id: plIdOrUrl,
+                id: cleanId,
                 title: resolvedTitle,
-                total: data.total || data.tracks?.length || 0
+                total: loadedTracks.length
             });
-            setTracks(data.tracks || []);
+            setTracks(loadedTracks);
 
             const detected = genreHint || inferGenreFromTitle(resolvedTitle);
             setTargetGenre(detected);
