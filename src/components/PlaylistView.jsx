@@ -5,52 +5,44 @@ import { sessionEngine } from '../services/sessionStateMachine';
 
 const CURATED_PRESETS = [
     {
-        id: 'PLMC9KNkIncKtPzgY-5rmhvj7fax8fdxoj',
-        title: 'Pop Essentials & Chart Hits',
-        genre: 'pop',
-        description: 'Global pop hits & timeless melodic earworms',
-        thumbnail: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&q=80',
-        count: 100
-    },
-    {
         id: 'PL6bPxvf5nM4uxkE8l0u_c0b_Z_u663k3t',
-        title: 'Classic Rock Anthems',
+        title: 'Classic Rock Anthems & Epics',
         genre: 'classic_rock',
         description: 'Legendary riffs, soaring solos, and stadium energy',
         thumbnail: 'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=400&q=80',
         count: 65
     },
     {
-        id: 'PLzCxunOM5WFI5rQsmB_U0v5hJ_j66hXq3',
-        title: 'Synthwave & Retrowave Nights',
-        genre: 'synthwave',
-        description: 'Neon arpeggios, analog synths, and cyberpunk night drives',
-        thumbnail: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&q=80',
-        count: 50
+        id: 'PLx0sYbCqOb8TBPRdmBHs5IftVV9TPbo3C',
+        title: 'Progressive Rock & Metal Odyssey',
+        genre: 'prog_metal',
+        description: 'Complex time signatures, heavy dynamics, and epic songwriting',
+        thumbnail: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&q=80',
+        count: 55
     },
     {
         id: 'PL4QNnZJr8sRNKzL_eIq1iB2Z2W8xT49n6',
-        title: 'Smooth Jazz & Midnight Lounge',
-        genre: 'smooth_jazz',
-        description: 'Silky saxophones, warm rhodes pianos, and sophisticated harmonies',
+        title: 'Atmospheric Post-Rock & Soundscapes',
+        genre: 'post_rock',
+        description: 'Cinematic builds, ethereal reverb, and deep emotional resonance',
         thumbnail: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=400&q=80',
         count: 45
     },
     {
         id: 'PLOzDu-MXXLliO9fBNZOQTBDddoA3FzZUo',
-        title: 'Lo-Fi Focus & Deep Study',
-        genre: 'lofi_beats',
-        description: 'Warm vinyl crackle, mellow chords, and zero-distraction focus',
+        title: 'Deep Ambient & Modern Classical',
+        genre: 'ambient',
+        description: 'Minimalist piano, lush textural drones, and zero-distraction headspace',
         thumbnail: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=400&q=80',
         count: 75
     },
     {
-        id: 'PLx0sYbCqOb8TBPRdmBHs5IftVV9TPbo3C',
-        title: 'Deep Metal & Progressive Riffs',
-        genre: 'prog_metal',
-        description: 'Technical mastery, crushing riffs, and atmospheric weight',
-        thumbnail: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&q=80',
-        count: 55
+        id: 'PLzCxunOM5WFI5rQsmB_U0v5hJ_j66hXq3',
+        title: 'Synthwave & Retrowave Cyberpunk',
+        genre: 'synthwave',
+        description: 'Neon arpeggios, analog basslines, and retro-futuristic drive',
+        thumbnail: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&q=80',
+        count: 50
     }
 ];
 
