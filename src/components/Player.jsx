@@ -251,14 +251,25 @@ function Player({ initialTrack, token }) {
                             fontSize: '0.82rem',
                             fontWeight: 'bold',
                             cursor: 'pointer',
-                            outline: 'none'
+                            outline: 'none',
+                            maxWidth: '260px'
                         }}
                         title="Click to jump to any genre or explore outside initial picks"
                     >
-                        {Object.entries(GENRE_NODES).map(([id, node]) => (
-                            <option key={id} value={id}>
-                                {node.group}: {node.label}
-                            </option>
+                        {Object.entries(
+                            Object.entries(GENRE_NODES).reduce((acc, [id, node]) => {
+                                acc[node.group] = acc[node.group] || [];
+                                acc[node.group].push({ id, ...node });
+                                return acc;
+                            }, {})
+                        ).map(([group, nodes]) => (
+                            <optgroup key={group} label={group}>
+                                {nodes.map(n => (
+                                    <option key={n.id} value={n.id}>
+                                        {n.label}
+                                    </option>
+                                ))}
+                            </optgroup>
                         ))}
                     </select>
                     <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>
