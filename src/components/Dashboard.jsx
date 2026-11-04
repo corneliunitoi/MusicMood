@@ -24,7 +24,8 @@ function Dashboard({ token, onLogout }) {
     const [activeTrack, setActiveTrack] = useState(null);
     const [isDiscovering, setIsDiscovering] = useState(false);
 
-    const [cloudCount, setCloudCount] = useState(0);
+    const [playableCount, setPlayableCount] = useState(0);
+    const [archiveCount, setArchiveCount] = useState(0);
 
     const [calibration, setCalibration] = useState(() => sessionEngine.getCalibration());
 
@@ -59,15 +60,19 @@ function Dashboard({ token, onLogout }) {
     useEffect(() => {
         const fetchStatus = async () => {
             try {
-                const { count, error } = await supabase
-                    .from('local_metadata')
-                    .select('*', { count: 'exact', head: true });
+                const [playableRes, archiveRes] = await Promise.all([
+                    supabase.from('tracks').select('*', { count: 'exact', head: true }),
+                    supabase.from('local_metadata').select('*', { count: 'exact', head: true })
+                ]);
 
-                if (!error) {
-                    setCloudCount(count || 0);
+                if (!playableRes.error) {
+                    setPlayableCount(playableRes.count || 0);
+                }
+                if (!archiveRes.error) {
+                    setArchiveCount(archiveRes.count || 0);
                 }
             } catch (e) {
-                console.error("Failed to fetch cloud status:", e);
+                console.error("Failed to fetch library counts:", e);
             }
         };
 
@@ -157,9 +162,12 @@ function Dashboard({ token, onLogout }) {
                     </div>
                 )}
                 <div className="header-actions">
-                    <div className="cloud-status" style={{ display: 'inline-flex', alignItems: 'center', marginRight: '1rem' }}>
-                        <span className="text-secondary" style={{ fontSize: '0.85rem' }}>
-                            ☁️ Cloud Library: <strong>{cloudCount.toLocaleString()}</strong> tracks
+                    <div className="cloud-status" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', marginRight: '1rem', fontSize: '0.85rem' }}>
+                        <span style={{ color: '#34d399', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '9999px', padding: '0.2rem 0.6rem' }}>
+                            ⚡ <strong>{playableCount}</strong> Playable
+                        </span>
+                        <span className="text-secondary" style={{ opacity: 0.8 }}>
+                            📁 <strong>{archiveCount.toLocaleString()}</strong> Archive
                         </span>
                     </div>
                     <button
@@ -276,12 +284,14 @@ function Dashboard({ token, onLogout }) {
                             }}
                             onIngestComplete={async () => {
                                 try {
-                                    const { count } = await supabase
-                                        .from('local_metadata')
-                                        .select('*', { count: 'exact', head: true });
-                                    if (count) setCloudCount(count);
+                                    const [pRes, aRes] = await Promise.all([
+                                        supabase.from('tracks').select('*', { count: 'exact', head: true }),
+                                        supabase.from('local_metadata').select('*', { count: 'exact', head: true })
+                                    ]);
+                                    if (pRes.count) setPlayableCount(pRes.count);
+                                    if (aRes.count) setArchiveCount(aRes.count);
                                 } catch (e) {
-                                    console.warn('Failed to refresh cloud count:', e);
+                                    console.warn('Failed to refresh counts:', e);
                                 }
                             }}
                         />
