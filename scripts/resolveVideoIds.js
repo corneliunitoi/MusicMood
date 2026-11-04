@@ -64,21 +64,20 @@ async function startResolver() {
     });
 
     while (isRunning) {
-        // Fetch a batch of tracks missing youtube_id
+        // Fetch a batch of tracks missing youtube_video_id
         const { data: tracks, error } = await supabase
-            .from('local_metadata')
-            .select('id, artist, track_name, genre')
-            .is('youtube_id', null)
+            .from('tracks')
+            .select('id, artist, title, primary_genre_id')
+            .is('youtube_video_id', null)
             .limit(BATCH_SIZE);
 
         if (error) {
             console.error("❌ Supabase query error:", error.message);
-            console.log("⚠️ If the column 'youtube_id' does not exist yet, run add_youtube_id.sql in your Supabase SQL editor!");
             process.exit(1);
         }
 
         if (!tracks || tracks.length === 0) {
-            console.log("\n🎉 All tracks in local_metadata have been mapped! Zero unmapped tracks remaining.");
+            console.log("\n🎉 All tracks in the database have been mapped! Zero unmapped tracks remaining.");
             break;
         }
 
@@ -87,24 +86,24 @@ async function startResolver() {
         for (const track of tracks) {
             if (!isRunning) break;
 
-            const videoId = await resolveYouTubeId(track.artist, track.track_name);
+            const videoId = await resolveYouTubeId(track.artist, track.title);
 
             if (videoId) {
                 // Update track in Supabase
                 const { error: updateError } = await supabase
-                    .from('local_metadata')
-                    .update({ youtube_id: videoId })
+                    .from('tracks')
+                    .update({ youtube_video_id: videoId })
                     .eq('id', track.id);
 
                 if (!updateError) {
                     totalResolved++;
-                    console.log(`[${totalResolved}] ✅ Mapped: "${track.artist} - ${track.track_name}" -> ${videoId} (${track.genre})`);
+                    console.log(`[${totalResolved}] ✅ Mapped: "${track.artist} - ${track.title}" -> ${videoId} (${track.primary_genre_id || 'unclassified'})`);
                 } else {
                     console.warn(`⚠️ Update failed for ID ${track.id}:`, updateError.message);
                 }
             } else {
                 totalFailed++;
-                console.log(`[Fail] ❌ Could not resolve: "${track.artist} - ${track.track_name}"`);
+                console.log(`[Fail] ❌ Could not resolve: "${track.artist} - ${track.title}"`);
             }
 
             await sleep(DELAY_MS);

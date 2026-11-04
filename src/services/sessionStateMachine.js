@@ -389,23 +389,22 @@ class SessionStateMachine {
 
     async sourceFromLocalLibrary() {
         try {
-            const activeNode = GENRE_NODES[this.state.activeGenre];
-            const genreQuery = activeNode ? activeNode.label.split('/')[0].trim() : 'Rock';
+            const activeGenreId = this.state.activeGenre;
 
-            // First: Try to find a track that ALREADY has a pre-mapped youtube_id (Zero Quota!)
+            // 1. Try to find a track in `tracks` that already has a pre-mapped youtube_video_id (Zero Quota!)
             let { data, error } = await supabase
-                .from('local_metadata')
+                .from('tracks')
                 .select('*')
-                .ilike('genre', `%${genreQuery}%`)
-                .not('youtube_id', 'is', null)
+                .eq('primary_genre_id', activeGenreId)
+                .not('youtube_video_id', 'is', null)
                 .limit(40);
 
-            // If no pre-mapped tracks found, fallback to any tracks in this genre
+            // 2. Fallback to unmapped tracks in this genre
             if (!data || data.length === 0) {
                 const res = await supabase
-                    .from('local_metadata')
+                    .from('tracks')
                     .select('*')
-                    .ilike('genre', `%${genreQuery}%`)
+                    .eq('primary_genre_id', activeGenreId)
                     .limit(40);
                 data = res.data;
             }
@@ -419,29 +418,29 @@ class SessionStateMachine {
 
             const selected = available[Math.floor(Math.random() * available.length)];
 
-            // If already pre-mapped with youtube_id, return immediately (Zero Quota!)
-            if (selected.youtube_id) {
-                console.log(`[Zero-Quota Hit] Pre-mapped track: "${selected.artist} - ${selected.track_name}" -> ${selected.youtube_id}`);
+            // If already pre-mapped with youtube_video_id, return immediately (Zero Quota!)
+            if (selected.youtube_video_id) {
+                console.log(`[Zero-Quota Hit] Pre-mapped track: "${selected.artist} - ${selected.title}" -> ${selected.youtube_video_id}`);
                 return {
-                    id: selected.youtube_id,
+                    id: selected.youtube_video_id,
                     dbId: selected.id,
                     artist: selected.artist,
-                    title: selected.track_name,
-                    genre: selected.genre,
-                    thumbnail: `https://i.ytimg.com/vi/${selected.youtube_id}/hqdefault.jpg`,
-                    source: 'local_library'
+                    title: selected.title,
+                    genre: activeGenreId,
+                    thumbnail: `https://i.ytimg.com/vi/${selected.youtube_video_id}/hqdefault.jpg`,
+                    source: selected.source || 'tracks_catalog'
                 };
             }
 
             return {
                 dbId: selected.id,
                 artist: selected.artist,
-                title: selected.track_name,
-                genre: selected.genre,
-                source: 'local_library'
+                title: selected.title,
+                genre: activeGenreId,
+                source: selected.source || 'tracks_catalog'
             };
         } catch (e) {
-            console.warn('[StateMachine] Local library lookup exception:', e);
+            console.warn('[StateMachine] Tracks catalog lookup exception:', e);
             return null;
         }
     }
@@ -463,13 +462,13 @@ class SessionStateMachine {
                 const item = data.items[0];
                 const resolvedId = item.id.videoId;
 
-                // Asynchronously cache youtube_id back to Supabase so it's permanently zero-quota next time
+                // Asynchronously cache youtube_video_id back to Supabase tracks table so it's permanently zero-quota next time
                 if (track.dbId && resolvedId) {
                     supabase
-                        .from('local_metadata')
-                        .update({ youtube_id: resolvedId })
+                        .from('tracks')
+                        .update({ youtube_video_id: resolvedId })
                         .eq('id', track.dbId)
-                        .then(() => console.log(`[JIT Cache] Cached youtube_id for ${track.artist} - ${track.title}`))
+                        .then(() => console.log(`[JIT Cache] Cached youtube_video_id for ${track.artist} - ${track.title}`))
                         .catch(() => {});
                 }
 
