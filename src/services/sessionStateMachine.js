@@ -11,7 +11,7 @@
  */
 
 import { supabase, recordListenEvent } from './supabaseService';
-import { GENRE_NODES, getConnectedGenres, violatesDealbreakers, normalizeWeights } from './tasteGraph';
+import { GENRE_NODES, getConnectedGenres, getMoodCompatibleGenres, violatesDealbreakers, normalizeWeights } from './tasteGraph';
 import { allMoods } from '../components/MoodBar';
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
@@ -134,14 +134,31 @@ class SessionStateMachine {
 
     /**
      * Traverses to an adjacent node or compatible anchor based on:
-     * Suitability = NormalizedAffinity * (1 - Fatigue) * HarmonicProximity
+     * Suitability = EffectiveAffinity * (1 - Fatigue) * HarmonicProximity * MoodAffinity
+     * Dynamically expands exploration radius using discoveryLevel.
      */
     stepToNextGenre(reason = 'flow') {
         const current = this.state.activeGenre;
         const neighbors = getConnectedGenres(current);
+        const moodCompatible = getMoodCompatibleGenres(this.state.currentMood);
+        const discovery = this.state.discoveryLevel ?? 0.5;
 
-        // Consider neighbors first, then other user anchors
-        const candidatePool = Array.from(new Set([...neighbors, ...this.calibration.anchors]));
+        // Dynamic candidate pool based on discovery level:
+        let candidatePool;
+        if (discovery < 0.35) {
+            // Familiar / Anchored: 1-hop harmonic neighbors + user anchors
+            candidatePool = Array.from(new Set([...neighbors, ...this.calibration.anchors]));
+        } else if (discovery <= 0.70) {
+            // Balanced: 1-hop + 2-hop harmonic neighbors + mood-compatible genres + user anchors
+            const twoHop = [];
+            neighbors.forEach(n => {
+                getConnectedGenres(n).forEach(n2 => twoHop.push(n2));
+            });
+            candidatePool = Array.from(new Set([...neighbors, ...twoHop, ...moodCompatible, ...this.calibration.anchors]));
+        } else {
+            // Deep Cuts / Wide Exploration: ALL non-dealbreaker genres
+            candidatePool = Object.keys(GENRE_NODES);
+        }
 
         // Filter out dealbreakers and the exact current node
         const validCandidates = candidatePool.filter(nodeId => {
@@ -155,24 +172,31 @@ class SessionStateMachine {
             return current;
         }
 
-        // Score each candidate by affinity & inverse fatigue
+        // Score each candidate by affinity, inverse fatigue, and harmonic/mood affinity
         const scored = validCandidates.map(nodeId => {
-            const weight = this.calibration.weights[nodeId] || 0.1;
-            const fatigue = this.nodeFatigue[nodeId] || 0.0;
-            // Immediate harmonic neighbor bonus
-            const isNeighbor = neighbors.includes(nodeId);
-            const neighborBonus = isNeighbor ? 1.3 : 1.0;
+            const rawWeight = this.calibration.weights[nodeId] || 0.1;
+            // Higher discovery flattens anchor bias so user isn't confined to original picks
+            const effectiveWeight = (rawWeight * (1.0 - discovery * 0.7)) + (0.15 * discovery);
 
-            const score = weight * (1.0 - fatigue * 0.8) * neighborBonus;
+            const fatigue = this.nodeFatigue[nodeId] || 0.0;
+            const isNeighbor = neighbors.includes(nodeId);
+            const isMoodMatch = moodCompatible.includes(nodeId);
+
+            const neighborBonus = isNeighbor ? 1.35 : 1.0;
+            const moodBonus = isMoodMatch ? 1.4 : 0.85;
+
+            // Score with strong anti-stagnation fatigue penalty
+            const score = effectiveWeight * Math.max(0.08, 1.0 - fatigue * 0.85) * neighborBonus * moodBonus;
             return { nodeId, score };
         });
 
-        // Weighted selection (Softmax-like or proportional pick)
+        // Weighted selection (Softmax-like or proportional pick from top candidates)
         scored.sort((a, b) => b.score - a.score);
-        const topCandidates = scored.slice(0, 3);
+        const candidateCount = Math.min(discovery > 0.7 ? 8 : 4, scored.length);
+        const topCandidates = scored.slice(0, candidateCount);
         const chosen = topCandidates[Math.floor(Math.random() * topCandidates.length)].nodeId;
 
-        console.log(`[Anti-Stagnation Flow] Transitioned along graph (${reason}): ${current} -> ${chosen}`);
+        console.log(`[Anti-Stagnation Flow] Transitioned along graph (${reason}): ${current} -> ${chosen} (Discovery: ${discovery})`);
 
         this.state.activeGenre = chosen;
         this.state.consecutiveInNode = 0;
@@ -215,14 +239,36 @@ class SessionStateMachine {
             this.state.vocalPreference = 'instrumental';
         }
 
-        const currentNode = GENRE_NODES[this.state.activeGenre];
-        const isCurrentAllowed = !violatesDealbreakers(currentNode?.label, this.state.activeGenre, this.calibration.dealbreakers);
+        const moodCompatible = getMoodCompatibleGenres(moodId);
 
-        if (!isCurrentAllowed) {
-            const fallback = this.calibration.anchors.find(a => !violatesDealbreakers(a, a, this.calibration.dealbreakers)) || 'lofi_hiphop';
-            this.state.activeGenre = fallback;
+        // If the current genre does not fit the new mood (or violates dealbreakers),
+        // route immediately to the best matching genre for this mood:
+        const currentFitsMood = moodCompatible.includes(this.state.activeGenre);
+        const currentAllowed = !violatesDealbreakers(GENRE_NODES[this.state.activeGenre]?.label, this.state.activeGenre, this.calibration.dealbreakers);
+
+        if (!currentFitsMood || !currentAllowed) {
+            // Prefer an anchor if it matches this mood, else pick from mood's core genres
+            const compatibleAnchor = this.calibration.anchors.find(a => moodCompatible.includes(a) && !violatesDealbreakers(a, a, this.calibration.dealbreakers));
+            const validMoodGenres = moodCompatible.filter(g => !violatesDealbreakers(GENRE_NODES[g]?.label, g, this.calibration.dealbreakers));
+            const newGenre = compatibleAnchor || validMoodGenres[0] || 'lofi_hiphop';
+            console.log(`[StateMachine] Switched active genre to align with mood "${moodObj.label}": ${newGenre}`);
+            this.state.activeGenre = newGenre;
         }
 
+        this.state.consecutiveInNode = 0;
+        this.queue = [];
+        this.notify();
+    }
+
+    setGenre(genreId) {
+        if (!GENRE_NODES[genreId]) return;
+        if (violatesDealbreakers(GENRE_NODES[genreId].label, genreId, this.calibration.dealbreakers)) {
+            console.warn(`[StateMachine] Cannot switch to ${genreId}: violates active dealbreaker.`);
+            return;
+        }
+
+        console.log(`[StateMachine] Direct genre jump -> ${GENRE_NODES[genreId].label}`);
+        this.state.activeGenre = genreId;
         this.state.consecutiveInNode = 0;
         this.queue = [];
         this.notify();

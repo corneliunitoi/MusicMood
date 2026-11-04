@@ -208,6 +208,11 @@ function Player({ initialTrack, token }) {
         sessionEngine.onLike(currentTrackRef.current);
     };
 
+    const handleGenreChange = async (newGenre) => {
+        sessionEngine.setGenre(newGenre);
+        await loadNextTrack(false);
+    };
+
     const handleDislike = async () => {
         setErrorMessage("Downvoted. Purging track and auto-skipping...");
         if (currentTrackRef.current) {
@@ -232,10 +237,32 @@ function Player({ initialTrack, token }) {
                 padding: '0.6rem 1.25rem',
                 fontSize: '0.85rem'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#10b981', fontWeight: 'bold' }}>
-                    <span>🛡️ Persistent Zero-Drift Player:</span>
-                    <span style={{ color: '#f8fafc', fontWeight: 'normal' }}>
-                        <strong>{activeNode?.label || sessionState.activeGenre}</strong> ({sessionState.currentMood.toUpperCase()})
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#10b981', fontWeight: 'bold', flexWrap: 'wrap' }}>
+                    <span>🛡️ Active Node:</span>
+                    <select
+                        value={sessionState.activeGenre}
+                        onChange={(e) => handleGenreChange(e.target.value)}
+                        style={{
+                            background: '#0f172a',
+                            color: '#38bdf8',
+                            border: '1px solid #38bdf8',
+                            borderRadius: '8px',
+                            padding: '0.2rem 0.5rem',
+                            fontSize: '0.82rem',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            outline: 'none'
+                        }}
+                        title="Click to jump to any genre or explore outside initial picks"
+                    >
+                        {Object.entries(GENRE_NODES).map(([id, node]) => (
+                            <option key={id} value={id}>
+                                {node.group}: {node.label}
+                            </option>
+                        ))}
+                    </select>
+                    <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>
+                        ({sessionState.currentMood.toUpperCase()})
                     </span>
                     <span style={{
                         background: 'rgba(255,255,255,0.08)',
@@ -412,9 +439,33 @@ function Player({ initialTrack, token }) {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <span style={{ color: '#94a3b8' }}>🧭 Discovery:</span>
-                    <span style={{ color: '#a855f7', fontWeight: 'bold' }}>
-                        {sessionState.discoveryLevel < 0.4 ? 'Library/Familiar' : sessionState.discoveryLevel <= 0.7 ? 'Balanced' : 'Deep Cuts'}
-                    </span>
+                    <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        {[
+                            { label: 'Familiar', val: 0.2 },
+                            { label: 'Balanced', val: 0.5 },
+                            { label: 'Deep Cuts', val: 0.85 }
+                        ].map(tier => {
+                            const active = Math.abs(sessionState.discoveryLevel - tier.val) < 0.2;
+                            return (
+                                <button
+                                    key={tier.label}
+                                    onClick={() => sessionEngine.setDiscoveryLevel(tier.val)}
+                                    title={tier.val > 0.7 ? "Wide graph wandering across all genres" : tier.val >= 0.4 ? "Harmonic wandering across neighboring subgenres" : "Anchored to your initial favorites"}
+                                    style={{
+                                        background: active ? '#a855f7' : 'rgba(255,255,255,0.05)',
+                                        color: active ? 'white' : '#94a3b8',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        padding: '0.2rem 0.5rem',
+                                        borderRadius: '6px',
+                                        fontSize: '0.75rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {tier.label}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
 

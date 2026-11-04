@@ -240,3 +240,34 @@ export function normalizeWeights(weights, anchors = [], dealbreakers = []) {
 
     return clean;
 }
+
+/**
+ * Natural mood-to-genre affinity mapping.
+ * Connects emotional state to aesthetic clusters in the taste graph.
+ */
+export const MOOD_GENRE_MAP = {
+    focus: ['neo_classical', 'ambient_electronic', 'lofi_hiphop', 'post_rock', 'ambient', 'smooth_jazz', 'idm'],
+    study: ['lofi_hiphop', 'neo_classical', 'ambient_electronic', 'ambient', 'smooth_jazz'],
+    chill: ['lofi_hiphop', 'smooth_jazz', 'ambient', 'acoustic_folk', 'rnb', 'house', 'ambient_electronic'],
+    late_night: ['lofi_hiphop', 'smooth_jazz', 'darksynth', 'ambient_electronic', 'rnb', 'ambient', 'techno'],
+    energetic: ['rock', 'alt_rock', 'metal', 'synthwave', 'techno', 'drum_and_bass', 'boom_bap', 'prog_metal'],
+    workout: ['metal', 'drum_and_bass', 'darksynth', 'prog_metal', 'techno', 'alt_rock', 'edm_mainstream', 'boom_bap'],
+    happy: ['soul_funk', 'indie_pop', 'acoustic_folk', 'alt_rock', 'synthwave', 'smooth_jazz', 'mainstream_pop'],
+    party: ['house', 'edm_mainstream', 'boom_bap', 'soul_funk', 'indie_pop', 'drum_and_bass'],
+    melancholic: ['neo_classical', 'post_rock', 'ambient', 'acoustic_folk', 'indie_rock', 'rnb'],
+    sad: ['acoustic_folk', 'neo_classical', 'post_rock', 'ambient', 'rnb'],
+    sleep: ['ambient', 'neo_classical', 'ambient_electronic'],
+    rainy: ['acoustic_folk', 'lofi_hiphop', 'smooth_jazz', 'post_rock', 'neo_classical'],
+    driving: ['rock', 'alt_rock', 'synthwave', 'indie_rock', 'soul_funk', 'boom_bap'],
+    morning: ['smooth_jazz', 'acoustic_folk', 'indie_pop', 'soul_funk', 'neo_classical'],
+    cyberpunk: ['darksynth', 'synthwave', 'techno', 'idm'],
+    cinematic_epic: ['cinematic_orchestral', 'prog_metal', 'post_rock', 'neo_classical'],
+    dark_intense: ['metal', 'darksynth', 'prog_metal', 'post_hardcore', 'techno']
+};
+
+export function getMoodCompatibleGenres(moodId) {
+    if (moodId && MOOD_GENRE_MAP[moodId]) {
+        return MOOD_GENRE_MAP[moodId];
+    }
+    return Object.keys(GENRE_NODES);
+}
