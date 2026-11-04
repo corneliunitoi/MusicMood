@@ -10,7 +10,7 @@
  * 5. Invariant Guards: Anti-Drift, Vocal, and Dealbreaker guards.
  */
 
-import { supabase } from './supabaseService';
+import { supabase, recordListenEvent } from './supabaseService';
 import { GENRE_NODES, getConnectedGenres, violatesDealbreakers, normalizeWeights } from './tasteGraph';
 import { allMoods } from '../components/MoodBar';
 
@@ -253,6 +253,13 @@ class SessionStateMachine {
         console.log(`[StateMachine] Feedback: LIKED "${track.title}" by ${track.artist}`);
         this.state.likedTracks.push(track.id);
 
+        recordListenEvent({
+            trackId: track.dbId || null,
+            moodId: this.state.currentMood,
+            genreId: this.state.activeGenre,
+            liked: true
+        });
+
         // Subtle, bounded boost to taste profile
         const genreId = this.state.activeGenre;
         const currentWeights = { ...this.calibration.weights };
@@ -270,6 +277,13 @@ class SessionStateMachine {
         console.log(`[StateMachine] Feedback: SKIPPED "${track.title}" by ${track.artist}`);
         this.state.skippedTracks.push(track.id);
 
+        recordListenEvent({
+            trackId: track.dbId || null,
+            moodId: this.state.currentMood,
+            genreId: this.state.activeGenre,
+            skipped: true
+        });
+
         if (track.artist && !this.state.recentArtists.includes(track.artist.toLowerCase())) {
             this.state.recentArtists.push(track.artist.toLowerCase());
         }
@@ -282,6 +296,13 @@ class SessionStateMachine {
     onTrackCompleted(track) {
         if (!track) return;
         console.log(`[StateMachine] Feedback: COMPLETED "${track.title}"`);
+
+        recordListenEvent({
+            trackId: track.dbId || null,
+            moodId: this.state.currentMood,
+            genreId: this.state.activeGenre,
+            completed: true
+        });
 
         this.applyNodeFatigue(this.state.activeGenre);
         this.state.consecutiveInNode = (this.state.consecutiveInNode || 0) + 1;
@@ -384,6 +405,14 @@ class SessionStateMachine {
         if (artist) {
             this.state.recentArtists.push(artist);
         }
+
+        // Record scrobble in Supabase listening_history
+        recordListenEvent({
+            trackId: track.dbId || null,
+            moodId: this.state.currentMood,
+            genreId: this.state.activeGenre,
+        });
+
         this.notify();
     }
 
@@ -529,6 +558,24 @@ class SessionStateMachine {
                     };
 
                     if (this.passesGuards(candidate)) {
+                        // Expand catalog in background
+                        supabase
+                            .from('tracks')
+                            .insert({
+                                youtube_video_id: candidate.id,
+                                title: candidate.title,
+                                artist: candidate.artist,
+                                primary_genre_id: this.state.activeGenre,
+                                source: 'online_discovery'
+                            })
+                            .select('id')
+                            .single()
+                            .then(({ data }) => {
+                                if (data?.id) candidate.dbId = data.id;
+                                console.log(`[Auto-Expand] Ingested newly discovered track: "${candidate.title}" into tracks table`);
+                            })
+                            .catch(() => {});
+
                         return candidate;
                     }
                 }

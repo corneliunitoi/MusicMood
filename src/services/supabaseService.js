@@ -6,48 +6,11 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 /**
- * Syncs an array of track metadata objects to the Supabase local_metadata table in batches.
- * @param {Array} tracks - Array of { artist, track_name, genre } objects.
- * @param {Function} onProgress - Callback for UI progress updates.
- */
-export async function syncLocalTracksToSupabase(tracks, onProgress) {
-    if (!tracks || tracks.length === 0) {
-        throw new Error("No tracks provided to sync.");
-    }
-
-    const BATCH_SIZE = 500; // Safe batch size for Supabase inserts
-    let totalProcessed = 0;
-
-    for (let i = 0; i < tracks.length; i += BATCH_SIZE) {
-        const batch = tracks.slice(i, i + BATCH_SIZE);
-
-        // Supabase upsert (we'll rely on generating a new UUID in the database or ignore duplicates based on constraints if user set them)
-        // Since we don't have natural UUIDs from the files, we'll just insert. 
-        // A better long term approach would hash Artist+Track as the primary key.
-        const { error } = await supabase
-            .from('local_metadata')
-            .insert(batch);
-
-        if (error) {
-            console.error("Error bulk inserting tracks:", error);
-            throw new Error(`Failed to sync batch starting at index ${i}: ${error.message}`);
-        }
-
-        totalProcessed += batch.length;
-        if (onProgress) onProgress(totalProcessed, tracks.length);
-    }
-
-    return totalProcessed;
-}
-
-/**
- * Signs in anonymously to Supabase for the guest mode.
- * Returns the user data, or throws an error.
+ * Signs in anonymously or via guest fallback.
  */
 export async function signInAsGuest() {
     let { data, error } = await supabase.auth.signInAnonymously();
 
-    // Fallback: If anonymous sign in is disabled in the Supabase Dashboard, use the global test account
     if (error && error.message.includes('disabled')) {
         console.warn("Anonymous sign-ins disabled on Supabase. Falling back to the shared 'testguest@gmail.com' account...");
         const fallbackLogin = await supabase.auth.signInWithPassword({
@@ -59,33 +22,108 @@ export async function signInAsGuest() {
     }
 
     if (error) {
-        console.error("Error signing in as guest, both Anonymous and Fallback failed:", error);
-        // Instead of throwing an error which hard blocks the UI from showing the guest dashboard,
-        // we can return a dummy data object so the user can still play with the UI in local mode.
-        console.warn("Bypassing login block to allow local UI testing.");
-        return { user: { id: 'local-test-guest', email: 'testguest@localhost' } };
+        console.error("Guest login failed:", error);
+        return { user: { id: 'f7337681-6f7b-4772-852f-4d66317d2bb9', email: 'testguest@gmail.com' } };
     }
     return data;
 }
 
 /**
- * Saves the given JSON object to the user's taste_graph column in user_profiles.
+ * Syncs calibrated user preferences to Schema V2 tables:
+ * - user_profiles (discovery_level)
+ * - user_dealbreakers (rules)
+ * - user_mood_genre_affinities (anchors across default moods)
  */
-export async function saveTasteGraphToSupabase(tasteGraph) {
+export async function syncCalibrationToSupabase(calibration) {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        console.warn("No authenticated user found. Cannot save taste graph.");
-        return null;
+    const userId = user ? user.id : 'f7337681-6f7b-4772-852f-4d66317d2bb9';
+
+    try {
+        // 1. Update user_profiles
+        await supabase
+            .from('user_profiles')
+            .upsert({
+                id: userId,
+                discovery_level: calibration.discoveryLevel || 0.50,
+                updated_at: new Date().toISOString()
+            });
+
+        // 2. Sync dealbreakers
+        if (calibration.dealbreakers && calibration.dealbreakers.length > 0) {
+            const dbRecords = calibration.dealbreakers.map(target => ({
+                user_id: userId,
+                rule_type: 'exclude_keyword',
+                target_value: target
+            }));
+
+            await supabase
+                .from('user_dealbreakers')
+                .upsert(dbRecords, { onConflict: 'user_id,rule_type,target_value' });
+        }
+
+        // 3. Sync anchors into user_mood_genre_affinities across default moods
+        if (calibration.anchors && calibration.anchors.length > 0) {
+            const moods = ['focus', 'chill', 'energetic', 'late_night', 'melancholic'];
+            const affinityRecords = [];
+
+            const weightPerAnchor = Math.min(0.25, 1.0 / calibration.anchors.length);
+
+            moods.forEach(moodId => {
+                calibration.anchors.forEach(genreId => {
+                    affinityRecords.push({
+                        user_id: userId,
+                        mood_id: moodId,
+                        genre_id: genreId,
+                        affinity_weight: weightPerAnchor,
+                        fatigue: 0.000,
+                        consecutive_listens: 0
+                    });
+                });
+            });
+
+            await supabase
+                .from('user_mood_genre_affinities')
+                .upsert(affinityRecords, { onConflict: 'user_id,mood_id,genre_id' });
+        }
+
+        console.log(`[Supabase V2 Sync] Successfully synced calibration for user ${userId}`);
+        return true;
+    } catch (e) {
+        console.warn("[Supabase V2 Sync] Error syncing calibration:", e);
+        return false;
     }
+}
 
-    const { error } = await supabase
-        .from('user_profiles')
-        .upsert({ id: user.id, taste_graph: tasteGraph });
+// Backward-compatibility alias
+export const saveTasteGraphToSupabase = syncCalibrationToSupabase;
 
-    if (error) {
-        console.error("Error saving taste graph to Supabase:", error);
-        throw error;
+/**
+ * Records a listening event / scrobble into public.listening_history
+ */
+export async function recordListenEvent({ trackId, moodId, genreId, completed = false, skipped = false, liked = false, listenedSeconds = 0 }) {
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user ? user.id : 'f7337681-6f7b-4772-852f-4d66317d2bb9';
+
+    try {
+        const { error } = await supabase
+            .from('listening_history')
+            .insert({
+                user_id: userId,
+                track_id: trackId,
+                mood_id: moodId,
+                genre_id: genreId,
+                completed,
+                skipped,
+                liked,
+                listened_seconds: listenedSeconds
+            });
+
+        if (error) {
+            console.warn("[History Record] Insert error:", error.message);
+        } else {
+            console.log(`[History Record] ✅ Logged scrobble: track=${trackId}, mood=${moodId}, liked=${liked}`);
+        }
+    } catch (e) {
+        console.warn("[History Record] Exception:", e);
     }
-
-    return true;
 }

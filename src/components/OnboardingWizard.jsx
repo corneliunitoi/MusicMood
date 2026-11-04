@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { GENRE_NODES, DEALBREAKER_PRESETS } from '../services/tasteGraph';
 import { sessionEngine } from '../services/sessionStateMachine';
-import { saveTasteGraphToSupabase } from '../services/supabaseService';
+import { syncCalibrationToSupabase } from '../services/supabaseService';
 
 function OnboardingWizard({ onComplete }) {
     const [step, setStep] = useState(1);
@@ -43,12 +43,9 @@ function OnboardingWizard({ onComplete }) {
 
         sessionEngine.saveCalibration(calibration);
 
-        // Sync to Supabase in the background if possible
+        // Sync to Supabase in the background
         try {
-            await saveTasteGraphToSupabase({
-                ...calibration,
-                topGenres: selectedAnchors.map(id => GENRE_NODES[id]?.label || id),
-            });
+            await syncCalibrationToSupabase(calibration);
         } catch (e) {
             console.warn("Could not sync calibration to Supabase:", e);
         }
