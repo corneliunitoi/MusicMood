@@ -77,6 +77,22 @@ ON public.user_mood_genre_affinities(user_id, mood_id, affinity_weight DESC);
 -- 3. THE EXPANDING ONLINE TRACK CATALOG (Zero-Quota Playback)
 -- ---------------------------------------------------------------------
 
+-- Table: artists (Normalized canonical artist entities)
+CREATE TABLE IF NOT EXISTS public.artists (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT UNIQUE NOT NULL,
+    slug TEXT,
+    primary_genre_id TEXT REFERENCES public.genres(id) ON DELETE SET NULL,
+    avatar_url TEXT,
+    youtube_channel_id TEXT,
+    track_count INT DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_artists_name ON public.artists(name);
+CREATE INDEX IF NOT EXISTS idx_artists_genre ON public.artists(primary_genre_id);
+
 -- Table: tracks (Global catalog self-expanding from online sources & library)
 CREATE TABLE IF NOT EXISTS public.tracks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -84,6 +100,7 @@ CREATE TABLE IF NOT EXISTS public.tracks (
     isrc TEXT UNIQUE, -- Canonical International Standard Recording Code
     title TEXT NOT NULL,
     artist TEXT NOT NULL,
+    artist_id UUID REFERENCES public.artists(id) ON DELETE SET NULL,
     album TEXT,
     primary_genre_id TEXT REFERENCES public.genres(id) ON DELETE SET NULL,
     energy NUMERIC(3, 2), -- 0.00 to 1.00
@@ -94,6 +111,7 @@ CREATE TABLE IF NOT EXISTS public.tracks (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tracks_yt_id ON public.tracks(youtube_video_id);
+CREATE INDEX IF NOT EXISTS idx_tracks_artist_id ON public.tracks(artist_id);
 
 CREATE INDEX IF NOT EXISTS idx_tracks_genre_yt 
 ON public.tracks(primary_genre_id, youtube_video_id) 
