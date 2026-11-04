@@ -80,7 +80,7 @@ ON public.user_mood_genre_affinities(user_id, mood_id, affinity_weight DESC);
 -- Table: tracks (Global catalog self-expanding from online sources & library)
 CREATE TABLE IF NOT EXISTS public.tracks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    youtube_video_id TEXT UNIQUE, -- The Zero-Quota playback key
+    youtube_video_id TEXT, -- Zero-Quota playback key (indexed)
     isrc TEXT UNIQUE, -- Canonical International Standard Recording Code
     title TEXT NOT NULL,
     artist TEXT NOT NULL,
@@ -92,6 +92,8 @@ CREATE TABLE IF NOT EXISTS public.tracks (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_tracks_yt_id ON public.tracks(youtube_video_id);
 
 CREATE INDEX IF NOT EXISTS idx_tracks_genre_yt 
 ON public.tracks(primary_genre_id, youtube_video_id) 
