@@ -403,10 +403,11 @@ class SessionStateMachine {
         const title = (track.title || '').toLowerCase();
         const artist = (track.artist || track.channelTitle || '').toLowerCase();
 
-        // Guard 0: Non-Music & Corrupted Metadata Guard
+        // Guard 0: Non-Music, Corrupted Metadata, & Multi-Hour Compilation Guard
         const JUNK_ARTIST_REGEX = /^(cd\s*[0-9]+|disc\s*[0-9]+|track\s*[0-9]+|unknown(\s*artist)?)$/i;
         const JUNK_TITLE_REGEX = /^[0-9]+$/;
         const NON_MUSIC_TERMS = ['recitation', 'audiobook', 'lesson', 'speaking', 'chinese', 'meditation guide', 'podcast', 'episode'];
+        const COMPILATION_TERMS = ['full album', 'full ep', 'compilation', '1 hour', '2 hours', '3 hours', '10 hours', 'teaser', 'trailer', 'ultimate mix', 'best songs of'];
 
         if (!artist || artist.length < 2 || !title || title.length < 2) return false;
         if (JUNK_ARTIST_REGEX.test(artist) || JUNK_TITLE_REGEX.test(title)) {
@@ -415,6 +416,10 @@ class SessionStateMachine {
         }
         if (NON_MUSIC_TERMS.some(t => title.includes(t) || artist.includes(t))) {
             console.log(`[Guard ❌] Rejected non-music content: "${title}"`);
+            return false;
+        }
+        if (COMPILATION_TERMS.some(t => title.includes(t))) {
+            console.log(`[Guard ❌] Rejected multi-track compilation / teaser: "${title}"`);
             return false;
         }
 
@@ -622,23 +627,27 @@ class SessionStateMachine {
                     };
 
                     if (this.passesGuards(candidate)) {
-                        // Expand catalog in background
-                        supabase
-                            .from('tracks')
-                            .insert({
-                                youtube_video_id: candidate.id,
-                                title: candidate.title,
-                                artist: candidate.artist,
-                                primary_genre_id: this.state.activeGenre,
-                                source: 'online_discovery'
-                            })
-                            .select('id')
-                            .single()
-                            .then(({ data }) => {
-                                if (data?.id) candidate.dbId = data.id;
-                                console.log(`[Auto-Expand] Ingested newly discovered track: "${candidate.title}" into tracks table`);
-                            })
-                            .catch(() => {});
+                        // Expand catalog in Supabase synchronously so dbId is ready for scrobbling
+                        try {
+                            const { data: inserted } = await supabase
+                                .from('tracks')
+                                .insert({
+                                    youtube_video_id: candidate.id,
+                                    title: candidate.title,
+                                    artist: candidate.artist,
+                                    primary_genre_id: this.state.activeGenre,
+                                    source: 'online_discovery'
+                                })
+                                .select('id')
+                                .single();
+
+                            if (inserted?.id) {
+                                candidate.dbId = inserted.id;
+                                console.log(`[Auto-Expand] Ingested newly discovered track: "${candidate.title}" with ID ${candidate.dbId}`);
+                            }
+                        } catch (err) {
+                            console.warn('[Auto-Expand] Track catalog expand warning:', err);
+                        }
 
                         return candidate;
                     }
