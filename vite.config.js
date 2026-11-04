@@ -1,6 +1,46 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+function fixMojibake(str) {
+  if (!str) return str;
+  const mojibakeCount = (str.match(/[À-ÿ]/g) || []).length;
+  if (mojibakeCount < 2) return str;
+
+  try {
+    const buf = Buffer.from(str, 'latin1');
+    let decoded = '';
+    for (let i = 0; i < buf.length; i++) {
+      const b = buf[i];
+      if (b >= 0xC0 && b <= 0xFF) {
+        decoded += String.fromCharCode(0x0410 + (b - 0xC0));
+      } else if (b === 0xA8) {
+        decoded += 'Ё';
+      } else if (b === 0xB8) {
+        decoded += 'ё';
+      } else {
+        decoded += String.fromCharCode(b);
+      }
+    }
+    if (/[а-яА-ЯёЁ]/.test(decoded)) {
+      return decoded;
+    }
+  } catch (e) { }
+  return str;
+}
+
+function titlesMatch(targetTitle, ytVideoTitle) {
+  if (!targetTitle || !ytVideoTitle) return false;
+  const cleanTarget = targetTitle.toLowerCase().replace(/[^a-z0-9а-яё]/gi, ' ').trim();
+  const cleanYt = ytVideoTitle.toLowerCase().replace(/[^a-z0-9а-яё]/gi, ' ').trim();
+
+  if (cleanYt.includes(cleanTarget) || cleanTarget.includes(cleanYt)) return true;
+
+  const targetWords = cleanTarget.split(/\s+/).filter(w => w.length > 2);
+  if (targetWords.length === 0) return true;
+  const matchedWords = targetWords.filter(w => cleanYt.includes(w));
+  return (matchedWords.length / targetWords.length) >= 0.5;
+}
+
 function parseTitleAndArtist(rawTitle, rawAuthor) {
   let clean = (rawTitle || '').replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim();
   let artist = (rawAuthor || '').replace(/\s*-\s*Topic$/i, '').trim();
@@ -142,12 +182,12 @@ function zeroQuotaResolverPlugin() {
             return;
           }
 
-          let cleanArtist = artist
+          let cleanArtist = fixMojibake(artist)
             .replace(/^[0-9]+(\s*[-_.]\s*|\s+)/, '')
             .replace(/\[[^\]]+\]/g, '')
             .trim();
 
-          let cleanTitle = title
+          let cleanTitle = fixMojibake(title)
             .replace(/^[0-9]+(\s*[-_.]\s*|\s+)/, '')
             .replace(/\((Alternate|Remix|Live|Stem|Dublex|Prod\.|Demo|Version|Remaster).*?\)/gi, '')
             .replace(/\[.*?\]/g, '')
@@ -158,10 +198,11 @@ function zeroQuotaResolverPlugin() {
           const queries = [];
           if (!isNumericArtist) {
             queries.push(`"${cleanArtist}" "${cleanTitle}" Topic`);
-            queries.push(`${cleanArtist} ${cleanTitle} official audio`);
+            queries.push(`"${cleanArtist}" "${cleanTitle}"`);
+            queries.push(`${cleanArtist} ${cleanTitle}`);
           } else {
             queries.push(`"${cleanTitle}" Topic`);
-            queries.push(`${cleanTitle} official audio`);
+            queries.push(`${cleanTitle}`);
           }
 
           let resolvedId = null;
@@ -178,20 +219,46 @@ function zeroQuotaResolverPlugin() {
             if (!response.ok) continue;
 
             const html = await response.text();
-            const idMatch = html.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
-            const ownerMatch = html.match(/"ownerText":\{"runs":\[\{"text":"([^"]+)"/);
+            const match = html.match(/var ytInitialData = ({.*?});<\/script>/);
+            if (!match) continue;
 
-            if (idMatch && idMatch[1]) {
-              resolvedId = idMatch[1];
-              if (isNumericArtist && ownerMatch && ownerMatch[1]) {
-                healedArtist = ownerMatch[1].replace(/\s*-\s*Topic$/i, '').trim();
+            const data = JSON.parse(match[1]);
+            const candidateVideos = [];
+
+            function extractVideos(obj) {
+              if (!obj || typeof obj !== 'object') return;
+              if (obj.videoRenderer) {
+                const vr = obj.videoRenderer;
+                const videoId = vr.videoId;
+                const vTitle = vr.title?.runs?.[0]?.text || vr.title?.simpleText || '';
+                const vAuthor = vr.ownerText?.runs?.[0]?.text || vr.shortBylineText?.runs?.[0]?.text || '';
+                if (videoId && videoId.length === 11) {
+                  candidateVideos.push({ videoId, title: vTitle, author: vAuthor });
+                }
+                return;
               }
-              break;
+              for (const v of Object.values(obj)) {
+                extractVideos(v);
+              }
             }
+
+            extractVideos(data);
+
+            for (const candidate of candidateVideos) {
+              if (titlesMatch(cleanTitle, candidate.title)) {
+                resolvedId = candidate.videoId;
+                if (isNumericArtist && candidate.author) {
+                  healedArtist = candidate.author.replace(/\s*-\s*Topic$/i, '').trim();
+                }
+                break;
+              }
+            }
+
+            if (resolvedId) break;
           }
 
           res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ videoId: resolvedId, artist: healedArtist }));
+          res.end(JSON.stringify({ videoId: resolvedId, artist: healedArtist, title: cleanTitle }));
         } catch (err) {
           res.statusCode = 500;
           res.setHeader('Content-Type', 'application/json');
