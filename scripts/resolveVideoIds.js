@@ -19,15 +19,34 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const BATCH_SIZE = 50;
 const DELAY_MS = 600; // Polite delay between requests to avoid rate limits
 
+const JUNK_ARTIST_REGEX = /^(cd\s*[0-9]+|disc\s*[0-9]+|track\s*[0-9]+|unknown(\s*artist)?)$/i;
+const JUNK_TITLE_REGEX = /^[0-9]+$/;
+const NON_MUSIC_TERMS = ['recitation', 'audiobook', 'lesson', 'speaking', 'chinese', 'meditation guide', 'podcast', 'episode'];
+
+function isJunkTrack(artist, title) {
+    if (!artist || artist.length < 2 || !title || title.length < 2) return true;
+    if (JUNK_ARTIST_REGEX.test(artist.trim()) || JUNK_TITLE_REGEX.test(title.trim())) return true;
+    const lowerTitle = title.toLowerCase();
+    const lowerArtist = artist.toLowerCase();
+    if (NON_MUSIC_TERMS.some(t => lowerTitle.includes(t) || lowerArtist.includes(t))) return true;
+    return false;
+}
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
  * Resolves a YouTube Video ID without using any Google Data API quota.
+ * Locks to YouTube Music "Topic" releases or official audio to guarantee studio audio.
  */
 async function resolveYouTubeId(artist, trackName) {
-    const query = `${artist} ${trackName} official audio -remix -cover`;
+    if (isJunkTrack(artist, trackName)) {
+        return null;
+    }
+
+    // Lock to YouTube Music official Topic channel for studio master
+    const query = `"${artist}" "${trackName}" "Topic"`;
     const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
 
     try {
@@ -85,6 +104,15 @@ async function startResolver() {
 
         for (const track of tracks) {
             if (!isRunning) break;
+
+            if (isJunkTrack(track.artist, track.title)) {
+                console.log(`[Junk Filter 🗑️] Skipping & flagging corrupted metadata: "${track.artist} - ${track.title}"`);
+                await supabase
+                    .from('tracks')
+                    .update({ youtube_video_id: 'CORRUPT_TAGS' })
+                    .eq('id', track.id);
+                continue;
+            }
 
             const videoId = await resolveYouTubeId(track.artist, track.title);
 

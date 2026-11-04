@@ -272,6 +272,40 @@ class SessionStateMachine {
         });
     }
 
+    async onDislike(track) {
+        if (!track) return;
+        console.log(`[StateMachine] 👎 DISLIKED / NOT MUSIC: "${track.title}" by ${track.artist}`);
+        this.state.skippedTracks.push(track.id);
+
+        // 1. Purge faulty video mapping from Supabase tracks catalog so no one gets it again
+        if (track.dbId) {
+            supabase
+                .from('tracks')
+                .update({ youtube_video_id: null })
+                .eq('id', track.dbId)
+                .then(() => console.log(`[Purge] Cleared invalid youtube_video_id for track ID ${track.dbId}`))
+                .catch(() => {});
+        }
+
+        // 2. Record dislike in listening_history
+        recordListenEvent({
+            trackId: track.dbId || null,
+            moodId: this.state.currentMood,
+            genreId: this.state.activeGenre,
+            skipped: true,
+            liked: false
+        });
+
+        // 3. Blacklist artist from session
+        if (track.artist && !this.state.recentArtists.includes(track.artist.toLowerCase())) {
+            this.state.recentArtists.push(track.artist.toLowerCase());
+        }
+
+        // 4. Penalize node and step away
+        this.applyNodeFatigue(this.state.activeGenre);
+        this.stepToNextGenre('dislike_purge');
+    }
+
     onSkip(track) {
         if (!track) return;
         console.log(`[StateMachine] Feedback: SKIPPED "${track.title}" by ${track.artist}`);
@@ -364,10 +398,25 @@ class SessionStateMachine {
      * Strict Guard Verification Engine
      */
     passesGuards(track) {
-        if (!track || !track.id) return false;
+        if (!track || !track.id || track.id.length !== 11) return false;
 
         const title = (track.title || '').toLowerCase();
         const artist = (track.artist || track.channelTitle || '').toLowerCase();
+
+        // Guard 0: Non-Music & Corrupted Metadata Guard
+        const JUNK_ARTIST_REGEX = /^(cd\s*[0-9]+|disc\s*[0-9]+|track\s*[0-9]+|unknown(\s*artist)?)$/i;
+        const JUNK_TITLE_REGEX = /^[0-9]+$/;
+        const NON_MUSIC_TERMS = ['recitation', 'audiobook', 'lesson', 'speaking', 'chinese', 'meditation guide', 'podcast', 'episode'];
+
+        if (!artist || artist.length < 2 || !title || title.length < 2) return false;
+        if (JUNK_ARTIST_REGEX.test(artist) || JUNK_TITLE_REGEX.test(title)) {
+            console.log(`[Guard ❌] Rejected corrupted metadata: "${artist} - ${title}"`);
+            return false;
+        }
+        if (NON_MUSIC_TERMS.some(t => title.includes(t) || artist.includes(t))) {
+            console.log(`[Guard ❌] Rejected non-music content: "${title}"`);
+            return false;
+        }
 
         // Guard 1: Anti-Loop Repetition Guard (50 tracks, 15 artists)
         if (this.state.recentTracks.includes(track.id)) {
@@ -440,9 +489,21 @@ class SessionStateMachine {
 
             if (error || !data || data.length === 0) return null;
 
-            // Pick a track whose artist is NOT in recent 15 artists
+            // Filter out junk metadata and recent artists
+            const JUNK_ARTIST_REGEX = /^(cd\s*[0-9]+|disc\s*[0-9]+|track\s*[0-9]+|unknown(\s*artist)?)$/i;
+            const JUNK_TITLE_REGEX = /^[0-9]+$/;
+
             const recentArtistsSet = new Set(this.state.recentArtists.slice(-15));
-            const available = data.filter(t => !recentArtistsSet.has((t.artist || '').toLowerCase()));
+            const available = data.filter(t => {
+                const a = (t.artist || '').toLowerCase();
+                const titleStr = (t.title || '').trim();
+                if (recentArtistsSet.has(a)) return false;
+                if (JUNK_ARTIST_REGEX.test(a) || JUNK_TITLE_REGEX.test(titleStr)) return false;
+                if (a.length < 2 || titleStr.length < 2) return false;
+                if (t.youtube_video_id && t.youtube_video_id.length !== 11) return false;
+                return true;
+            });
+
             if (available.length === 0) return null;
 
             const selected = available[Math.floor(Math.random() * available.length)];
@@ -480,7 +541,9 @@ class SessionStateMachine {
 
         const authHeaders = token === 'guest' ? {} : { Authorization: `Bearer ${token}` };
         const authParams = token === 'guest' ? `&key=${import.meta.env.VITE_YOUTUBE_API_KEY}` : '';
-        const query = `${track.artist} ${track.title} official audio`;
+        
+        // Lock to YouTube Music official "Topic" release to guarantee studio audio
+        const query = `"${track.artist}" "${track.title}" "Topic"`;
 
         try {
             const url = `${YOUTUBE_API_BASE}/search?part=snippet&type=video&videoCategoryId=10&videoSyndicated=true&q=${encodeURIComponent(query)}&maxResults=1${authParams}`;
@@ -534,10 +597,11 @@ class SessionStateMachine {
             queryParts.push('instrumental');
         }
 
-        const exclusionString = '-remix -cover -tiktok -parody';
-        const fullQuery = `${queryParts.join(' ')} official audio ${exclusionString}`;
+        // Add explicit exclusions to kill podcasts, recitations, audiobooks, lessons
+        const exclusionString = '-podcast -audiobook -recitation -lesson -asmr -reaction -vlog -shorts -tiktok';
+        const fullQuery = `"${activeNode?.label}" Topic official audio ${exclusionString}`;
 
-        console.log(`[StateMachine] Anti-Drift YouTube Audio Query: "${fullQuery}"`);
+        console.log(`[StateMachine] Anti-Drift YouTube Music Query: "${fullQuery}"`);
 
         try {
             const url = `${YOUTUBE_API_BASE}/search?part=snippet&type=video&videoCategoryId=10&videoSyndicated=true&q=${encodeURIComponent(fullQuery)}&maxResults=15${authParams}`;

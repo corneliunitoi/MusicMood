@@ -208,6 +208,14 @@ function Player({ initialTrack, token }) {
         sessionEngine.onLike(currentTrackRef.current);
     };
 
+    const handleDislike = async () => {
+        setErrorMessage("Downvoted. Purging track and auto-skipping...");
+        if (currentTrackRef.current) {
+            await sessionEngine.onDislike(currentTrackRef.current);
+        }
+        await loadNextTrack(true);
+    };
+
     const activeNode = GENRE_NODES[sessionState.activeGenre];
     const dwellCount = (sessionState.consecutiveInNode || 0) + 1;
 
@@ -298,6 +306,17 @@ function Player({ initialTrack, token }) {
                         style={{ background: 'rgba(236, 72, 153, 0.15)', borderColor: '#ec4899' }}
                     >
                         ❤️
+                    </button>
+
+                    {/* Dislike / Not Music (Downvote) */}
+                    <button
+                        className="control-btn"
+                        onClick={handleDislike}
+                        disabled={isSteering}
+                        title="Dislike / Not Music (Immediately skips, blacklists, and removes bad mapping)"
+                        style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444' }}
+                    >
+                        👎
                     </button>
 
                     {/* Play / Pause */}
