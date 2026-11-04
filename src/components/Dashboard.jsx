@@ -179,8 +179,9 @@ function Dashboard({ token, onLogout }) {
                     <button
                         className="btn-text"
                         onClick={() => setShowPlaylists(!showPlaylists)}
+                        style={{ color: showPlaylists ? '#a855f7' : '#94a3b8', fontWeight: showPlaylists ? 'bold' : 'normal' }}
                     >
-                        {showPlaylists ? 'Hide Playlists' : 'My Playlists'}
+                        📥 Ingest YouTube Playlists
                     </button>
                     <button className="btn-text" onClick={onLogout}>Sign Out</button>
                 </div>
@@ -237,7 +238,7 @@ function Dashboard({ token, onLogout }) {
                 <MoodBar selectedMood={selectedMood} onSelectMood={handleMoodSelect} />
 
                 {/* PLAYBACK & STEERING SECTION */}
-                {selectedMood && !showPlaylists && !showWizard && (
+                {selectedMood && !showWizard && (
                     <div className="mood-feedback fade-in-up">
                         {isDiscovering ? (
                             <p className="subtitle" style={{ margin: '2rem auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
@@ -260,14 +261,34 @@ function Dashboard({ token, onLogout }) {
                     </div>
                 )}
 
-                {!showPlaylists && !showWizard && <MoodHistory history={moodHistory} />}
-
+                {/* YOUTUBE PLAYLIST INGESTION & IMPORTER */}
                 {showPlaylists && (
-                    <div className="playlists-section fade-in">
-                        <h2 style={{ marginBottom: '1.5rem', textAlign: 'center' }}>Your YouTube Library</h2>
-                        <PlaylistView playlists={playlists} />
+                    <div className="playlists-section fade-in" style={{ margin: '2.5rem auto', maxWidth: '900px' }}>
+                        <h2 style={{ marginBottom: '0.5rem', textAlign: 'center' }}>📥 YouTube Playlist Importer</h2>
+                        <p className="subtitle" style={{ marginBottom: '1.5rem', textAlign: 'center', fontSize: '0.95rem' }}>
+                            Ingest, map, and play tracks directly from YouTube playlists with <strong>zero Google API quota</strong>.
+                        </p>
+                        <PlaylistView
+                            playlists={playlists}
+                            token={token}
+                            onPlayTrack={(track) => {
+                                setActiveTrack(track);
+                            }}
+                            onIngestComplete={async () => {
+                                try {
+                                    const { count } = await supabase
+                                        .from('local_metadata')
+                                        .select('*', { count: 'exact', head: true });
+                                    if (count) setCloudCount(count);
+                                } catch (e) {
+                                    console.warn('Failed to refresh cloud count:', e);
+                                }
+                            }}
+                        />
                     </div>
                 )}
+
+                {!showWizard && <MoodHistory history={moodHistory} />}
             </main>
         </div>
     );

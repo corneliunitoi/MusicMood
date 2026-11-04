@@ -56,6 +56,9 @@ function Player({ initialTrack, token }) {
     useEffect(() => {
         const unsubscribe = sessionEngine.subscribe((newState) => {
             setSessionState({ ...newState });
+            if (newState.currentTrack && newState.currentTrack.id && newState.currentTrack.id !== currentTrackRef.current?.id) {
+                playTrackImmediately(newState.currentTrack);
+            }
         });
         return unsubscribe;
     }, []);

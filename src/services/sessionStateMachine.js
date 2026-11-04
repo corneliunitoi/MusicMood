@@ -666,10 +666,84 @@ class SessionStateMachine {
         }
     }
 
+    playCustomTrack(track) {
+        if (!track) return;
+        const resolvedTrack = {
+            id: track.videoId || track.id,
+            dbId: track.dbId || null,
+            title: track.title,
+            artist: track.artist,
+            genre: track.genre || track.primary_genre_id || this.state.activeGenre,
+            thumbnail: track.thumbnail || (track.videoId ? `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg` : ''),
+            source: track.source || 'custom_playlist'
+        };
+
+        if (resolvedTrack.genre && GENRE_NODES[resolvedTrack.genre]) {
+            this.state.activeGenre = resolvedTrack.genre;
+        }
+
+        this.commitTrack(resolvedTrack);
+        return resolvedTrack;
+    }
+
+    queuePlaylist(tracks) {
+        if (!Array.isArray(tracks)) return;
+        const valid = tracks.map(t => ({
+            id: t.videoId || t.id,
+            dbId: t.dbId || null,
+            title: t.title,
+            artist: t.artist,
+            genre: t.genre || t.primary_genre_id || this.state.activeGenre,
+            thumbnail: t.thumbnail || ((t.videoId || t.id) ? `https://i.ytimg.com/vi/${t.videoId || t.id}/hqdefault.jpg` : ''),
+            source: t.source || 'queued_playlist'
+        })).filter(t => t.id && t.id.length === 11);
+
+        this.queue.push(...valid);
+        console.log(`[StateMachine] Queued ${valid.length} tracks into session queue. Current queue length: ${this.queue.length}`);
+        this.notify();
+    }
+
     async resolveTrackToYouTube(track, token) {
         // If track already has resolved id from pre-mapping, skip YouTube API completely!
-        if (track.id) return track;
+        if (track.id && track.id.length === 11) return track;
 
+        // 1. Zero-Quota local resolver (no API keys, zero rate-limiting)
+        try {
+            const zqUrl = `/api/resolve-track?artist=${encodeURIComponent(track.artist || '')}&title=${encodeURIComponent(track.title || '')}`;
+            const zqRes = await fetch(zqUrl);
+            if (zqRes.ok) {
+                const zqData = await zqRes.json();
+                if (zqData.videoId && zqData.videoId.length === 11) {
+                    const resolvedId = zqData.videoId;
+                    const healedArtist = zqData.artist || track.artist;
+
+                    // Asynchronously cache back to Supabase
+                    if (track.dbId) {
+                        supabase
+                            .from('tracks')
+                            .update({ youtube_video_id: resolvedId, artist: healedArtist })
+                            .eq('id', track.dbId)
+                            .then(() => console.log(`[Zero-Quota JIT Cache] Cached ${healedArtist} - ${track.title} -> ${resolvedId}`))
+                            .catch(() => {});
+                    }
+
+                    return {
+                        id: resolvedId,
+                        dbId: track.dbId,
+                        title: track.title,
+                        artist: healedArtist,
+                        channelTitle: healedArtist,
+                        thumbnail: `https://i.ytimg.com/vi/${resolvedId}/hqdefault.jpg`,
+                        genre: track.genre || this.state.activeGenre,
+                        source: 'zero_quota_resolved'
+                    };
+                }
+            }
+        } catch (e) {
+            console.warn('[StateMachine] Zero-quota resolver call failed:', e);
+        }
+
+        // 2. Google YouTube API fallback
         const authHeaders = token === 'guest' ? {} : { Authorization: `Bearer ${token}` };
         const authParams = token === 'guest' ? `&key=${import.meta.env.VITE_YOUTUBE_API_KEY}` : '';
         
