@@ -1,44 +1,37 @@
-import { useState, useEffect } from 'react'
-import { fetchUserProfile, fetchUserPlaylists } from '../services/youtube'
-import { discoverPlaylistForMood } from '../services/musicEngine'
-import { syncLocalTracksToSupabase, supabase } from '../services/supabaseService'
-import MoodBar, { allMoods } from './MoodBar'
-import PlaylistView from './PlaylistView'
-import TasteGraphSetup from './TasteGraphSetup'
-import TasteAnalyzer from './TasteAnalyzer'
-import Player from './Player'
-import MoodHistory from './MoodHistory'
+import { useState, useEffect } from 'react';
+import { fetchUserProfile, fetchUserPlaylists } from '../services/youtube';
+import { supabase } from '../services/supabaseService';
+import { sessionEngine } from '../services/sessionStateMachine';
+import { GENRE_NODES } from '../services/tasteGraph';
+import MoodBar, { allMoods } from './MoodBar';
+import PlaylistView from './PlaylistView';
+import TasteGraphSetup from './TasteGraphSetup';
+import Player from './Player';
+import MoodHistory from './MoodHistory';
+import OnboardingWizard from './OnboardingWizard';
 
 function Dashboard({ token, onLogout }) {
-    const [profile, setProfile] = useState(null)
-    const [playlists, setPlaylists] = useState([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState(null)
+    const [profile, setProfile] = useState(null);
+    const [playlists, setPlaylists] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    const [selectedMood, setSelectedMood] = useState(null)
-    const [showPlaylists, setShowPlaylists] = useState(false)
-    const [tasteProfile, setTasteProfile] = useState(null)
+    const [selectedMood, setSelectedMood] = useState('focus');
+    const [showPlaylists, setShowPlaylists] = useState(false);
+    const [showWizard, setShowWizard] = useState(() => !localStorage.getItem('musicMood_user_calibration'));
+    const [showVisualGraph, setShowVisualGraph] = useState(false);
 
-    const [activePlaylist, setActivePlaylist] = useState(null)
-    const [isDiscovering, setIsDiscovering] = useState(false)
+    const [activeTrack, setActiveTrack] = useState(null);
+    const [isDiscovering, setIsDiscovering] = useState(false);
 
-    const [cloudCount, setCloudCount] = useState(0)
-    const [lastSync, setLastSync] = useState(null)
+    const [cloudCount, setCloudCount] = useState(0);
+
+    const [calibration, setCalibration] = useState(() => sessionEngine.getCalibration());
 
     const [moodHistory, setMoodHistory] = useState(() => {
-        const saved = localStorage.getItem('musicMood_history')
-        try { return saved ? JSON.parse(saved) : [] } catch (e) { return [] }
-    })
-
-    const [historicalGenres, setHistoricalGenres] = useState(() => {
-        const saved = localStorage.getItem('musicMood_genres')
-        try { return saved ? JSON.parse(saved) : [] } catch (e) { return [] }
-    })
-
-    const [historicalMoods, setHistoricalMoods] = useState(() => {
-        const saved = localStorage.getItem('musicMood_moods')
-        try { return saved ? JSON.parse(saved) : [] } catch (e) { return [] }
-    })
+        const saved = localStorage.getItem('musicMood_history');
+        try { return saved ? JSON.parse(saved) : []; } catch (e) { return []; }
+    });
 
     useEffect(() => {
         const loadData = async () => {
@@ -46,22 +39,22 @@ function Dashboard({ token, onLogout }) {
                 const [profileData, playlistsData] = await Promise.all([
                     fetchUserProfile(token),
                     fetchUserPlaylists(token),
-                ])
-                setProfile(profileData)
-                setPlaylists(playlistsData)
+                ]);
+                setProfile(profileData);
+                setPlaylists(playlistsData);
             } catch (err) {
-                console.error(err)
+                console.error(err);
                 if (err.message === 'Unauthorized') {
                     onLogout();
                 } else {
-                    setError(err.message || 'Failed to load YouTube data. Please try again.')
+                    setError(err.message || 'Failed to load YouTube profile. Please try again.');
                 }
             } finally {
-                setLoading(false)
+                setLoading(false);
             }
-        }
-        loadData()
-    }, [token])
+        };
+        loadData();
+    }, [token]);
 
     useEffect(() => {
         const fetchStatus = async () => {
@@ -83,25 +76,13 @@ function Dashboard({ token, onLogout }) {
         return () => clearInterval(interval);
     }, []);
 
-    if (loading) {
-        return (
-            <div className="hero">
-                <h1 className="animate-pulse">Loading Vibes...</h1>
-            </div>
-        )
-    }
-
-    if (error) {
-        return (
-            <div className="hero">
-                <h1>Error</h1>
-                <p className="subtitle">{error}</p>
-                <button className="btn-primary" onClick={onLogout}>Disconnect</button>
-            </div>
-        )
-    }
-
-    const currentMoodObj = allMoods.find(m => m.id === selectedMood)
+    // Subscribe to state machine to keep calibration in sync
+    useEffect(() => {
+        const unsubscribe = sessionEngine.subscribe(() => {
+            setCalibration({ ...sessionEngine.getCalibration() });
+        });
+        return unsubscribe;
+    }, []);
 
     const handleMoodSelect = async (moodId) => {
         setSelectedMood(moodId);
@@ -110,50 +91,61 @@ function Dashboard({ token, onLogout }) {
 
         try {
             const moodObj = allMoods.find(m => m.id === moodId);
-            const discovered = await discoverPlaylistForMood(moodObj, tasteProfile?.topGenres, token, playlists);
-            setActivePlaylist(discovered);
+            sessionEngine.setMood(moodId);
+
+            // Fetch the first track guaranteed by the State Machine & Invariant Guards
+            const track = await sessionEngine.getNextTrack(token);
+            if (!track) {
+                throw new Error("No guard-checked track could be resolved. Check network or API quota.");
+            }
+
+            setActiveTrack(track);
 
             const newHistoryItem = {
                 id: Date.now(),
                 timestamp: new Date().toISOString(),
                 moodName: moodObj.label,
                 moodEmoji: moodObj.emoji,
-                matchedGenre: discovered.matchedGenre || "Mixed Vibes"
+                matchedGenre: track.genre || "Intent Mix",
+                trackTitle: track.title,
+                artist: track.artist
             };
 
             setMoodHistory(prev => {
-                if (prev.length > 0 && prev[0].moodName === moodObj.label && prev[0].matchedGenre === newHistoryItem.matchedGenre) {
-                    return prev;
-                }
                 const newHistory = [newHistoryItem, ...prev].slice(0, 50);
                 localStorage.setItem('musicMood_history', JSON.stringify(newHistory));
                 return newHistory;
             });
-
-            const genreToLog = discovered.matchedGenre || "Mixed Vibes";
-            setHistoricalGenres(prev => {
-                // Prevent immediate sequential duplicates
-                if (prev.length > 0 && prev[prev.length - 1] === genreToLog) return prev;
-                const updated = [...prev, genreToLog];
-                localStorage.setItem('musicMood_genres', JSON.stringify(updated));
-                return updated;
-            });
-
-            setHistoricalMoods(prev => {
-                // Prevent immediate sequential duplicates
-                if (prev.length > 0 && prev[prev.length - 1] === moodObj.label) return prev;
-                const updated = [...prev, moodObj.label];
-                localStorage.setItem('musicMood_moods', JSON.stringify(updated));
-                return updated;
-            });
         } catch (err) {
-            console.error("Discovery failed:", err);
-            setError(err.message || 'We could not uncover a mix for this mood right now. Check your YouTube API Key in .env!');
+            console.error("Anti-drift discovery failed:", err);
+            setError(err.message || 'Could not find a track adhering to active guards. Try adjusting dealbreakers!');
         } finally {
             setIsDiscovering(false);
         }
     };
 
+    if (loading) {
+        return (
+            <div className="hero">
+                <h1 className="animate-pulse">Starting Music Engine...</h1>
+            </div>
+        );
+    }
+
+    if (error && !activeTrack) {
+        return (
+            <div className="hero">
+                <h1>Session Alert</h1>
+                <p className="subtitle">{error}</p>
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                    <button className="btn-secondary" onClick={() => setError(null)}>Dismiss</button>
+                    <button className="btn-primary" onClick={onLogout}>Sign Out</button>
+                </div>
+            </div>
+        );
+    }
+
+    const currentMoodObj = allMoods.find(m => m.id === selectedMood);
 
     return (
         <div className="dashboard">
@@ -172,6 +164,20 @@ function Dashboard({ token, onLogout }) {
                     </div>
                     <button
                         className="btn-text"
+                        onClick={() => setShowWizard(!showWizard)}
+                        style={{ color: showWizard ? '#a855f7' : '#94a3b8', fontWeight: showWizard ? 'bold' : 'normal' }}
+                    >
+                        ⚙️ Calibrate Taste
+                    </button>
+                    <button
+                        className="btn-text"
+                        onClick={() => setShowVisualGraph(!showVisualGraph)}
+                        style={{ color: showVisualGraph ? '#a855f7' : '#94a3b8' }}
+                    >
+                        🕸️ Visual Graph
+                    </button>
+                    <button
+                        className="btn-text"
                         onClick={() => setShowPlaylists(!showPlaylists)}
                     >
                         {showPlaylists ? 'Hide Playlists' : 'My Playlists'}
@@ -181,60 +187,80 @@ function Dashboard({ token, onLogout }) {
             </header>
 
             <main className="dashboard-main">
-                {token !== 'guest' ? (
-                    <TasteAnalyzer
-                        playlists={playlists}
-                        setPlaylists={setPlaylists}
-                        tasteProfile={tasteProfile}
-                        setTasteProfile={setTasteProfile}
-                        token={token}
+                {/* ONBOARDING WIZARD */}
+                {showWizard && (
+                    <OnboardingWizard
+                        onComplete={(saved) => {
+                            setCalibration(saved);
+                            setShowWizard(false);
+                        }}
                     />
-                ) : !tasteProfile ? (
-                    <TasteGraphSetup onSave={setTasteProfile} />
-                ) : (
-                    <div className="taste-profile-container fade-in" style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', margin: '1rem auto' }}>
+                )}
+
+                {/* VISUAL TASTE GRAPH MODAL/PANEL */}
+                {showVisualGraph && !showWizard && (
+                    <TasteGraphSetup
+                        onSave={(profileData) => {
+                            setShowVisualGraph(false);
+                        }}
+                    />
+                )}
+
+                {/* ACTIVE ANCHORS & GUARDS SUMMARY BAR */}
+                {!showWizard && !showVisualGraph && (
+                    <div className="taste-profile-container fade-in" style={{ padding: '0.75rem 1.25rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', margin: '1rem auto', maxWidth: '850px', border: '1px solid rgba(255,255,255,0.06)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span className="taste-label">Graph Linked Genres:</span>
-                            <button className="btn-text" style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem' }} onClick={() => setTasteProfile(null)}>Edit Graph</button>
-                        </div>
-                        <div className="taste-tags">
-                            {tasteProfile.topGenres.map((genre, index) => (
-                                <span key={index} className="taste-tag fade-in-up" style={{ animationDelay: `${index * 0.1}s` }}>
-                                    {genre}
-                                </span>
-                            ))}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                                <span style={{ color: '#a855f7', fontWeight: 'bold' }}>⚓ Active Anchors:</span>
+                                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                    {calibration.anchors.map(id => (
+                                        <span key={id} style={{ background: 'rgba(168, 85, 247, 0.2)', border: '1px solid rgba(168, 85, 247, 0.4)', borderRadius: '6px', padding: '0.15rem 0.5rem', fontSize: '0.75rem', color: '#e9d5ff' }}>
+                                            {GENRE_NODES[id]?.label || id}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: '#ef4444' }}>
+                                🚫 {calibration.dealbreakers.length} dealbreaker guards active
+                            </div>
                         </div>
                     </div>
                 )}
 
-                <h1 className="mood-prompt fade-in-up" style={{ marginTop: '2rem' }}>How are you feeling right now?</h1>
+                <h1 className="mood-prompt fade-in-up" style={{ marginTop: '2rem' }}>
+                    What headspace do you want right now?
+                </h1>
+                <p className="subtitle" style={{ marginBottom: '1.5rem', fontSize: '0.95rem' }}>
+                    Select a state below. The <strong>Anti-Drift Engine</strong> ensures your music never wanders into generic algorithms.
+                </p>
 
                 <MoodBar selectedMood={selectedMood} onSelectMood={handleMoodSelect} />
 
-                {selectedMood && !showPlaylists && (
+                {/* PLAYBACK & STEERING SECTION */}
+                {selectedMood && !showPlaylists && !showWizard && (
                     <div className="mood-feedback fade-in-up">
-                        <h2>{currentMoodObj?.emoji} {currentMoodObj?.label} Mode</h2>
                         {isDiscovering ? (
-                            <p className="subtitle" style={{ margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                                <span className="spinner" style={{ width: '1rem', height: '1rem', borderWidth: '2px' }}></span>
-                                Uncovering the perfect mix from YouTube...
+                            <p className="subtitle" style={{ margin: '2rem auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                <span className="spinner" style={{ width: '1.25rem', height: '1.25rem', borderWidth: '2px' }}></span>
+                                Resolving guard-checked track for <strong>{currentMoodObj?.label}</strong>...
                             </p>
-                        ) : activePlaylist ? (
-                            <>
-                                <p className="subtitle" style={{ margin: '0 auto 2rem auto', color: '#a855f7' }}>
-                                    Found the perfect mix! Playing now.
-                                </p>
-                                <Player playlist={activePlaylist} />
-                            </>
+                        ) : activeTrack ? (
+                            <Player initialTrack={activeTrack} token={token} />
                         ) : (
-                            <p className="subtitle" style={{ margin: '0 auto' }}>
-                                Ready to discover music based on your mood.
-                            </p>
+                            <div style={{ marginTop: '2rem' }}>
+                                <button
+                                    className="btn-primary"
+                                    onClick={() => handleMoodSelect(selectedMood)}
+                                    style={{ padding: '0.8rem 2rem', fontSize: '1rem' }}
+                                >
+                                    Start Session in {currentMoodObj?.emoji} {currentMoodObj?.label} Mode
+                                </button>
+                            </div>
                         )}
                     </div>
                 )}
 
-                {!showPlaylists && <MoodHistory history={moodHistory} />}
+                {!showPlaylists && !showWizard && <MoodHistory history={moodHistory} />}
 
                 {showPlaylists && (
                     <div className="playlists-section fade-in">
@@ -244,7 +270,7 @@ function Dashboard({ token, onLogout }) {
                 )}
             </main>
         </div>
-    )
+    );
 }
 
-export default Dashboard
+export default Dashboard;
