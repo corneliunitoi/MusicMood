@@ -5,13 +5,8 @@ import path from 'path';
 // Load environment variables from .env
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-    console.error("❌ ERROR: Supabase credentials missing in .env");
-    process.exit(1);
-}
+const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co';
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6';
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -200,10 +195,11 @@ async function resolveYouTubeTrack(artist, trackName, retryCount = 0) {
 
 async function startResolver() {
     console.log("=================================================");
-    console.log("🚀 MusicMood Hardened Zero-Quota Pre-Mapping Worker");
+    console.log("🚀 MusicMood Hardened Local Disk -> Catalog Converter");
+    console.log("   • Source: public.local_metadata (44.8k archive)");
+    console.log("   • Target: public.tracks (Playable catalog)");
     console.log("   • Automatic CP1251 Cyrillic Mojibake Healing");
     console.log("   • Strict Title-Matching Verification");
-    console.log("   • Resilient 429 Exponential Backoff");
     console.log("=================================================\n");
 
     let totalResolved = 0;
@@ -216,10 +212,10 @@ async function startResolver() {
     });
 
     while (isRunning) {
-        // Fetch a batch of tracks missing youtube_video_id
-        const { data: tracks, error } = await supabase
-            .from('tracks')
-            .select('id, artist, title, primary_genre_id')
+        // 1. Fetch unmapped tracks from public.local_metadata archive
+        const { data: records, error } = await supabase
+            .from('local_metadata')
+            .select('id, artist, track_name, genre')
             .is('youtube_video_id', null)
             .limit(BATCH_SIZE);
 
@@ -228,17 +224,17 @@ async function startResolver() {
             process.exit(1);
         }
 
-        if (!tracks || tracks.length === 0) {
-            console.log("\n🎉 All tracks in the database have been mapped! Zero unmapped tracks remaining.");
+        if (!records || records.length === 0) {
+            console.log("\n🎉 All tracks in local_metadata have been mapped! Zero unmapped tracks remaining.");
             break;
         }
 
-        console.log(`📦 Processing batch of ${tracks.length} tracks...`);
+        console.log(`📦 Processing batch of ${records.length} tracks from local_metadata...`);
 
-        for (const track of tracks) {
+        for (const record of records) {
             if (!isRunning) break;
 
-            const res = await resolveYouTubeTrack(track.artist, track.title);
+            const res = await resolveYouTubeTrack(record.artist, record.track_name);
 
             if (res.status === 'RATE_LIMITED') {
                 console.warn(`🛑 Rate limit persistent. Cooling down for 45s before continuing...`);
@@ -247,33 +243,47 @@ async function startResolver() {
             }
 
             if (res.status === 'JUNK') {
-                console.log(`[Junk Filter 🗑️] Non-music: "${track.artist} - ${track.title}"`);
-                await supabase.from('tracks').update({ youtube_video_id: 'CORRUPT_TAGS' }).eq('id', track.id);
+                console.log(`[Junk Filter 🗑️] Non-music: "${record.artist} - ${record.track_name}"`);
+                await supabase.from('local_metadata').update({ youtube_video_id: 'CORRUPT_TAGS' }).eq('id', record.id);
                 continue;
             }
 
             if (res.status === 'FOUND' && res.videoId) {
-                const updates = { youtube_video_id: res.videoId };
-                if (res.healedTitle) updates.title = res.healedTitle;
-                if (res.healedArtist) updates.artist = res.healedArtist;
+                const finalArtist = res.healedArtist || record.artist;
+                const finalTitle = res.healedTitle || record.track_name;
+                const finalGenre = (record.genre || 'rock').toLowerCase();
 
-                const { error: updateError } = await supabase
+                // 1. Update local_metadata
+                await supabase
+                    .from('local_metadata')
+                    .update({ youtube_video_id: res.videoId })
+                    .eq('id', record.id);
+
+                // 2. Insert verified playable track into public.tracks
+                // Check if already in tracks by video ID
+                const { data: existing } = await supabase
                     .from('tracks')
-                    .update(updates)
-                    .eq('id', track.id);
+                    .select('id')
+                    .eq('youtube_video_id', res.videoId)
+                    .limit(1);
 
-                if (!updateError) {
-                    totalResolved++;
-                    const healedNote = (res.healedTitle || res.healedArtist) ? ' 🩹 [Healed]' : '';
-                    console.log(`[${totalResolved}] ✅ Mapped: "${updates.artist || track.artist} - ${updates.title || track.title}" -> ${res.videoId}${healedNote}`);
+                if (!existing || existing.length === 0) {
+                    await supabase.from('tracks').insert({
+                        title: finalTitle,
+                        artist: finalArtist,
+                        primary_genre_id: finalGenre,
+                        youtube_video_id: res.videoId,
+                        source: 'local_disk_resolved'
+                    });
                 }
+
+                totalResolved++;
+                const healedNote = (res.healedTitle || res.healedArtist) ? ' 🩹 [Healed]' : '';
+                console.log(`[${totalResolved}] ✅ Mapped to Catalog: "${finalArtist} - ${finalTitle}" -> ${res.videoId}${healedNote}`);
             } else {
                 totalSkipped++;
-                const updates = { youtube_video_id: 'UNRESOLVED' };
-                if (res.healedTitle) updates.title = res.healedTitle;
-
-                console.log(`[Skip] ⏭️ No verified match: "${track.artist} - ${res.healedTitle || track.title}" (Flagged UNRESOLVED)`);
-                await supabase.from('tracks').update(updates).eq('id', track.id);
+                console.log(`[Skip] ⏭️ No verified match: "${record.artist} - ${res.healedTitle || record.track_name}" (Flagged UNRESOLVED in archive)`);
+                await supabase.from('local_metadata').update({ youtube_video_id: 'UNRESOLVED' }).eq('id', record.id);
             }
 
             // Polite jittered delay: 1800ms - 2600ms
@@ -283,7 +293,7 @@ async function startResolver() {
     }
 
     console.log("\n=================================================");
-    console.log(`Summary: ${totalResolved} mapped, ${totalSkipped} unresolved.`);
+    console.log(`Summary: ${totalResolved} mapped to catalog, ${totalSkipped} unresolved.`);
     console.log("=================================================");
 }
 
