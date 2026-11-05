@@ -41,11 +41,25 @@ function Player({ initialTrack, token }) {
     const [isSteering, setIsSteering] = useState(false);
     const [errorMessage, setErrorMessage] = useState(null);
     const [sessionState, setSessionState] = useState(() => sessionEngine.getState());
+    const [copiedLink, setCopiedLink] = useState(false);
 
     const playerRef = useRef(null);
     const isPlayerReadyRef = useRef(false);
     const isTransitioningRef = useRef(false);
     const currentTrackRef = useRef(initialTrack);
+
+    const videoId = currentTrack?.id || currentTrack?.youtube_video_id;
+    const youtubeUrl = videoId && videoId.length === 11 ? `https://www.youtube.com/watch?v=${videoId}` : null;
+
+    const handleCopyLink = () => {
+        if (!youtubeUrl) return;
+        navigator.clipboard.writeText(youtubeUrl).then(() => {
+            setCopiedLink(true);
+            setTimeout(() => setCopiedLink(false), 2000);
+        }).catch(err => {
+            console.error('Failed to copy link:', err);
+        });
+    };
 
     // Keep ref in sync
     useEffect(() => {
@@ -332,7 +346,22 @@ function Player({ initialTrack, token }) {
                                 </span>
                             )}
                         </span>
-                        <h3 className="player-title">{currentTrack?.title || 'Loading session...'}</h3>
+                        <h3 className="player-title">
+                            {youtubeUrl ? (
+                                <a
+                                    href={youtubeUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="Open track on YouTube (New Tab)"
+                                    style={{ color: 'inherit', textDecoration: 'none' }}
+                                >
+                                    {currentTrack?.title || 'Loading session...'}
+                                    <span style={{ fontSize: '0.72rem', marginLeft: '0.4rem', opacity: 0.5 }}>↗</span>
+                                </a>
+                            ) : (
+                                currentTrack?.title || 'Loading session...'
+                            )}
+                        </h3>
                         <p className="player-channel">
                             {currentTrack?.artist || currentTrack?.channelTitle || 'MusicMood Engine'}
                             {currentTrack?.source === 'local_library' && (
@@ -404,6 +433,64 @@ function Player({ initialTrack, token }) {
                     >
                         🔀 Step Node
                     </button>
+
+                    {/* Copy YouTube Link */}
+                    {youtubeUrl && (
+                        <button
+                            className="control-btn"
+                            onClick={handleCopyLink}
+                            title={copiedLink ? "Link copied to clipboard!" : "Copy YouTube link"}
+                            style={{
+                                background: copiedLink ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                                border: copiedLink ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.15)',
+                                color: copiedLink ? '#34d399' : '#94a3b8',
+                                width: '36px',
+                                height: '36px',
+                                padding: '0.4rem',
+                                borderRadius: '10px',
+                                transition: 'all 0.2s ease',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {copiedLink ? (
+                                <span style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>✓</span>
+                            ) : (
+                                <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '1.15rem', height: '1.15rem' }}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                </svg>
+                            )}
+                        </button>
+                    )}
+
+                    {/* Open in YouTube */}
+                    {youtubeUrl && (
+                        <a
+                            href={youtubeUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="control-btn"
+                            title="Open track on YouTube (New Tab)"
+                            style={{
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                border: '1px solid rgba(239, 68, 68, 0.35)',
+                                color: '#ef4444',
+                                width: '36px',
+                                height: '36px',
+                                padding: '0.4rem',
+                                borderRadius: '10px',
+                                textDecoration: 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s ease',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <svg className="icon" fill="currentColor" viewBox="0 0 24 24" style={{ width: '1.25rem', height: '1.25rem' }}>
+                                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                            </svg>
+                        </a>
+                    )}
                 </div>
             </div>
 

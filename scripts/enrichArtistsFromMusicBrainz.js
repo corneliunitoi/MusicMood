@@ -11,13 +11,13 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const isAll = process.argv.includes('--all');
 const limitArg = process.argv.find(a => a.startsWith('--limit='));
-const BATCH_LIMIT = limitArg ? parseInt(limitArg.split('=')[1], 10) : (isAll ? 1000 : 50);
+const BATCH_LIMIT = limitArg ? parseInt(limitArg.split('=')[1], 10) : (isAll ? 1000 : 100);
 
 async function enrichArtists() {
     console.log("=================================================");
     console.log("🌍 MusicMood External MusicBrainz Multi-Genre Enricher");
     console.log("   • Authority: MusicBrainz (MetaBrainz Foundation) & Wikipedia");
-    console.log(`   • Target: public.artists & public.tracks (Multi-genre GIN indexed)`);
+    console.log("   • Target: public.artists & public.tracks (Multi-genre GIN indexed)");
     console.log(`   • Mode: ${isAll ? 'Full Catalog Sweep' : 'Active Catalog Priority (Top played)'}`);
     console.log(`   • Batch size: ${BATCH_LIMIT}`);
     console.log("=================================================\n");
@@ -25,16 +25,25 @@ async function enrichArtists() {
     let artistsToEnrich = [];
 
     if (!isAll) {
-        // Step 1: Find distinct artists from public.tracks whose secondary_genre_ids are empty
-        const { data: trackArtists, error: trackError } = await supabase
-            .from('tracks')
-            .select('artist')
-            .or('secondary_genre_ids.is.null,secondary_genre_ids.eq.{}')
-            .limit(1000);
+        // Step 1: Find ALL distinct artists from public.tracks whose secondary_genre_ids are empty
+        let trackArtists = [];
+        let from = 0;
+        const pageSize = 1000;
+        while (true) {
+            const { data, error: trackError } = await supabase
+                .from('tracks')
+                .select('artist')
+                .or('secondary_genre_ids.is.null,secondary_genre_ids.eq.{}')
+                .range(from, from + pageSize - 1);
 
-        if (trackError) {
-            console.error("❌ Failed to query tracks:", trackError.message);
-            return;
+            if (trackError) {
+                console.error("❌ Failed to query tracks:", trackError.message);
+                break;
+            }
+            if (!data || data.length === 0) break;
+            trackArtists.push(...data);
+            if (data.length < pageSize) break;
+            from += pageSize;
         }
 
         // Count frequency of un-enriched artists in tracks
@@ -70,7 +79,7 @@ async function enrichArtists() {
         return;
     }
 
-    console.log(`Found ${artistsToEnrich.length} artists to enrich with MusicBrainz community tags...\n`);
+    console.log(`Found ${artistsToEnrich.length} distinct artists across un-enriched tracks to resolve...\n`);
 
     let enrichedCount = 0;
     let skippedCount = 0;
@@ -78,8 +87,9 @@ async function enrichArtists() {
     for (let i = 0; i < artistsToEnrich.length; i++) {
         const item = artistsToEnrich[i];
         const artistName = item.name;
+        const trackCount = item.track_count || 1;
 
-        process.stdout.write(`[${i + 1}/${artistsToEnrich.length}] Resolving "${artistName}"... `);
+        process.stdout.write(`[${i + 1}/${artistsToEnrich.length}] "${artistName}" (${trackCount} tracks)... `);
 
         const mbData = await fetchMusicBrainzArtistGenres(artistName);
 
@@ -94,7 +104,7 @@ async function enrichArtists() {
         const tags = mbData.tags || [];
         const mbid = mbData.mbid || null;
 
-        // 1. Update public.artists
+        // 1. Update public.artists (or insert if not exists)
         const { data: updatedArtist } = await supabase
             .from('artists')
             .update({
@@ -107,6 +117,22 @@ async function enrichArtists() {
             .select('id')
             .maybeSingle();
 
+        let artistId = updatedArtist?.id;
+        if (!artistId) {
+            const { data: inserted } = await supabase
+                .from('artists')
+                .insert({
+                    name: artistName,
+                    primary_genre_id: primary,
+                    secondary_genre_ids: secondary,
+                    tags,
+                    mbid
+                })
+                .select('id')
+                .maybeSingle();
+            artistId = inserted?.id;
+        }
+
         // 2. Propagate multi-genre metadata to all of this artist's tracks in public.tracks
         const trackUpdatePayload = {
             secondary_genre_ids: secondary
@@ -114,8 +140,8 @@ async function enrichArtists() {
         if (primary) {
             trackUpdatePayload.primary_genre_id = primary;
         }
-        if (updatedArtist?.id) {
-            trackUpdatePayload.artist_id = updatedArtist.id;
+        if (artistId) {
+            trackUpdatePayload.artist_id = artistId;
         }
 
         const { error: trackUpdateErr } = await supabase
@@ -126,7 +152,7 @@ async function enrichArtists() {
         if (trackUpdateErr) {
             console.log(`⚠️ Artist updated, track error: ${trackUpdateErr.message}`);
         } else {
-            console.log(`✅ [Primary: ${primary}] + [Secondary: ${secondary.join(', ') || 'none'}]`);
+            console.log(`✅ [${primary}] + [${secondary.join(', ') || 'none'}]`);
         }
 
         enrichedCount++;

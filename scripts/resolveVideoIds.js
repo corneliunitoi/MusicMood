@@ -440,4 +440,9 @@ async function startResolver() {
     console.log("=================================================");
 }
 
-startResolver();
+export { resolveYouTubeTrack };
+
+// Only auto-run when invoked directly from CLI
+if (process.argv[1] && process.argv[1].replace(/\\/g, '/').endsWith('scripts/resolveVideoIds.js')) {
+    startResolver();
+}
