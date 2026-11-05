@@ -1,56 +1,131 @@
-# MusicMood - Project Features History
+# 📜 MusicMood — Comprehensive Features & Architecture
 
-This document outlines the comprehensive history of the features we've implemented in the `MusicMood` project, detailing their technical specifications and core behaviors.
+This document tracks the technical specifications, development milestones, and behavioral rules that govern the **MusicMood** application.
 
-## 1. YouTube OAuth & Integration
+---
 
-**Description:** Integrating the app with the YouTube Data API for user personalization.
+## 🏛️ Development Milestones & Feature History
 
-* **OAuth 2.0 Flow:** Implemented user authentication using a standard implicit OAuth flow targeting the Google Cloud YouTube Data API v3 (`auth.js`).
-* **User Profile Retrieval:** Fetches user details (Name, Avatar) upon successful login and displays them in the mini-profile header.
-* **Playlist Synchronization:** Uses `fetchUserPlaylists` to retrieve the active user's existing public/private YouTube playlists, displaying them cleanly in the `PlaylistView.jsx` component.
+```mermaid
+flowchart LR
+    M1[M1: OAuth & Legacy Search] --> M2[M2: 44.8k Local Scan]
+    M2 --> M3[M3: Schema v2 & Catalog Split]
+    M3 --> M4[M4: Anti-Drift State Machine]
+    M4 --> M5[M5: 115-Node Taxonomy]
+    M5 --> M6[M6: MusicBrainz Multi-Genre]
+    M6 --> M7[M7: Zero-Quota Scraper]
+    M7 --> M8[M8: Sonic Calibration UI]
+```
 
-## 2. Local Library Scanning & Cloud Sync
+---
 
-**Description:** A backend NodeJS pipeline for aggregating and synchronizing a massive local music repository directly to the cloud.
+### Milestone 1: YouTube OAuth & Foundation Discovery (v0.1.0)
+* **OAuth 2.0 User Auth:** Implicit/AuthCode flow targeting Google Identity and YouTube Data API v3 (`auth.js`).
+* **Profile & Playlist Sync:** Fetched user name, avatar, and existing public/private YouTube playlists for quick start.
+* **Basic Mood Search:** Early prototype mapping simple moods (*Happy*, *Sad*, *Energetic*) to search query strings sent to YouTube's search endpoint.
 
-* **Recursive File Scanning:** The script `scripts/scanLibrary.js` traverses local directories recursively (e.g., `M:\Music`) targeting audio files (`.mp3`, `.flac`, `.m4a`, `.wav`, `.ogg`).
-* **Primary Extraction:** Reads ID3/Vorbis tags using the `music-metadata` library.
-* **Heuristic Fallback:** If ID3 tags are missing or corrupted, a fallback heuristic extracts artist, title, and genre data directly from the parent directory naming conventions (expecting `...\Genre\Artist - Album\Track.ext`).
-* **Metadata Enrichment:** Before saving, the pipeline cleans the track names and queries the `iTunes Search API` to fetch canonical artist names and standard genres, drastically improving data integrity.
-* **In-Memory Caching:** To prevent hitting rate limits against iTunes, an in-memory map caches Artist-to-Genre lookups during the scan.
-* **Supabase Synchronization:** Batches and upserts the scanned and enriched catalog directly into a PostgreSQL Supabase database (`local_metadata` table).
-* **Cloud Counter:** The frontend `Dashboard.jsx` polls the exact count of synced tracks dynamically every 30 seconds and renders this stat directly in the UI.
+---
 
-## 3. Genre Normalization & Hierarchical Mapping
+### Milestone 2: Local Library Scanning & 44.8k Cloud Sync (v0.2.0)
+* **Massive File Scanner:** Node.js pipeline (`scripts/scanLibrary.js`) recursively traversing local storage (e.g. `M:\Music`) for audio files (`.mp3`, `.flac`, `.m4a`, `.wav`, `.ogg`).
+* **Audio Tag Extraction:** Deep inspection using `music-metadata` to extract ID3v2, Vorbis, and parent directory heuristics.
+* **44,885 Song Archive:** Synchronized the entire personal library to Supabase PostgreSQL table `public.local_metadata`.
+* **Cyrillic & Mojibake Healing:** Automatic detection and repair of Windows-1251/CP1252 character corruption on classic/foreign artist titles.
 
-**Description:** A system that processes wild and dirty genre tags returned from APIs or ID3 tags into a rigid, consumable taxonomy.
+---
 
-* **Hierarchical Dictionary:** Defined in `musicEngine.js` (`GENRE_HIERARCHY`), containing 10 primary genres (e.g., `Pop`, `Rock`, `Lofi/Chill`, `Electronic/Dance`) and sub-genre keyword mappings.
-* **String Normalization:** Cleans incoming genres from the iTunes API and directory scans down to lowercase alphameric blocks.
-* **Classification Engine:** Scans normalized genres against the hierarchy and categorizes the track into its corresponding Primary Genre Bucket.
+### Milestone 3: Schema v2 Architecture & Separation of Concerns (v0.3.0)
+* **Catalog Decoupling:** Separated raw local file entries (`public.local_metadata`) from playable, verified YouTube streams (`public.tracks`).
+* **Normalized Artists Table:** Created `public.artists` with unique constraints, MusicBrainz identifiers (`mbid`), primary genres, and disambiguation.
+* **Foreign Key Relational Integrity:** Linked 44,000+ tracks to artists via indexed `artist_id` foreign keys with `ON DELETE SET NULL`.
+* **Multi-Genre Arrays:** Implemented PostgreSQL native `text[]` arrays (`secondary_genre_ids`) with GIN indexing for multi-genre filtering.
 
-## 4. Taste Profile Analyzer
+---
 
-**Description:** A feature that understands the user's base music preferences using their YouTube footprint.
+### Milestone 4: Anti-Drift Session State Machine (v0.4.0)
+* **Mathematical Invariant Guards:**
+  - **Node Dwell Limit:** Strictly caps playback in a single subgenre to 2 consecutive tracks before automatically shifting along harmonic graph edges.
+  - **Artist Satiation Cooldown:** Maintains a 15-artist sliding window to prevent repetition of the same band or singer.
+  - **Track History De-duplication:** 50-track exclusion buffer to prevent immediate replay loops.
+* **Real-Time Steering Engine:**
+  - **Dynamic Fatigue:** Each play in a genre accumulates fatigue penalty: $\text{Suitability} = \text{Affinity} \times (1 - \text{Fatigue}) \times \text{HarmonicProximity}$.
+  - **Discovery Radius:**
+    - *Familiar (0.2):* Anchored exclusively to 1-hop harmonic neighbors and user favorites.
+    - *Balanced (0.5):* Expands to 1-hop and 2-hop harmonic neighbors + mood-compatible clusters.
+    - *Deep Cuts (0.85):* Traverses anywhere in the graph outside user dealbreakers.
+* **Dealbreaker Filter:** Instant candidate rejection based on negative sound attributes (e.g., *No Mumble Rap*, *No Harsh Growls*, *No Commercial Festival EDM*, *No Bro-Country*).
 
-* **Playlist Deep-Dive:** `TasteAnalyzer.jsx` scans the user's top YouTube playlists, grabbing video titles inside them.
-* **On-The-Fly Enrichment:** It passes the fetched video titles through `metadataEnricher.js`, utilizing the `iTunes Search API` to extract canonical genres for the underlying tracks.
-* **Taste Calculation:** Aggregates these returned genres and determines the user's `topGenres` (e.g., "70% Lofi/Chill, 30% Rock"). This profile is subsequently cached.
+---
 
-## 5. Mood Engine & Intelligent Discovery
+### Milestone 5: 115-Node Canonical Music Taxonomy (v0.4.5)
+* **14 Major Genre Families:**
+  - `rock`, `metal`, `electronic`, `pop`, `hip_hop`, `rnb_soul`, `jazz`, `blues`, `classical`, `folk_acoustic`, `country`, `world_reggae`, `ambient_chill`, `avant_garde`.
+* **17 Umbrella Parent Genres:** Enabled top-level exploration for users who do not know obscure subgenres (e.g., choosing `rock` or `classical` directly).
+* **98 Granular Subgenres:** RYM/AllMusic-compliant subgenres with curated energy ratings, default vocal tendencies (*Instrumental*, *Vocal*, *Any*), and harmonic graph transition edges in `TASTE_GRAPH_EDGES`.
+* **100% Catalog Normalization:** Every track in `public.tracks` maps to a canonical ID from this taxonomy.
 
-**Description:** The core feature that converts user sentiment into playable audio.
+---
 
-* **Mood Selection:** Provides a visual, interactive `MoodBar.jsx` featuring discrete emotional states (e.g., 🔥 Energetic, 🎵 Chill, 😢 Sad, ❤️ Romantic). Each mood maps to specific search contexts and keywords.
-* **Contextual Inference:** `musicEngine.discoverPlaylistForMood` combines the user's requested Mood with their exact `TasteProfile` (Top Genres).
-* **Dynamic querying:** If the user likes `Rock` and selects `Energetic`, the engine constructs a highly specific YouTube Data API search querying for "Energetic Rock Playlist".
-* **Frictionless Auto-play:** The resulting optimal YouTube playlist is immediately loaded and actively played using our embedded `Player.jsx` component.
+### Milestone 6: MusicBrainz Community Multi-Genre Integration (v0.4.8)
+* **MetaBrainz Authority:** Switched from fragile regex guessing to the open, non-profit MusicBrainz API (`https://musicbrainz.org/ws/2/`).
+* **Multi-Genre Tag Extraction:** Extracts community-voted genre tags and weights them by vote count.
+* **Multi-Genre Bands:** Accurately classifies artists that span multiple sounds (e.g., *Dead Can Dance* $\rightarrow$ `synthwave` + `[rock, new_age, post_punk, ambient, classical]`).
+* **Batch Artist Reconciliation Script:** [`scripts/enrichArtistsFromMusicBrainz.js`](file:///c:/Visual%20studio/MusicMood/scripts/enrichArtistsFromMusicBrainz.js) reconciles distinct artists, updates `public.artists`, and automatically cascades the canonical tags to all songs by that artist.
+* **Rate-Limit Compliance:** Built-in 1,100ms request queue with 503 backoff retries respecting the MetaBrainz foundation policy.
 
-## 6. History Tracking & Persistence
+---
 
-**Description:** Local logging of the user's sessions to prevent repetitive discovery experiences.
+### Milestone 7: Zero-Quota Scraper & Playback Resilience (v0.5.0)
+* **Zero-Quota YouTube Playlist Ingester:** Ingests user playlists and extracts video IDs without burning daily Google Cloud Data API quotas.
+* **Anti-Bot & Cookie Consent Bypass:** Hardened HTML scraper with `SOCS` cookie bypass headers and index-based `ytInitialData` extraction.
+* **Strict Verification:** Filters out multi-hour compilations, STEM tracks, live interview podcasts, and game walkthroughs using duration bounds and channel verification.
+* **Fail-Safe Sourcing Waterfall:**
+  - **Tier A (Strict):** Guard-checked track within active genre and 15-artist cooldown.
+  - **Tier B (Relaxed):** Relaxes cooldown if genre has limited artists (avoiding only current track).
+  - **Tier C (Emergency Catalog):** Draws from the 4,326 verified tracks to guarantee 0% dropout rate.
+* **Non-Destructive Downvote:** Thumbs-down button records personal feedback in `listening_history`, blacklists the artist for the session, and nudges the graph without deleting global database mappings.
 
-* **Timeline Component:** The `MoodHistory.jsx` displays a chronological feed of the user's most recent discoveries (e.g., "5 mins ago: Chill Mode matched with Indie Pop").
-* **De-duplication Logic:** Prevents the history log from spamming absolute consecutive duplicates if the user spams a single mood button.
-* **State Persistence:** Stores arrays for `musicMood_history`, `musicMood_genres`, and `musicMood_moods` exclusively within the browser's `localStorage` for privacy and persistence between sessions.
+---
+
+### Milestone 8: Sonic Calibration & Minimalist UI (v0.5.0)
+* **Sonic Calibration Wizard:**
+  - 1-click **"✨ Calibrate from Library"** scans user's 44,885 tracks to calculate exact genre affinity weights.
+  - Interactive grid displaying all 115 genres with family tags.
+  - Dealbreaker toggles with transparent acoustic rationale.
+* **Low-Friction Player Controls:**
+  - Single **Energy Slider** (0% to 100%).
+  - **Vocal Mode Switcher** (*Any*, *Instrumental Only*, *Vocals*).
+  - **Discovery Tier Toggles** (*Familiar*, *Balanced*, *Deep Cuts*).
+  - **Family-Grouped Active Node Selector:** `<select>` with `<optgroup>` for all 115 genres.
+  - Cluttered Nuance/Situation dropdowns tucked away to keep the interface fast and clean.
+
+---
+
+## 🔮 Feature Backlog (Upcoming Roadmap)
+
+### 1. Artist Finder & Favorites
+* **Search & Autocomplete:** Search for any artist across the 44.8k archive and 4.3k verified catalog.
+* **Artist Profile View:** View an artist's MusicBrainz tags, biography, discography in the library, and primary genres.
+* **Favorite Toggle:** Star an artist to increase their base affinity weight in the state machine without restricting discovery.
+
+### 2. Experimental: YouTube "MusicMood Favorites" Auto-Sync
+* **One-Click Favorite:** Liking a track with ❤️ can optionally append that video ID directly to a dedicated playlist titled `"MusicMood Favorites"` in the user's authentic YouTube account.
+* **Overwriting Protection:** Uses single-playlist append-only mode to prevent overwriting or deleting any of the user's pre-existing YouTube playlists.
+
+### 3. User-Selected Localized / Regional Music
+* **Optional Language Filter:** Allow users to request music in specific languages (e.g., French, Romanian, Japanese, Spanish) on demand.
+* **Non-Invasive:** Kept strictly outside the core engine defaults so regional music never plays unless explicitly chosen by the user.
+
+---
+
+## 📐 Key Specifications & Invariant Rules
+
+| Metric | Specification | Rationale |
+|---|---|---|
+| **Max Node Dwell** | 2 tracks | Prevents falling into repetitive genre fatigue. |
+| **Artist Cooldown** | 15 artists | Prevents artist over-representation in smaller subgenres. |
+| **History Buffer** | 50 tracks | Prevents immediate track replaying during long sessions. |
+| **Max Discovery Share** | 25% | Prevents a single anchor from monopolizing 100% of the session. |
+| **Min Floor Share** | 5% | Guarantees room for serendipitous exploration. |
+| **MusicBrainz Rate Limit** | 1.1s per request | Complies with MetaBrainz Foundation API policy. |
+| **Catalog Fail-Safe** | 3-tier waterfall | 0% track dropout even during zero YouTube token conditions. |
