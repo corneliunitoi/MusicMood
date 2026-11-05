@@ -14,7 +14,8 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Configuration
 const BATCH_SIZE = 50;
-const BASE_DELAY_MS = 2200; // Polite delay between tracks to avoid triggering rate limits
+const useInnertube = process.argv.includes('--innertube') || process.env.npm_config_innertube === 'true';
+const BASE_DELAY_MS = useInnertube ? 450 : 2200; // 450ms for Innertube JSON, 2200ms for Desktop HTML
 
 const isRandom = process.argv.includes('--random') || process.env.npm_config_random === 'true';
 const artistCache = new Map();
@@ -71,6 +72,120 @@ function titlesMatch(targetTitle, ytVideoTitle) {
     if (targetWords.length === 0) return true;
     const matchedWords = targetWords.filter(w => cleanYt.includes(w));
     return (matchedWords.length / targetWords.length) >= 0.5;
+}
+
+/**
+ * Resolves a track using the lightweight YouTube Music Innertube JSON API (~300ms, pure JSON).
+ */
+async function resolveInnertubeTrack(artist, trackName) {
+    const gateCheck = isSongCandidate({ title: trackName, artist });
+    if (!gateCheck.pass) {
+        return { status: 'JUNK', reason: gateCheck.reason };
+    }
+
+    const healedArtistTag = fixMojibake(artist);
+    const healedTitleTag = fixMojibake(trackName);
+
+    let cleanArtist = (healedArtistTag || '')
+        .replace(/^[0-9]+(\s*[-_.]\s*|\s+)/, '')
+        .replace(/\[[^\]]+\]/g, '')
+        .replace(/["“”«»]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    let cleanTitle = (healedTitleTag || '')
+        .replace(/^[0-9]+(\s*[-_.]\s*|\s+)/, '')
+        .replace(/\((Alternate|Remix|Live|Stem|Dublex|Prod\.|Demo|Version|Remaster).*?\)/gi, '')
+        .replace(/\[.*?\]/g, '')
+        .replace(/["“”«»]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const query = `${cleanArtist} ${cleanTitle}`.trim();
+    const body = {
+        context: {
+            client: {
+                clientName: 'WEB_REMIX',
+                clientVersion: '1.20240101.01.00',
+                hl: 'en',
+                gl: 'US'
+            }
+        },
+        query
+    };
+
+    try {
+        const res = await fetch('https://music.youtube.com/youtubei/v1/search', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'Origin': 'https://music.youtube.com',
+                'Referer': 'https://music.youtube.com/'
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (res.status === 429) {
+            return { status: 'RATE_LIMITED' };
+        }
+        if (!res.ok) {
+            return { status: 'ERROR', code: res.status };
+        }
+
+        const data = await res.json();
+        const candidates = [];
+
+        function extractItems(obj) {
+            if (!obj || typeof obj !== 'object') return;
+
+            // 1. MusicCardShelf (Top Result)
+            if (obj.musicCardShelfRenderer) {
+                const shelf = obj.musicCardShelfRenderer;
+                const title = shelf.title?.runs?.[0]?.text || '';
+                const author = shelf.subtitle?.runs?.[0]?.text || '';
+                const videoId = shelf.onTap?.watchEndpoint?.videoId;
+                if (videoId && videoId.length === 11) {
+                    candidates.push({ videoId, title, author });
+                }
+            }
+
+            // 2. Song list items
+            if (obj.musicResponsiveListItemRenderer) {
+                const item = obj.musicResponsiveListItemRenderer;
+                const flexCols = item.flexColumns || [];
+                const title = flexCols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || '';
+                const author = flexCols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || '';
+                const videoId = item.playlistItemData?.videoId || item.doubleTapCommand?.watchEndpoint?.videoId;
+                if (videoId && videoId.length === 11) {
+                    candidates.push({ videoId, title, author });
+                }
+            }
+
+            for (const v of Object.values(obj)) {
+                extractItems(v);
+            }
+        }
+
+        extractItems(data);
+
+        for (const cand of candidates) {
+            if (titlesMatch(cleanTitle, cand.title)) {
+                return {
+                    status: 'FOUND',
+                    videoId: cand.videoId,
+                    matchedTitle: cand.title,
+                    healedTitle: healedTitleTag !== trackName ? healedTitleTag : null,
+                    healedArtist: cleanArtist !== artist ? cleanArtist : null,
+                    engine: 'innertube'
+                };
+            }
+        }
+
+        return { status: 'ZERO_CANDIDATES' };
+    } catch (e) {
+        return { status: 'ERROR', error: e.message };
+    }
 }
 
 /**
@@ -306,6 +421,7 @@ async function startResolver() {
     console.log("   • Canonical Taxonomy Genre Normalization (115 IDs)");
     console.log("   • Song-Only Gatekeeper (Stems & Compilations filtered)");
     console.log(isRandom ? "   • Sampling: RANDOM 🎲 (Diverse artists across library)" : "   • Sampling: SEQUENTIAL (pass --random for diverse artists)");
+    console.log(useInnertube ? "   • Engine: INNERTUBE ⚡ (YouTube Music Private JSON API ~300ms)" : "   • Engine: DESKTOP_SCRAPER 🛡️ (Standard HTML Scraper 2.2s)");
     console.log("=================================================\n");
 
     let totalResolved = 0;
@@ -351,7 +467,19 @@ async function startResolver() {
         for (const record of records) {
             if (!isRunning) break;
 
-            const res = await resolveYouTubeTrack(record.artist, record.track_name);
+            let res;
+            if (useInnertube) {
+                res = await resolveInnertubeTrack(record.artist, record.track_name);
+                // Hybrid fallback: If Innertube had 0 candidates (e.g. obscure track), check desktop scraper
+                if (res.status === 'ZERO_CANDIDATES' || res.status === 'NO_MATCH') {
+                    const fallbackRes = await resolveYouTubeTrack(record.artist, record.track_name);
+                    if (fallbackRes.status === 'FOUND') {
+                        res = fallbackRes;
+                    }
+                }
+            } else {
+                res = await resolveYouTubeTrack(record.artist, record.track_name);
+            }
 
             if (res.status === 'RATE_LIMITED') {
                 console.warn(`🛑 Rate limit persistent. Cooling down for 45s before continuing...`);
@@ -429,8 +557,8 @@ async function startResolver() {
                 await supabase.from('local_metadata').update({ youtube_video_id: 'UNRESOLVED' }).eq('id', record.id);
             }
 
-            // Polite jittered delay: 1800ms - 2600ms
-            const jitter = Math.floor(Math.random() * 800);
+            // Polite delay: ~450ms-650ms for Innertube, ~2200ms-3000ms for Desktop Scraper
+            const jitter = useInnertube ? Math.floor(Math.random() * 200) : Math.floor(Math.random() * 800);
             await sleep(BASE_DELAY_MS + jitter);
         }
     }
@@ -440,7 +568,7 @@ async function startResolver() {
     console.log("=================================================");
 }
 
-export { resolveYouTubeTrack };
+export { resolveYouTubeTrack, resolveInnertubeTrack };
 
 // Only auto-run when invoked directly from CLI
 if (process.argv[1] && process.argv[1].replace(/\\/g, '/').endsWith('scripts/resolveVideoIds.js')) {

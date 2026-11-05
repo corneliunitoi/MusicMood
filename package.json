@@ -1,7 +1,7 @@
 {
   "name": "musicmood",
   "private": true,
-  "version": "0.5.1",
+  "version": "0.5.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,6 +12,8 @@
     "scan-library:random": "node scripts/scanLibrary.js --random",
     "resolve-library": "node scripts/resolveVideoIds.js",
     "resolve-library:random": "node scripts/resolveVideoIds.js --random",
+    "resolve-library:innertube": "node scripts/resolveVideoIds.js --innertube",
+    "resolve-library:innertube:random": "node scripts/resolveVideoIds.js --innertube --random",
     "enrich-genres": "node scripts/enrichArtistsFromMusicBrainz.js",
     "enrich-genres:all": "node scripts/enrichArtistsFromMusicBrainz.js --all",
     "seed-genres": "node scripts/seedGenresFromMusicBrainz.js --target=20",
