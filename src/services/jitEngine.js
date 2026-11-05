@@ -79,6 +79,7 @@ class JitEngine {
                 const track = await this.pullTrackForGenre(genreId, sessionEngine);
                 if (track && sessionEngine.passesGuards(track)) {
                     sessionEngine.queue.push(track);
+                    sessionEngine.notify();
                     console.log(`[JIT Buffer ⚡] Queued track for "${genreId}": "${track.artist} - ${track.title}" (Queue size: ${sessionEngine.queue.length})`);
                 }
             }

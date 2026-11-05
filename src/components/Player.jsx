@@ -42,6 +42,7 @@ function Player({ initialTrack, token }) {
     const [errorMessage, setErrorMessage] = useState(null);
     const [sessionState, setSessionState] = useState(() => sessionEngine.getState());
     const [copiedLink, setCopiedLink] = useState(false);
+    const [showQueue, setShowQueue] = useState(false);
 
     const playerRef = useRef(null);
     const isPlayerReadyRef = useRef(false);
@@ -494,8 +495,123 @@ function Player({ initialTrack, token }) {
                             </svg>
                         </a>
                     )}
+
+                    {/* Up Next / JIT Queue Drawer Toggle */}
+                    <button
+                        className="btn-text"
+                        onClick={() => setShowQueue(!showQueue)}
+                        title="View Up Next & JIT Buffered Queue"
+                        style={{
+                            background: showQueue ? 'rgba(52, 211, 153, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                            border: showQueue ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.15)',
+                            color: showQueue ? '#34d399' : '#94a3b8',
+                            borderRadius: '8px',
+                            padding: '0.4rem 0.75rem',
+                            fontSize: '0.8rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem'
+                        }}
+                    >
+                        <span>📋 Up Next</span>
+                        <span style={{
+                            background: (sessionState.queue || []).length > 0 ? 'rgba(52, 211, 153, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                            borderRadius: '9999px',
+                            padding: '0.1rem 0.45rem',
+                            fontSize: '0.72rem',
+                            color: (sessionState.queue || []).length > 0 ? '#34d399' : '#94a3b8'
+                        }}>
+                            {(sessionState.queue || []).length}
+                        </span>
+                    </button>
                 </div>
             </div>
+
+            {/* UP NEXT & JIT BUFFERED QUEUE TRAY */}
+            {showQueue && (
+                <div className="fade-in" style={{
+                    background: 'rgba(15, 23, 42, 0.95)',
+                    border: '1px solid rgba(52, 211, 153, 0.3)',
+                    borderRadius: '12px',
+                    padding: '0.85rem 1.25rem',
+                    marginTop: '0.5rem',
+                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)'
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                        <h4 style={{ margin: 0, fontSize: '0.88rem', color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span>⚡ Up Next in "{GENRE_NODES[sessionState.activeGenre]?.label || sessionState.activeGenre}"</span>
+                        </h4>
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                            Auto-buffered Just-In-Time
+                        </span>
+                    </div>
+
+                    {(sessionState.queue || []).length === 0 ? (
+                        <p style={{ margin: 0, fontSize: '0.82rem', color: '#94a3b8', fontStyle: 'italic', padding: '0.4rem 0' }}>
+                            ⏳ JIT Engine is buffering next tracks from catalog & MusicBrainz...
+                        </p>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            {(sessionState.queue || []).map((t, idx) => (
+                                <div
+                                    key={t.id || idx}
+                                    onClick={() => {
+                                        sessionEngine.queue = sessionState.queue.filter((_, i) => i !== idx);
+                                        sessionEngine.playCustomTrack(t);
+                                    }}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '0.4rem 0.6rem',
+                                        borderRadius: '8px',
+                                        background: 'rgba(255, 255, 255, 0.04)',
+                                        border: '1px solid rgba(255, 255, 255, 0.06)',
+                                        cursor: 'pointer',
+                                        transition: 'background 0.15s ease'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)'}
+                                    title="Click to play this track now"
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', overflow: 'hidden' }}>
+                                        <span style={{ color: '#64748b', fontSize: '0.78rem', minWidth: '1.2rem' }}>#{idx + 1}</span>
+                                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            <span style={{ color: '#f1f5f9', fontSize: '0.84rem', fontWeight: '500' }}>{t.title}</span>
+                                            <span style={{ color: '#94a3b8', fontSize: '0.78rem', marginLeft: '0.5rem' }}>— {t.artist}</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                                        {(t.source?.startsWith('jit') || t.source === 'jit_player_expansion' || t.source === 'jit_local_archive' || t.source === 'jit_musicbrainz') && (
+                                            <span style={{
+                                                fontSize: '0.68rem',
+                                                background: 'rgba(52, 211, 153, 0.15)',
+                                                color: '#34d399',
+                                                border: '1px solid rgba(52, 211, 153, 0.3)',
+                                                borderRadius: '4px',
+                                                padding: '0.1rem 0.35rem'
+                                            }}>
+                                                ⚡ JIT
+                                            </span>
+                                        )}
+                                        <span style={{
+                                            fontSize: '0.7rem',
+                                            color: '#cbd5e1',
+                                            background: 'rgba(255, 255, 255, 0.08)',
+                                            borderRadius: '4px',
+                                            padding: '0.1rem 0.4rem'
+                                        }}>
+                                            ▶ Play
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* REAL-TIME SESSION STEERING CONTROLS */}
             <div style={{

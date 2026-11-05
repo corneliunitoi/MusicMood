@@ -85,10 +85,32 @@ function Dashboard({ token, onLogout }) {
         };
     }, []);
 
-    // Subscribe to state machine to keep calibration in sync
+    // Subscribe to state machine to keep calibration, counts, and history in sync
     useEffect(() => {
-        const unsubscribe = sessionEngine.subscribe(() => {
+        const unsubscribe = sessionEngine.subscribe((state) => {
             setCalibration({ ...sessionEngine.getCalibration() });
+
+            if (state?.currentTrack && state.currentTrack.id) {
+                const cur = state.currentTrack;
+                const moodObj = allMoods.find(m => m.id === state.currentMood);
+                setMoodHistory(prev => {
+                    if (prev.length > 0 && prev[0].trackTitle === cur.title && prev[0].artist === cur.artist) {
+                        return prev;
+                    }
+                    const newHistoryItem = {
+                        id: Date.now(),
+                        timestamp: new Date().toISOString(),
+                        moodName: moodObj?.label || 'Session',
+                        moodEmoji: moodObj?.emoji || '🎵',
+                        matchedGenre: cur.genre || state.activeGenre || 'Intent Mix',
+                        trackTitle: cur.title,
+                        artist: cur.artist
+                    };
+                    const updated = [newHistoryItem, ...prev].slice(0, 50);
+                    localStorage.setItem('musicMood_history', JSON.stringify(updated));
+                    return updated;
+                });
+            }
         });
         return unsubscribe;
     }, []);

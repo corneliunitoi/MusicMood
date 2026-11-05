@@ -123,12 +123,14 @@ class SessionStateMachine {
 
     notify() {
         this.saveSessionState();
-        this.listeners.forEach(cb => cb(this.state));
+        const stateSnapshot = this.getState();
+        this.listeners.forEach(cb => cb(stateSnapshot));
     }
 
     getState() {
         return {
             ...this.state,
+            queue: [...this.queue],
             maxDwell: MAX_DWELL_PER_NODE,
             currentFatigue: Math.round((this.nodeFatigue[this.state.activeGenre] || 0) * 100),
         };
