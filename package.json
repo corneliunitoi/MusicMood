@@ -1,7 +1,7 @@
 {
   "name": "musicmood",
   "private": true,
-  "version": "0.5.5",
+  "version": "0.5.6",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -17,7 +17,8 @@
     "enrich-genres": "node scripts/enrichArtistsFromMusicBrainz.js",
     "enrich-genres:all": "node scripts/enrichArtistsFromMusicBrainz.js --all",
     "seed-genres": "node scripts/seedGenresFromMusicBrainz.js --target=20",
-    "seed-genres:empty": "node scripts/seedGenresFromMusicBrainz.js --empty-only --target=20"
+    "seed-genres:empty": "node scripts/seedGenresFromMusicBrainz.js --empty-only --target=20",
+    "audit:jit": "node scripts/auditJitTracks.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",

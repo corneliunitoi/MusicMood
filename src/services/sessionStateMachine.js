@@ -355,6 +355,14 @@ class SessionStateMachine {
         // 3. Penalize active node fatigue and step away
         this.applyNodeFatigue(this.state.activeGenre);
         this.stepToNextGenre('dislike_purge');
+
+        // 4. JIT Safety Purge: If track was organically discovered by JIT, immediately purge it from catalog!
+        if (track.dbId && (track.source?.startsWith('jit') || track.source === 'jit_player_expansion' || track.source === 'jit_local_archive' || track.source === 'jit_musicbrainz')) {
+            console.log(`[JIT Safety Purge 🗑️] Disliked JIT track "${track.artist} - ${track.title}". Removing from public.tracks...`);
+            supabase.from('tracks').delete().eq('id', track.dbId).then(() => {
+                console.log(`[JIT Safety Purge 🗑️] Successfully purged track ${track.dbId} from database.`);
+            }).catch(e => console.warn('[JIT Purge Error]:', e));
+        }
     }
 
     getMaxDwell() {

@@ -9,6 +9,7 @@ import TasteGraphSetup from './TasteGraphSetup';
 import Player from './Player';
 import MoodHistory from './MoodHistory';
 import OnboardingWizard from './OnboardingWizard';
+import JitFeedModal from './JitFeedModal';
 
 function Dashboard({ token, onLogout }) {
     const [profile, setProfile] = useState(null);
@@ -20,12 +21,14 @@ function Dashboard({ token, onLogout }) {
     const [showPlaylists, setShowPlaylists] = useState(false);
     const [showWizard, setShowWizard] = useState(() => !localStorage.getItem('musicMood_user_calibration'));
     const [showVisualGraph, setShowVisualGraph] = useState(false);
+    const [showJitFeed, setShowJitFeed] = useState(false);
 
     const [activeTrack, setActiveTrack] = useState(null);
     const [isDiscovering, setIsDiscovering] = useState(false);
 
     const [playableCount, setPlayableCount] = useState(0);
     const [archiveCount, setArchiveCount] = useState(0);
+    const [jitCount, setJitCount] = useState(0);
 
     const [calibration, setCalibration] = useState(() => sessionEngine.getCalibration());
 
@@ -60,9 +63,10 @@ function Dashboard({ token, onLogout }) {
     useEffect(() => {
         const fetchStatus = async () => {
             try {
-                const [playableRes, archiveRes] = await Promise.all([
+                const [playableRes, archiveRes, jitRes] = await Promise.all([
                     supabase.from('tracks').select('*', { count: 'exact', head: true }),
-                    supabase.from('local_metadata').select('*', { count: 'exact', head: true })
+                    supabase.from('local_metadata').select('*', { count: 'exact', head: true }),
+                    supabase.from('tracks').select('*', { count: 'exact', head: true }).ilike('source', '%jit%')
                 ]);
 
                 if (!playableRes.error) {
@@ -70,6 +74,9 @@ function Dashboard({ token, onLogout }) {
                 }
                 if (!archiveRes.error) {
                     setArchiveCount(archiveRes.count || 0);
+                }
+                if (!jitRes.error) {
+                    setJitCount(jitRes.count || 0);
                 }
             } catch (e) {
                 console.error("Failed to fetch library counts:", e);
@@ -192,6 +199,25 @@ function Dashboard({ token, onLogout }) {
                         <span style={{ color: '#34d399', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '9999px', padding: '0.2rem 0.6rem' }}>
                             ⚡ <strong>{playableCount}</strong> Playable
                         </span>
+                        <button
+                            onClick={() => setShowJitFeed(true)}
+                            style={{
+                                background: showJitFeed ? 'rgba(52, 211, 153, 0.25)' : 'rgba(52, 211, 153, 0.12)',
+                                border: '1px solid rgba(52, 211, 153, 0.35)',
+                                borderRadius: '9999px',
+                                padding: '0.2rem 0.65rem',
+                                color: '#34d399',
+                                fontSize: '0.8rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem'
+                            }}
+                            title="Open JIT Organic Ingestion Monitor (Inspect & Purge)"
+                        >
+                            🌱 <strong>{jitCount}</strong> JIT Finds
+                        </button>
                         <span className="text-secondary" style={{ opacity: 0.8 }}>
                             📁 <strong>{archiveCount.toLocaleString()}</strong> Archive
                         </span>
@@ -337,6 +363,9 @@ function Dashboard({ token, onLogout }) {
                 )}
 
                 {!showWizard && <MoodHistory history={moodHistory} />}
+
+                {/* JIT ORGANIC GROWTH AUDIT MODAL */}
+                <JitFeedModal isOpen={showJitFeed} onClose={() => setShowJitFeed(false)} />
             </main>
         </div>
     );
