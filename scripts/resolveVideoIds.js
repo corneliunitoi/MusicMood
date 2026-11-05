@@ -182,7 +182,15 @@ async function resolveInnertubeTrack(artist, trackName) {
             }
         }
 
-        return { status: 'ZERO_CANDIDATES' };
+        if (candidates.length === 0) {
+            return { status: 'ZERO_CANDIDATES' };
+        }
+
+        return {
+            status: 'NO_MATCH',
+            healedTitle: healedTitleTag !== trackName ? healedTitleTag : null,
+            candidatesSeen: candidates.length
+        };
     } catch (e) {
         return { status: 'ERROR', error: e.message };
     }
