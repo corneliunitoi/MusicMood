@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { sessionEngine } from '../services/sessionStateMachine';
 import { GENRE_NODES } from '../services/tasteGraph';
+import { jitEngine } from '../services/jitEngine';
 
 /**
  * Loads the YouTube IFrame API script exactly once across the application lifecycle.
@@ -75,6 +76,9 @@ function Player({ initialTrack, token }) {
                 playTrackImmediately(newState.currentTrack);
             }
         });
+        if ((sessionEngine.queue || []).length < 2) {
+            jitEngine.replenishBuffer(sessionEngine.state.activeGenre, sessionEngine);
+        }
         return unsubscribe;
     }, []);
 
@@ -499,7 +503,13 @@ function Player({ initialTrack, token }) {
                     {/* Up Next / JIT Queue Drawer Toggle */}
                     <button
                         className="btn-text"
-                        onClick={() => setShowQueue(!showQueue)}
+                        onClick={() => {
+                            const willOpen = !showQueue;
+                            setShowQueue(willOpen);
+                            if (willOpen && (sessionState.queue || []).length < 2) {
+                                jitEngine.replenishBuffer(sessionState.activeGenre, sessionEngine);
+                            }
+                        }}
                         title="View Up Next & JIT Buffered Queue"
                         style={{
                             background: showQueue ? 'rgba(52, 211, 153, 0.2)' : 'rgba(255, 255, 255, 0.05)',

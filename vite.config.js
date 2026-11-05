@@ -254,8 +254,7 @@ async function resolveViaInnertube(cleanArtist, cleanTitle, isNumericArtist) {
         hl: 'en',
         gl: 'US'
       }
-    },
-    params: 'Eg-KAQwIARAAGAAgACgAMABqChAGGAMQAxAFGAg%3D'
+    }
   };
 
   for (const q of queries) {

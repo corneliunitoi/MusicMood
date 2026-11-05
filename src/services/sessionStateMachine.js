@@ -221,6 +221,9 @@ class SessionStateMachine {
 
         this.queue = [];
         this.notify();
+        setTimeout(() => {
+            jitEngine.replenishBuffer(chosen, this);
+        }, 100);
         return chosen;
     }
 
@@ -270,6 +273,9 @@ class SessionStateMachine {
         this.state.consecutiveInNode = 0;
         this.queue = [];
         this.notify();
+        setTimeout(() => {
+            jitEngine.replenishBuffer(this.state.activeGenre, this);
+        }, 100);
     }
 
     setGenre(genreId, force = true) {
@@ -286,7 +292,7 @@ class SessionStateMachine {
         this.notify();
         setTimeout(() => {
             jitEngine.replenishBuffer(genreId, this);
-        }, 150);
+        }, 100);
     }
 
     setEnergy(energyFloat) {
@@ -689,47 +695,52 @@ class SessionStateMachine {
         }
     }
 
-    async sourceFromLocalLibrary() {
+    async pullCatalogCandidate(excludeIds = []) {
         try {
             const activeGenreId = this.state.activeGenre;
             const node = GENRE_NODES[activeGenreId];
 
-            const recentArtistsSet = new Set(this.state.recentArtists.slice(-15));
-            const recentTracksSet = new Set(this.state.recentTracks.slice(-50));
-            const currentVideoId = this.state.currentTrack?.id;
+            const excludeSet = new Set([
+                ...(this.state.recentTracks || []).slice(-50),
+                ...(excludeIds || []),
+                this.state.currentTrack?.id
+            ].filter(Boolean));
+            const recentArtistsSet = new Set((this.state.recentArtists || []).slice(-15));
 
-            // Multi-pass candidate filter:
-            // Pass 1: Strict guard (neither recent track nor recent artist)
-            // Pass 2: Relaxed artist guard (allow artist if it's not the currently playing track)
             const filterCandidates = (tracks, relaxArtist = false) => {
                 if (!tracks || !Array.isArray(tracks)) return [];
                 return tracks.filter(t => {
                     const vid = t.youtube_video_id || t.id;
-                    if (vid && recentTracksSet.has(vid)) return false;
-                    if (vid && vid === currentVideoId) return false;
+                    if (!vid || vid.length !== 11) return false;
+                    if (excludeSet.has(vid)) return false;
                     const a = (t.artist || '').toLowerCase();
                     if (!relaxArtist && a && recentArtistsSet.has(a)) return false;
                     if (!this.passesMetadataGuards(t)) return false;
+                    if (this.state.vocalPreference === 'instrumental') {
+                        const titleLower = (t.title || '').toLowerCase();
+                        if (['vocal', 'vocals', 'feat.', 'ft.', 'singing'].some(k => titleLower.includes(k)) && !titleLower.includes('instrumental')) {
+                            return false;
+                        }
+                    }
                     return true;
                 });
             };
 
-            // Tier 1: Strict Active Subgenre (Zero Quota pre-mapped, primary + secondary genres)
+            // Tier 1: Exact active subgenre in tracks table
             let { data: exactMapped } = await supabase
                 .from('tracks')
                 .select('*')
                 .or(`primary_genre_id.eq.${activeGenreId},secondary_genre_ids.cs.{${activeGenreId}}`)
                 .not('youtube_video_id', 'is', null)
                 .neq('youtube_video_id', 'CORRUPT_TAGS')
-                .limit(60);
+                .limit(50);
 
             let available = filterCandidates(exactMapped);
             if (available.length === 0 && exactMapped && exactMapped.length > 0) {
-                // Relax artist satiation so the user can hear more songs from this genre!
                 available = filterCandidates(exactMapped, true);
             }
 
-            // Tier 2: Parent Family (if activeGenreId is a subgenre and parent is distinct)
+            // Tier 2: Parent family
             if (available.length === 0 && node?.group) {
                 const groupLower = node.group.toLowerCase();
                 const parentId = Object.keys(GENRE_FAMILIES).find(k => GENRE_FAMILIES[k].label.toLowerCase() === groupLower) || groupLower;
@@ -748,7 +759,7 @@ class SessionStateMachine {
                 }
             }
 
-            // Tier 3: Harmonic Neighbors from Taste Graph
+            // Tier 3: Harmonic neighbors
             if (available.length === 0) {
                 const neighbors = getConnectedGenres(activeGenreId).filter(g => g !== activeGenreId);
                 if (neighbors.length > 0) {
@@ -767,44 +778,51 @@ class SessionStateMachine {
                 }
             }
 
-            // Tier 4: Fallback to unmapped tracks in exact active genre (for JIT resolution)
-            if (available.length === 0) {
-                const { data: unmapped } = await supabase
-                    .from('tracks')
-                    .select('*')
-                    .or(`primary_genre_id.eq.${activeGenreId},secondary_genre_ids.cs.{${activeGenreId}}`)
-                    .limit(40);
-                available = filterCandidates(unmapped);
-                if (available.length === 0 && unmapped && unmapped.length > 0) {
-                    available = filterCandidates(unmapped, true);
-                }
-            }
-
             if (available.length === 0) return null;
 
             const selected = available[Math.floor(Math.random() * available.length)];
+            return {
+                id: selected.youtube_video_id,
+                dbId: selected.id,
+                artist: selected.artist,
+                title: selected.title,
+                genre: selected.primary_genre_id || activeGenreId,
+                thumbnail: `https://i.ytimg.com/vi/${selected.youtube_video_id}/hqdefault.jpg`,
+                source: selected.source || 'tracks_catalog'
+            };
+        } catch (e) {
+            console.warn('[StateMachine] Pull catalog candidate exception:', e);
+            return null;
+        }
+    }
 
-            // If already pre-mapped with youtube_video_id, return immediately (Zero Quota!)
-            if (selected.youtube_video_id && selected.youtube_video_id.length === 11) {
-                console.log(`[Zero-Quota Hit] Pre-mapped track: "${selected.artist} - ${selected.title}" -> ${selected.youtube_video_id}`);
+    async sourceFromLocalLibrary() {
+        try {
+            const mappedTrack = await this.pullCatalogCandidate([]);
+            if (mappedTrack) {
+                console.log(`[Zero-Quota Hit] Pre-mapped track: "${mappedTrack.artist} - ${mappedTrack.title}" -> ${mappedTrack.id}`);
+                return mappedTrack;
+            }
+
+            const activeGenreId = this.state.activeGenre;
+            // Fallback to unmapped tracks in exact active genre (for JIT resolution)
+            const { data: unmapped } = await supabase
+                .from('tracks')
+                .select('*')
+                .or(`primary_genre_id.eq.${activeGenreId},secondary_genre_ids.cs.{${activeGenreId}}`)
+                .limit(20);
+
+            if (unmapped && unmapped.length > 0) {
+                const selected = unmapped[Math.floor(Math.random() * unmapped.length)];
                 return {
-                    id: selected.youtube_video_id,
                     dbId: selected.id,
                     artist: selected.artist,
                     title: selected.title,
                     genre: activeGenreId,
-                    thumbnail: `https://i.ytimg.com/vi/${selected.youtube_video_id}/hqdefault.jpg`,
                     source: selected.source || 'tracks_catalog'
                 };
             }
-
-            return {
-                dbId: selected.id,
-                artist: selected.artist,
-                title: selected.title,
-                genre: activeGenreId,
-                source: selected.source || 'tracks_catalog'
-            };
+            return null;
         } catch (e) {
             console.warn('[StateMachine] Tracks catalog lookup exception:', e);
             return null;

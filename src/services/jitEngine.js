@@ -5,15 +5,16 @@
  * 
  * Automatically monitors the player queue buffer for the active genre.
  * Proactively pulls, verifies, and resolves new tracks inside the same genre:
- *   1. Curated Local Archive (public.local_metadata)
- *   2. MusicBrainz Authority Recordings (public MetaBrainz API)
+ *   1. Rapid Catalog Stocking (< 100ms) from public.tracks (guarantees queue is never empty)
+ *   2. Curated Local Archive (public.local_metadata, 44k archive with random sampling)
+ *   3. MusicBrainz Authority Recordings (MetaBrainz API)
  * 
  * Newly resolved tracks are permanently committed to public.tracks (source: 'jit_player_expansion'),
  * expanding the database organically as users listen.
  */
 
 import { supabase } from './supabaseService.js';
-import { isSongCandidate } from './genreNormalizer.js';
+import { isSongCandidate, normalizeGenre } from './genreNormalizer.js';
 import { GENRE_NODES } from './tasteGraph.js';
 import { fetchMusicBrainzGenreRecordings } from './musicBrainzService.js';
 
@@ -62,26 +63,48 @@ class JitEngine {
     }
 
     /**
-     * Replenishes the sessionEngine queue with tracks from the active genre in the background.
+     * Replenishes the sessionEngine queue using a Hybrid Strategy:
+     *   1. Rapid Catalog Stocking (< 100ms) from public.tracks (never leaves queue empty)
+     *   2. Organic JIT Discovery from local_metadata / MusicBrainz via Innertube
      */
     async replenishBuffer(genreId, sessionEngine, targetQueueSize = 3) {
         if (!genreId || !sessionEngine) return;
         if (this.isBuffering) return;
 
-        // Count how many tracks in sessionEngine.queue match this genre
-        const currentCount = (sessionEngine.queue || []).filter(t => t.genre === genreId).length;
-        if (currentCount >= targetQueueSize) return;
-
         this.isBuffering = true;
         try {
-            const needed = targetQueueSize - currentCount;
-            for (let i = 0; i < Math.min(needed, 2); i++) {
-                const track = await this.pullTrackForGenre(genreId, sessionEngine);
-                if (track && sessionEngine.passesGuards(track)) {
-                    sessionEngine.queue.push(track);
-                    sessionEngine.notify();
-                    console.log(`[JIT Buffer ⚡] Queued track for "${genreId}": "${track.artist} - ${track.title}" (Queue size: ${sessionEngine.queue.length})`);
+            // Step 1: Rapid Catalog Stocking (< 100ms)
+            // If sessionEngine.queue has fewer than 2 tracks, stock immediately from catalog
+            while ((sessionEngine.queue || []).length < 2) {
+                const queuedIds = (sessionEngine.queue || []).map(t => t.id);
+                const catalogTrack = await sessionEngine.pullCatalogCandidate(queuedIds);
+                if (!catalogTrack) break;
+                sessionEngine.queue.push(catalogTrack);
+                sessionEngine.notify();
+                console.log(`[Queue Buffer 🎵] Stocked catalog track: "${catalogTrack.artist} - ${catalogTrack.title}" (Queue size: ${sessionEngine.queue.length})`);
+            }
+
+            // Step 2: Organic JIT Discovery
+            // Check if queue has room or doesn't have a JIT track yet
+            const hasJitInQueue = (sessionEngine.queue || []).some(t => t.source?.startsWith('jit'));
+            if ((sessionEngine.queue || []).length < targetQueueSize || !hasJitInQueue) {
+                const jitTrack = await this.pullTrackForGenre(genreId, sessionEngine);
+                if (jitTrack && sessionEngine.passesGuards(jitTrack)) {
+                    if (!sessionEngine.queue.some(t => t.id === jitTrack.id)) {
+                        sessionEngine.queue.push(jitTrack);
+                        sessionEngine.notify();
+                        console.log(`[JIT Buffer ⚡] Added JIT discovery to queue: "${jitTrack.artist} - ${jitTrack.title}" (Queue size: ${sessionEngine.queue.length})`);
+                    }
                 }
+            }
+
+            // Step 3: Top up with catalog tracks if still below targetQueueSize
+            while ((sessionEngine.queue || []).length < targetQueueSize) {
+                const queuedIds = (sessionEngine.queue || []).map(t => t.id);
+                const catalogTrack = await sessionEngine.pullCatalogCandidate(queuedIds);
+                if (!catalogTrack) break;
+                sessionEngine.queue.push(catalogTrack);
+                sessionEngine.notify();
             }
         } catch (e) {
             console.warn('[JIT Engine] Replenish buffer error:', e);
@@ -114,21 +137,37 @@ class JitEngine {
 
     /**
      * Pulls an unmapped song from the user's 44k curated local archive (public.local_metadata)
+     * using smart term matching and randomized offset sampling.
      */
     async pullFromLocalArchive(genreId, sessionEngine) {
         try {
             const node = GENRE_NODES[genreId];
-            const searchKeyword = genreId.replace(/_/g, ' ');
+            const cleanGenre = genreId.replace(/_/g, ' ');
 
-            // Search local_metadata for unmapped tracks matching this genre
+            // Build keyword search terms
+            const searchTerms = [cleanGenre];
+            if (node?.label) searchTerms.push(node.label.toLowerCase());
+            if (cleanGenre.includes(' ')) {
+                searchTerms.push(...cleanGenre.split(' '));
+            }
+            if (node?.group) {
+                searchTerms.push(node.group.toLowerCase());
+            }
+
+            const uniqueTerms = Array.from(new Set(searchTerms.filter(t => t && t.length > 2)));
+            const orClause = uniqueTerms.map(t => `genre.ilike.%${t}%`).join(',');
+
+            // Random offset sampling to explore across the entire 44k archive
+            const randomOffset = Math.floor(Math.random() * 200);
+
             let { data: candidates } = await supabase
                 .from('local_metadata')
                 .select('*')
                 .is('youtube_video_id', null)
-                .or(`genre.ilike.%${searchKeyword}%,genre.ilike.%${node?.label || ''}%`)
-                .limit(20);
+                .or(orClause)
+                .range(randomOffset, randomOffset + 25);
 
-            // If empty, search by family group (e.g. 'Metal', 'Electronic', 'Pop')
+            // Fallback: search by parent group without offset if empty
             if (!candidates || candidates.length === 0) {
                 if (node?.group) {
                     const res = await supabase
@@ -136,12 +175,14 @@ class JitEngine {
                         .select('*')
                         .is('youtube_video_id', null)
                         .ilike('genre', `%${node.group}%`)
-                        .limit(20);
+                        .limit(25);
                     candidates = res.data;
                 }
             }
 
             if (!candidates || candidates.length === 0) return null;
+
+            const baseUrl = typeof window !== 'undefined' ? '' : 'http://localhost:5173';
 
             for (const c of candidates) {
                 const songCheck = isSongCandidate({ title: c.track_name, artist: c.artist });
@@ -150,7 +191,7 @@ class JitEngine {
                 const aLower = (c.artist || '').toLowerCase();
                 if (sessionEngine?.state?.recentArtists?.slice(-15).includes(aLower)) continue;
 
-                // Check if already in public.tracks
+                // Check if already in public.tracks by artist & title
                 const { data: exist } = await supabase
                     .from('tracks')
                     .select('id')
@@ -161,7 +202,7 @@ class JitEngine {
                 if (exist && exist.length > 0) continue;
 
                 // Resolve via Fast Innertube resolver (/api/resolve-track)
-                const zqUrl = `/api/resolve-track?artist=${encodeURIComponent(c.artist)}&title=${encodeURIComponent(c.track_name)}`;
+                const zqUrl = `${baseUrl}/api/resolve-track?artist=${encodeURIComponent(c.artist)}&title=${encodeURIComponent(c.track_name)}`;
                 const zqRes = await fetch(zqUrl);
                 if (!zqRes.ok) continue;
 
@@ -172,6 +213,25 @@ class JitEngine {
                 const healedArtist = zqData.artist || c.artist;
                 const healedTitle = zqData.title || c.track_name;
 
+                // Normalize canonical genre
+                const canonicalGenre = normalizeGenre(c.genre, healedArtist, healedTitle, genreId) || genreId;
+
+                // Check if videoId already exists in tracks
+                const { data: existVid } = await supabase
+                    .from('tracks')
+                    .select('id')
+                    .eq('youtube_video_id', zqData.videoId)
+                    .limit(1);
+
+                if (existVid && existVid.length > 0) {
+                    // Update local_metadata to prevent re-processing
+                    await supabase
+                        .from('local_metadata')
+                        .update({ youtube_video_id: zqData.videoId })
+                        .eq('id', c.id);
+                    continue;
+                }
+
                 // Insert into public.tracks (Catalog grows organically!)
                 const { data: inserted, error: insErr } = await supabase
                     .from('tracks')
@@ -179,8 +239,8 @@ class JitEngine {
                         youtube_video_id: zqData.videoId,
                         title: healedTitle,
                         artist: healedArtist,
-                        primary_genre_id: genreId,
-                        secondary_genre_ids: [genreId],
+                        primary_genre_id: canonicalGenre,
+                        secondary_genre_ids: Array.from(new Set([canonicalGenre, genreId])),
                         source: 'jit_local_archive'
                     })
                     .select()
@@ -192,6 +252,10 @@ class JitEngine {
                 }
 
                 this.recentJitIds.add(zqData.videoId);
+                if (this.recentJitIds.size > 500) {
+                    const firstItem = this.recentJitIds.values().next().value;
+                    this.recentJitIds.delete(firstItem);
+                }
 
                 // Update local_metadata to prevent re-processing
                 await supabase
@@ -199,7 +263,7 @@ class JitEngine {
                     .update({ youtube_video_id: zqData.videoId })
                     .eq('id', c.id);
 
-                console.log(`[JIT Organic Discovery ⚡] Added "${healedArtist} - ${healedTitle}" to catalog (${genreId}) | Source: Local Archive`);
+                console.log(`[JIT Organic Discovery ⚡] Added "${healedArtist} - ${healedTitle}" to catalog (${canonicalGenre}) | Source: Local Archive`);
 
                 return {
                     id: zqData.videoId,
@@ -207,7 +271,7 @@ class JitEngine {
                     title: healedTitle,
                     artist: healedArtist,
                     channelTitle: healedArtist,
-                    genre: genreId,
+                    genre: canonicalGenre,
                     thumbnail: `https://i.ytimg.com/vi/${zqData.videoId}/hqdefault.jpg`,
                     source: 'jit_local_archive'
                 };
@@ -227,6 +291,8 @@ class JitEngine {
             const recordings = await fetchMusicBrainzGenreRecordings(mbTag, 15);
             if (!recordings || recordings.length === 0) return null;
 
+            const baseUrl = typeof window !== 'undefined' ? '' : 'http://localhost:5173';
+
             for (const rec of recordings) {
                 const aLower = (rec.artist || '').toLowerCase();
                 if (sessionEngine?.state?.recentArtists?.slice(-15).includes(aLower)) continue;
@@ -242,7 +308,7 @@ class JitEngine {
                 if (exist && exist.length > 0) continue;
 
                 // Resolve via Fast Innertube resolver
-                const zqUrl = `/api/resolve-track?artist=${encodeURIComponent(rec.artist)}&title=${encodeURIComponent(rec.title)}`;
+                const zqUrl = `${baseUrl}/api/resolve-track?artist=${encodeURIComponent(rec.artist)}&title=${encodeURIComponent(rec.title)}`;
                 const zqRes = await fetch(zqUrl);
                 if (!zqRes.ok) continue;
 
@@ -252,6 +318,9 @@ class JitEngine {
 
                 const healedArtist = zqData.artist || rec.artist;
                 const healedTitle = zqData.title || rec.title;
+
+                // Normalize canonical genre
+                const canonicalGenre = normalizeGenre(rec.genre || mbTag, healedArtist, healedTitle, genreId) || genreId;
 
                 // Check if videoId already exists in tracks
                 const { data: existVid } = await supabase
@@ -269,8 +338,8 @@ class JitEngine {
                         youtube_video_id: zqData.videoId,
                         title: healedTitle,
                         artist: healedArtist,
-                        primary_genre_id: genreId,
-                        secondary_genre_ids: [genreId],
+                        primary_genre_id: canonicalGenre,
+                        secondary_genre_ids: Array.from(new Set([canonicalGenre, genreId])),
                         source: 'jit_musicbrainz'
                     })
                     .select()
@@ -279,8 +348,12 @@ class JitEngine {
                 if (insErr) continue;
 
                 this.recentJitIds.add(zqData.videoId);
+                if (this.recentJitIds.size > 500) {
+                    const firstItem = this.recentJitIds.values().next().value;
+                    this.recentJitIds.delete(firstItem);
+                }
 
-                console.log(`[JIT Organic Discovery ⚡] Added "${healedArtist} - ${healedTitle}" to catalog (${genreId}) | Source: MusicBrainz`);
+                console.log(`[JIT Organic Discovery ⚡] Added "${healedArtist} - ${healedTitle}" to catalog (${canonicalGenre}) | Source: MusicBrainz`);
 
                 return {
                     id: zqData.videoId,
@@ -288,7 +361,7 @@ class JitEngine {
                     title: healedTitle,
                     artist: healedArtist,
                     channelTitle: healedArtist,
-                    genre: genreId,
+                    genre: canonicalGenre,
                     thumbnail: `https://i.ytimg.com/vi/${zqData.videoId}/hqdefault.jpg`,
                     source: 'jit_musicbrainz'
                 };

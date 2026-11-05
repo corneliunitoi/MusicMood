@@ -461,14 +461,14 @@ export function normalizeGenre(rawGenre, artistName = '', trackTitle = '', fallb
     }
 
     // Tier 1B: Artist Substring Recognition for well-known artists with noisy tags
-    if (cleanArtist.includes('queens of the stone age') || cleanArtist.includes('qotsa')) return 'alt_rock';
-    if (cleanArtist.includes('nine inch nails') || cleanArtist.includes('nin')) return 'industrial';
+    if (cleanArtist.includes('queens of the stone age') || /\bqotsa\b/i.test(cleanArtist)) return 'alt_rock';
+    if (cleanArtist.includes('nine inch nails') || /\bnin\b/i.test(cleanArtist)) return 'industrial';
     if (cleanArtist.includes('parkway drive')) return 'metalcore';
     if (cleanArtist.includes('massive attack') || cleanArtist.includes('portishead')) return 'electronic';
     if (cleanArtist.includes('enya')) return 'new_age';
     if (cleanArtist.includes('robin trower')) return 'blues_rock';
     if (cleanArtist.includes('astor piazzolla') || cleanArtist.includes('piazzolla')) return 'world_reggae';
-    if (cleanArtist.includes('doc scapat') || cleanArtist === 'doc') return 'hip_hop';
+    if (cleanArtist.includes('doc scapat') || /\bdoc\b/i.test(cleanArtist)) return 'hip_hop';
     if (cleanArtist.includes('otis redding')) return 'classic_soul';
     if (cleanArtist.includes('tori amos')) return 'alt_rock';
 
