@@ -10,9 +10,10 @@
  * 5. Invariant Guards: Anti-Drift, Vocal, and Dealbreaker guards.
  */
 
-import { supabase, recordListenEvent } from './supabaseService';
-import { GENRE_FAMILIES, GENRE_NODES, getConnectedGenres, getMoodCompatibleGenres, violatesDealbreakers, normalizeWeights } from './tasteGraph';
-import { allMoods } from '../components/MoodBar';
+import { supabase, recordListenEvent } from './supabaseService.js';
+import { GENRE_FAMILIES, GENRE_NODES, getConnectedGenres, getMoodCompatibleGenres, violatesDealbreakers, normalizeWeights } from './tasteGraph.js';
+import { isSongCandidate, isAiGenerated } from './genreNormalizer.js';
+import { allMoods } from './moods.js';
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 
@@ -54,11 +55,13 @@ class SessionStateMachine {
 
     loadCalibration() {
         try {
-            const raw = localStorage.getItem(USER_CALIBRATION_KEY);
-            if (raw) {
-                const parsed = JSON.parse(raw);
-                parsed.weights = normalizeWeights(parsed.weights || {}, parsed.anchors, parsed.dealbreakers);
-                return parsed;
+            if (typeof localStorage !== 'undefined') {
+                const raw = localStorage.getItem(USER_CALIBRATION_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    parsed.weights = normalizeWeights(parsed.weights || {}, parsed.anchors, parsed.dealbreakers);
+                    return parsed;
+                }
             }
         } catch (e) {
             console.error('Failed to parse calibration:', e);
@@ -78,14 +81,18 @@ class SessionStateMachine {
         // Enforce normalized weights with ceiling & floor
         calibration.weights = normalizeWeights(calibration.weights, calibration.anchors, calibration.dealbreakers);
         this.calibration = calibration;
-        localStorage.setItem(USER_CALIBRATION_KEY, JSON.stringify(calibration));
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(USER_CALIBRATION_KEY, JSON.stringify(calibration));
+        }
         this.notify();
     }
 
     loadSessionState() {
         try {
-            const raw = localStorage.getItem(SESSION_STATE_KEY);
-            if (raw) return JSON.parse(raw);
+            if (typeof localStorage !== 'undefined') {
+                const raw = localStorage.getItem(SESSION_STATE_KEY);
+                if (raw) return JSON.parse(raw);
+            }
         } catch (e) {
             console.error('Failed to parse session state:', e);
         }
@@ -94,13 +101,15 @@ class SessionStateMachine {
 
     saveSessionState() {
         try {
-            const toSave = {
-                ...this.state,
-                recentTracks: this.state.recentTracks.slice(-50),
-                recentArtists: this.state.recentArtists.slice(-15),
-                traversalHistory: (this.state.traversalHistory || []).slice(-20),
-            };
-            localStorage.setItem(SESSION_STATE_KEY, JSON.stringify(toSave));
+            if (typeof localStorage !== 'undefined') {
+                const toSave = {
+                    ...this.state,
+                    recentTracks: this.state.recentTracks.slice(-50),
+                    recentArtists: this.state.recentArtists.slice(-15),
+                    traversalHistory: (this.state.traversalHistory || []).slice(-20),
+                };
+                localStorage.setItem(SESSION_STATE_KEY, JSON.stringify(toSave));
+            }
         } catch (e) {
             console.error('Failed to save session state:', e);
         }
@@ -260,9 +269,9 @@ class SessionStateMachine {
         this.notify();
     }
 
-    setGenre(genreId) {
+    setGenre(genreId, force = true) {
         if (!GENRE_NODES[genreId]) return;
-        if (violatesDealbreakers(GENRE_NODES[genreId].label, genreId, this.calibration.dealbreakers)) {
+        if (!force && violatesDealbreakers(GENRE_NODES[genreId].label, genreId, this.calibration.dealbreakers)) {
             console.warn(`[StateMachine] Cannot switch to ${genreId}: violates active dealbreaker.`);
             return;
         }
@@ -320,20 +329,10 @@ class SessionStateMachine {
 
     async onDislike(track) {
         if (!track) return;
-        console.log(`[StateMachine] 👎 DISLIKED / NOT MUSIC: "${track.title}" by ${track.artist}`);
+        console.log(`[StateMachine] 👎 DISLIKED (Taste Downvote): "${track.title}" by ${track.artist}`);
         this.state.skippedTracks.push(track.id);
 
-        // 1. Purge faulty video mapping from Supabase tracks catalog so no one gets it again
-        if (track.dbId) {
-            supabase
-                .from('tracks')
-                .update({ youtube_video_id: null })
-                .eq('id', track.dbId)
-                .then(() => console.log(`[Purge] Cleared invalid youtube_video_id for track ID ${track.dbId}`))
-                .catch(() => {});
-        }
-
-        // 2. Record dislike in listening_history
+        // 1. Record dislike in listening_history for personalized recommendation tuning
         recordListenEvent({
             trackId: track.dbId || null,
             moodId: this.state.currentMood,
@@ -342,19 +341,29 @@ class SessionStateMachine {
             liked: false
         });
 
-        // 3. Blacklist artist from session
+        // 2. Blacklist artist from current session to prevent repetition
         if (track.artist && !this.state.recentArtists.includes(track.artist.toLowerCase())) {
             this.state.recentArtists.push(track.artist.toLowerCase());
         }
 
-        // 4. Penalize node and step away
+        // 3. Penalize active node fatigue and step away
         this.applyNodeFatigue(this.state.activeGenre);
         this.stepToNextGenre('dislike_purge');
     }
 
+    getMaxDwell() {
+        const disc = this.state.discoveryLevel ?? 0.5;
+        // Low discovery (0.0 - 0.25): Lock in to the vibe (10 tracks)
+        // Mid discovery (0.3 - 0.65): Gentle harmonic wandering (5 tracks)
+        // High discovery (0.7+): Adventurous graph hops (3 tracks)
+        if (disc <= 0.25) return 10;
+        if (disc <= 0.65) return 5;
+        return 3;
+    }
+
     onSkip(track) {
         if (!track) return;
-        console.log(`[StateMachine] Feedback: SKIPPED "${track.title}" by ${track.artist}`);
+        console.log(`[StateMachine] Feedback: SKIPPED "${track.title}" by ${track.artist} (Staying in ${this.state.activeGenre})`);
         this.state.skippedTracks.push(track.id);
 
         recordListenEvent({
@@ -368,9 +377,11 @@ class SessionStateMachine {
             this.state.recentArtists.push(track.artist.toLowerCase());
         }
 
-        // Stepping away from this node upon skip prevents getting stuck
-        this.applyNodeFatigue(this.state.activeGenre);
-        this.stepToNextGenre('skip_nudge');
+        // DO NOT change genre on a normal track skip!
+        // The user just wants a different song in the current vibe.
+        // Genre transitions only occur upon explicit user intent,
+        // negative purge (thumbs down), or natural dwell completion.
+        this.notify();
     }
 
     onTrackCompleted(track) {
@@ -387,9 +398,10 @@ class SessionStateMachine {
         this.applyNodeFatigue(this.state.activeGenre);
         this.state.consecutiveInNode = (this.state.consecutiveInNode || 0) + 1;
 
-        // ANTI-STAGNATION CHECK: If we reached the dwell limit, trigger automatic harmonic transition!
-        if (this.state.consecutiveInNode >= MAX_DWELL_PER_NODE) {
-            console.log(`[StateMachine] Dwell limit of ${MAX_DWELL_PER_NODE} tracks reached in "${this.state.activeGenre}". Triggering harmonic transition!`);
+        // ANTI-STAGNATION CHECK: Only trigger transition if dwell limit for current discovery level is reached
+        const maxDwell = this.getMaxDwell();
+        if (this.state.consecutiveInNode >= maxDwell) {
+            console.log(`[StateMachine] Dwell limit of ${maxDwell} tracks reached in "${this.state.activeGenre}". Triggering gentle harmonic transition.`);
             this.stepToNextGenre('dwell_limit');
         } else {
             this.notify();
@@ -414,39 +426,38 @@ class SessionStateMachine {
                 }
             }
 
-            // 1. Try Sourcing from Supabase Local Enriched Library (Pre-mapped zero-quota tracks)
-            const shouldTryLibrary = this.state.discoveryLevel < 0.8;
-            if (shouldTryLibrary) {
-                const libCandidate = await this.sourceFromLocalLibrary();
-                if (libCandidate) {
-                    // If track already has pre-mapped 11-char YouTube ID, play immediately (Zero Quota!)
-                    if (libCandidate.id && this.passesGuards(libCandidate)) {
-                        this.commitTrack(libCandidate);
-                        return libCandidate;
-                    }
-                    
-                    // If track has metadata but no ID yet, resolve it
-                    if (this.passesMetadataGuards(libCandidate)) {
-                        const resolved = await this.resolveTrackToYouTube(libCandidate, token);
-                        if (resolved && this.passesGuards(resolved)) {
-                            this.commitTrack(resolved);
-                            return resolved;
-                        }
+            // 1. Primary Source: Supabase Catalog (Pre-mapped zero-quota tracks)
+            const libCandidate = await this.sourceFromLocalLibrary();
+            if (libCandidate) {
+                // If track already has pre-mapped 11-char YouTube ID, play immediately (Zero Quota!)
+                if (libCandidate.id && this.passesGuards(libCandidate)) {
+                    this.commitTrack(libCandidate);
+                    return libCandidate;
+                }
+                
+                // If track has metadata but no ID yet, resolve it
+                if (this.passesMetadataGuards(libCandidate)) {
+                    const resolved = await this.resolveTrackToYouTube(libCandidate, token);
+                    if (resolved && this.passesGuards(resolved)) {
+                        this.commitTrack(resolved);
+                        return resolved;
                     }
                 }
             }
 
             // 2. Targeted Anti-Drift YouTube Sourcing
-            const ytCandidate = await this.sourceFromYouTube(token);
-            if (ytCandidate) {
-                this.commitTrack(ytCandidate);
-                return ytCandidate;
+            if (token) {
+                const ytCandidate = await this.sourceFromYouTube(token);
+                if (ytCandidate) {
+                    this.commitTrack(ytCandidate);
+                    return ytCandidate;
+                }
             }
 
-            // 3. Resilient Fallback: If YouTube search was blocked/rate-limited, pick ANY valid pre-mapped track!
+            // 3. Resilient Fallback: If YouTube search was blocked/rate-limited, pick a guaranteed safe track!
             const emergencyTrack = await this.sourceEmergencyTrack();
-            if (emergencyTrack && this.passesGuards(emergencyTrack)) {
-                console.log(`[Emergency Fallback 🛡️] Played pre-mapped track: "${emergencyTrack.artist} - ${emergencyTrack.title}"`);
+            if (emergencyTrack) {
+                console.log(`[Emergency Fallback 🛡️] Played safe track: "${emergencyTrack.artist} - ${emergencyTrack.title}" (${emergencyTrack.genre})`);
                 this.commitTrack(emergencyTrack);
                 return emergencyTrack;
             }
@@ -466,7 +477,19 @@ class SessionStateMachine {
         const title = (track.title || '').toLowerCase();
         const artist = (track.artist || track.channelTitle || '').toLowerCase();
 
-        // Guard 0: Non-Music, Corrupted Metadata, & Multi-Hour Compilation Guard
+        // Guard 0A: Song Candidate & Stem Gatekeeper
+        const songCheck = isSongCandidate({ title: track.title, artist: track.artist });
+        if (!songCheck.pass) {
+            return false;
+        }
+
+        // Guard 0B: Anti-AI Gatekeeper
+        if (this.calibration.blockAiGenerated !== false && isAiGenerated({ title: track.title, artist: track.artist, channelTitle: track.channelTitle })) {
+            console.log(`[Guard 🛡️] Anti-AI: Dropped synthetic AI candidate "${track.artist} - ${track.title}"`);
+            return false;
+        }
+
+        // Guard 0C: Non-Music, Corrupted Metadata, & Multi-Hour Compilation Guard
         const JUNK_ARTIST_REGEX = /^(cd\s*[0-9]+|disc\s*[0-9]+|track\s*[0-9]+|unknown(\s*artist)?)$/i;
         const JUNK_TITLE_REGEX = /^[0-9]+$/;
         const NON_MUSIC_TERMS = ['recitation', 'audiobook', 'lesson', 'speaking', 'chinese', 'meditation guide', 'podcast', 'episode'];
@@ -544,30 +567,92 @@ class SessionStateMachine {
 
     async sourceEmergencyTrack() {
         try {
-            // Find any valid 11-char pre-mapped track from the catalog
-            const { data } = await supabase
+            const activeGenreId = this.state.activeGenre;
+            const node = GENRE_NODES[activeGenreId];
+
+            // Build candidate genre list: specific subgenre, parent family, and harmonic neighbors
+            const candidateGenreIds = [activeGenreId];
+            if (node?.group) {
+                const groupLower = node.group.toLowerCase();
+                const parentId = Object.keys(GENRE_FAMILIES).find(k => GENRE_FAMILIES[k].label.toLowerCase() === groupLower);
+                if (parentId) candidateGenreIds.push(parentId);
+            }
+            const neighbors = getConnectedGenres(activeGenreId);
+            candidateGenreIds.push(...neighbors);
+            const candList = candidateGenreIds.join(',');
+
+            // 1. Try candidate genres first (primary + secondary)
+            let { data } = await supabase
                 .from('tracks')
                 .select('*')
+                .or(`primary_genre_id.in.(${candList}),secondary_genre_ids.ov.{${candList}}`)
                 .not('youtube_video_id', 'is', null)
                 .neq('youtube_video_id', 'CORRUPT_TAGS')
-                .limit(40);
+                .limit(60);
+
+            // 2. If empty, fall back to any catalog track sampled with random offset
+            if (!data || data.length === 0) {
+                const randomOffset = Math.floor(Math.random() * 200);
+                const res = await supabase
+                    .from('tracks')
+                    .select('*')
+                    .not('youtube_video_id', 'is', null)
+                    .neq('youtube_video_id', 'CORRUPT_TAGS')
+                    .range(randomOffset, randomOffset + 50);
+                data = res.data;
+            }
 
             if (!data || data.length === 0) return null;
 
-            const valid = data.filter(t => t.youtube_video_id && t.youtube_video_id.length === 11 && this.passesMetadataGuards(t));
-            if (valid.length === 0) return null;
+            // Pass A: Find candidate that passes ALL strict guards
+            for (const t of data) {
+                if (t.youtube_video_id && t.youtube_video_id.length === 11) {
+                    const candidate = {
+                        id: t.youtube_video_id,
+                        dbId: t.id,
+                        artist: t.artist,
+                        title: t.title,
+                        genre: t.primary_genre_id || this.state.activeGenre,
+                        thumbnail: `https://i.ytimg.com/vi/${t.youtube_video_id}/hqdefault.jpg`,
+                        source: 'emergency_zero_quota'
+                    };
+                    if (this.passesGuards(candidate)) {
+                        return candidate;
+                    }
+                }
+            }
 
-            const selected = valid[Math.floor(Math.random() * valid.length)];
+            // Pass B: Relax artist fatigue (just avoid playing the exact same track ID currently playing)
+            const currentVideoId = this.state.currentTrack?.id;
+            for (const t of data) {
+                if (t.youtube_video_id && t.youtube_video_id.length === 11 && t.youtube_video_id !== currentVideoId) {
+                    if (this.passesMetadataGuards(t)) {
+                        return {
+                            id: t.youtube_video_id,
+                            dbId: t.id,
+                            artist: t.artist,
+                            title: t.title,
+                            genre: t.primary_genre_id || this.state.activeGenre,
+                            thumbnail: `https://i.ytimg.com/vi/${t.youtube_video_id}/hqdefault.jpg`,
+                            source: 'emergency_relaxed'
+                        };
+                    }
+                }
+            }
+
+            // Pass C: Last resort safe return from data[0]
+            const fallback = data[0];
             return {
-                id: selected.youtube_video_id,
-                dbId: selected.id,
-                artist: selected.artist,
-                title: selected.title,
-                genre: selected.primary_genre_id || this.state.activeGenre,
-                thumbnail: `https://i.ytimg.com/vi/${selected.youtube_video_id}/hqdefault.jpg`,
-                source: 'emergency_zero_quota'
+                id: fallback.youtube_video_id,
+                dbId: fallback.id,
+                artist: fallback.artist,
+                title: fallback.title,
+                genre: fallback.primary_genre_id || this.state.activeGenre,
+                thumbnail: `https://i.ytimg.com/vi/${fallback.youtube_video_id}/hqdefault.jpg`,
+                source: 'emergency_safe_fallback'
             };
         } catch (e) {
+            console.error('[StateMachine] Emergency track selection exception:', e);
             return null;
         }
     }
@@ -577,63 +662,91 @@ class SessionStateMachine {
             const activeGenreId = this.state.activeGenre;
             const node = GENRE_NODES[activeGenreId];
 
-            // Build candidate genre list: specific subgenre, parent family, and harmonic neighbors
-            const candidateGenreIds = [activeGenreId];
-            if (node?.group) {
-                const groupLower = node.group.toLowerCase();
-                candidateGenreIds.push(groupLower);
-                const parentId = Object.keys(GENRE_FAMILIES).find(k => GENRE_FAMILIES[k].label.toLowerCase() === groupLower);
-                if (parentId) candidateGenreIds.push(parentId);
-            }
-            const neighbors = getConnectedGenres(activeGenreId);
-            candidateGenreIds.push(...neighbors);
+            const recentArtistsSet = new Set(this.state.recentArtists.slice(-15));
+            const recentTracksSet = new Set(this.state.recentTracks.slice(-50));
+            const currentVideoId = this.state.currentTrack?.id;
 
-            // 1. Try to find a track in `tracks` that already has a pre-mapped youtube_video_id in candidate genres (Zero Quota!)
-            let { data, error } = await supabase
+            // Multi-pass candidate filter:
+            // Pass 1: Strict guard (neither recent track nor recent artist)
+            // Pass 2: Relaxed artist guard (allow artist if it's not the currently playing track)
+            const filterCandidates = (tracks, relaxArtist = false) => {
+                if (!tracks || !Array.isArray(tracks)) return [];
+                return tracks.filter(t => {
+                    const vid = t.youtube_video_id || t.id;
+                    if (vid && recentTracksSet.has(vid)) return false;
+                    if (vid && vid === currentVideoId) return false;
+                    const a = (t.artist || '').toLowerCase();
+                    if (!relaxArtist && a && recentArtistsSet.has(a)) return false;
+                    if (!this.passesMetadataGuards(t)) return false;
+                    return true;
+                });
+            };
+
+            // Tier 1: Strict Active Subgenre (Zero Quota pre-mapped, primary + secondary genres)
+            let { data: exactMapped } = await supabase
                 .from('tracks')
                 .select('*')
-                .in('primary_genre_id', candidateGenreIds)
+                .or(`primary_genre_id.eq.${activeGenreId},secondary_genre_ids.cs.{${activeGenreId}}`)
                 .not('youtube_video_id', 'is', null)
                 .neq('youtube_video_id', 'CORRUPT_TAGS')
                 .limit(60);
 
-            // 2. If no pre-mapped track in candidate genres, try ANY pre-mapped track in the whole catalog
-            if (!data || data.length === 0) {
-                const anyMapped = await supabase
-                    .from('tracks')
-                    .select('*')
-                    .not('youtube_video_id', 'is', null)
-                    .neq('youtube_video_id', 'CORRUPT_TAGS')
-                    .limit(60);
-                data = anyMapped.data;
+            let available = filterCandidates(exactMapped);
+            if (available.length === 0 && exactMapped && exactMapped.length > 0) {
+                // Relax artist satiation so the user can hear more songs from this genre!
+                available = filterCandidates(exactMapped, true);
             }
 
-            // 3. Fallback to unmapped tracks in candidate genres
-            if (!data || data.length === 0) {
-                const res = await supabase
-                    .from('tracks')
-                    .select('*')
-                    .in('primary_genre_id', candidateGenreIds)
-                    .limit(60);
-                data = res.data;
+            // Tier 2: Parent Family (if activeGenreId is a subgenre and parent is distinct)
+            if (available.length === 0 && node?.group) {
+                const groupLower = node.group.toLowerCase();
+                const parentId = Object.keys(GENRE_FAMILIES).find(k => GENRE_FAMILIES[k].label.toLowerCase() === groupLower) || groupLower;
+                if (parentId && parentId !== activeGenreId) {
+                    const { data: familyMapped } = await supabase
+                        .from('tracks')
+                        .select('*')
+                        .or(`primary_genre_id.eq.${parentId},secondary_genre_ids.cs.{${parentId}}`)
+                        .not('youtube_video_id', 'is', null)
+                        .neq('youtube_video_id', 'CORRUPT_TAGS')
+                        .limit(40);
+                    available = filterCandidates(familyMapped);
+                    if (available.length === 0 && familyMapped && familyMapped.length > 0) {
+                        available = filterCandidates(familyMapped, true);
+                    }
+                }
             }
 
-            if (error || !data || data.length === 0) return null;
+            // Tier 3: Harmonic Neighbors from Taste Graph
+            if (available.length === 0) {
+                const neighbors = getConnectedGenres(activeGenreId).filter(g => g !== activeGenreId);
+                if (neighbors.length > 0) {
+                    const neighborList = neighbors.join(',');
+                    const { data: neighborMapped } = await supabase
+                        .from('tracks')
+                        .select('*')
+                        .or(`primary_genre_id.in.(${neighborList}),secondary_genre_ids.ov.{${neighborList}}`)
+                        .not('youtube_video_id', 'is', null)
+                        .neq('youtube_video_id', 'CORRUPT_TAGS')
+                        .limit(40);
+                    available = filterCandidates(neighborMapped);
+                    if (available.length === 0 && neighborMapped && neighborMapped.length > 0) {
+                        available = filterCandidates(neighborMapped, true);
+                    }
+                }
+            }
 
-            // Filter out junk metadata and recent artists
-            const JUNK_ARTIST_REGEX = /^(cd\s*[0-9]+|disc\s*[0-9]+|track\s*[0-9]+|unknown(\s*artist)?)$/i;
-            const JUNK_TITLE_REGEX = /^[0-9]+$/;
-
-            const recentArtistsSet = new Set(this.state.recentArtists.slice(-15));
-            const available = data.filter(t => {
-                const a = (t.artist || '').toLowerCase();
-                const titleStr = (t.title || '').trim();
-                if (recentArtistsSet.has(a)) return false;
-                if (JUNK_ARTIST_REGEX.test(a) || JUNK_TITLE_REGEX.test(titleStr)) return false;
-                if (a.length < 2 || titleStr.length < 2) return false;
-                if (t.youtube_video_id && t.youtube_video_id.length !== 11) return false;
-                return true;
-            });
+            // Tier 4: Fallback to unmapped tracks in exact active genre (for JIT resolution)
+            if (available.length === 0) {
+                const { data: unmapped } = await supabase
+                    .from('tracks')
+                    .select('*')
+                    .or(`primary_genre_id.eq.${activeGenreId},secondary_genre_ids.cs.{${activeGenreId}}`)
+                    .limit(40);
+                available = filterCandidates(unmapped);
+                if (available.length === 0 && unmapped && unmapped.length > 0) {
+                    available = filterCandidates(unmapped, true);
+                }
+            }
 
             if (available.length === 0) return null;
 

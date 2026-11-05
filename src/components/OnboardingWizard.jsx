@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { GENRE_NODES, DEALBREAKER_PRESETS } from '../services/tasteGraph';
 import { sessionEngine } from '../services/sessionStateMachine';
 import { syncCalibrationToSupabase } from '../services/supabaseService';
+import { profileLibraryTaste } from '../services/libraryProfiler';
 
 function OnboardingWizard({ onComplete }) {
     const [step, setStep] = useState(1);
@@ -10,13 +11,17 @@ function OnboardingWizard({ onComplete }) {
     const [selectedAnchors, setSelectedAnchors] = useState(existingCalib.anchors || []);
     const [selectedDealbreakers, setSelectedDealbreakers] = useState(existingCalib.dealbreakers || []);
     const [discoveryLevel, setDiscoveryLevel] = useState(existingCalib.discoveryLevel || 0.5);
+    const [blockAiGenerated, setBlockAiGenerated] = useState(existingCalib.blockAiGenerated !== false);
+
+    const [isProfiling, setIsProfiling] = useState(false);
+    const [profileStats, setProfileStats] = useState(null);
 
     const toggleAnchor = (genreId) => {
         setSelectedAnchors(prev => {
             if (prev.includes(genreId)) {
                 return prev.filter(id => id !== genreId);
             }
-            if (prev.length >= 5) return prev; // Max 5 anchors
+            if (prev.length >= 6) return prev; // Max 6 anchors
             return [...prev, genreId];
         });
     };
@@ -30,11 +35,28 @@ function OnboardingWizard({ onComplete }) {
         });
     };
 
+    const handleAutoCalibrate = async () => {
+        setIsProfiling(true);
+        try {
+            const calib = await profileLibraryTaste();
+            setSelectedAnchors(calib.anchors);
+            setSelectedDealbreakers(calib.dealbreakers);
+            setDiscoveryLevel(calib.discoveryLevel || 0.4);
+            setBlockAiGenerated(calib.blockAiGenerated !== false);
+            setProfileStats(calib.stats);
+        } catch (err) {
+            console.error('Failed to profile library:', err);
+        } finally {
+            setIsProfiling(false);
+        }
+    };
+
     const handleFinish = async () => {
         const calibration = {
-            anchors: selectedAnchors.length > 0 ? selectedAnchors : ['lofi_hiphop', 'post_rock'],
+            anchors: selectedAnchors.length > 0 ? selectedAnchors : ['prog_rock', 'classical', 'hard_rock'],
             dealbreakers: selectedDealbreakers,
             discoveryLevel,
+            blockAiGenerated,
             weights: selectedAnchors.reduce((acc, curr) => {
                 acc[curr] = 1.0;
                 return acc;
@@ -89,10 +111,49 @@ function OnboardingWizard({ onComplete }) {
             {/* STEP 1: ANCHOR SOUNDS */}
             {step === 1 && (
                 <div className="fade-in">
-                    <h3 style={{ margin: '0 0 0.5rem 0' }}>Step 1: Your Anchor Sounds ⚓</h3>
-                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                        Select <strong>2 to 4 core styles</strong> that represent what you actually love. These form your positive taste graph roots.
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                        <div>
+                            <h3 style={{ margin: '0 0 0.5rem 0' }}>Step 1: Your Anchor Sounds ⚓</h3>
+                            <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>
+                                Select <strong>2 to 5 core styles</strong> that represent what you actually love.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* 44.8k Library 1-Click Profiler Banner */}
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15))',
+                        border: '1px solid rgba(168, 85, 247, 0.35)',
+                        borderRadius: '14px',
+                        padding: '1rem 1.25rem',
+                        marginBottom: '1.5rem',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}>
+                        <div>
+                            <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '0.95rem' }}>
+                                ⚡ Auto-Calibrate from Personal Archive
+                            </div>
+                            <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginTop: '0.2rem' }}>
+                                Analyze your 44,885 personal library tracks to map your exact musical DNA.
+                            </div>
+                            {profileStats && (
+                                <div style={{ color: '#34d399', fontSize: '0.75rem', marginTop: '0.4rem', fontWeight: 'bold' }}>
+                                    ✓ Calibrated from {profileStats.totalTracks.toLocaleString()} tracks! Anchors: {profileStats.topAnchors.map(a => GENRE_NODES[a]?.label || a).join(', ')}
+                                </div>
+                            )}
+                        </div>
+                        <button
+                            type="button"
+                            className="btn-primary"
+                            onClick={handleAutoCalibrate}
+                            disabled={isProfiling}
+                            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                        >
+                            {isProfiling ? 'Scanning 44.8k...' : '✨ Calibrate from Library'}
+                        </button>
+                    </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem', maxHeight: '350px', overflowY: 'auto', paddingRight: '0.5rem' }}>
                         {Object.values(GENRE_NODES).map(node => {
@@ -140,15 +201,15 @@ function OnboardingWizard({ onComplete }) {
                 </div>
             )}
 
-            {/* STEP 2: HARD DEALBREAKERS */}
+            {/* STEP 2: DEALBREAKERS & NEGATIVE CONSTRAINTS */}
             {step === 2 && (
                 <div className="fade-in">
                     <h3 style={{ margin: '0 0 0.5rem 0' }}>Step 2: Hard Dealbreakers 🚫</h3>
                     <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                        What ruins a music session for you? The Anti-Drift Engine will <strong>strictly block</strong> these from ever playing.
+                        Select the sounds, styles, or aesthetics you <strong>never want to hear</strong>. The State Machine invariant guard will instantly drop any candidate matching these categories.
                     </p>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '0.75rem' }}>
                         {DEALBREAKER_PRESETS.map(preset => {
                             const isExcluded = selectedDealbreakers.includes(preset.id);
                             return (
@@ -204,18 +265,18 @@ function OnboardingWizard({ onComplete }) {
                             className="btn-primary"
                             onClick={() => setStep(3)}
                         >
-                            Continue to Discovery Dial →
+                            Continue to Discovery & Safeguards →
                         </button>
                     </div>
                 </div>
             )}
 
-            {/* STEP 3: DISCOVERY APPETITE */}
+            {/* STEP 3: DISCOVERY APPETITE & ANTI-AI SAFEGUARD */}
             {step === 3 && (
                 <div className="fade-in">
-                    <h3 style={{ margin: '0 0 0.5rem 0' }}>Step 3: Discovery Appetite 🧭</h3>
+                    <h3 style={{ margin: '0 0 0.5rem 0' }}>Step 3: Discovery & Authenticity Safeguards 🧭</h3>
                     <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '2rem' }}>
-                        How adventurous do you want your sessions to be?
+                        Control algorithmic drift and guarantee purely human audio.
                     </p>
 
                     <div style={{ background: 'rgba(255,255,255,0.03)', padding: '2rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -240,6 +301,45 @@ function OnboardingWizard({ onComplete }) {
                             {discoveryLevel >= 0.4 && discoveryLevel <= 0.7 && "Plays 70% core favorites, and carefully introduces harmonic neighbors in the graph."}
                             {discoveryLevel > 0.7 && "Dives deep into uncommercialized audio, underground artists, and distant graph bridges."}
                         </p>
+                    </div>
+
+                    {/* Anti-AI Gatekeeper Toggle */}
+                    <div style={{
+                        marginTop: '1.5rem',
+                        padding: '1.25rem',
+                        background: blockAiGenerated ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255,255,255,0.03)',
+                        borderRadius: '16px',
+                        border: blockAiGenerated ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(255,255,255,0.08)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}>
+                        <div>
+                            <div style={{ fontWeight: '600', color: '#f8fafc', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                🛡️ Anti-AI Music Gatekeeper
+                                <span style={{
+                                    fontSize: '0.75rem',
+                                    background: blockAiGenerated ? '#10b981' : 'rgba(255,255,255,0.1)',
+                                    color: 'white',
+                                    padding: '0.15rem 0.55rem',
+                                    borderRadius: '999px',
+                                    fontWeight: 'bold'
+                                }}>
+                                    {blockAiGenerated ? 'ACTIVE (BLOCK AI)' : 'DISABLED (ALLOW AI)'}
+                                </span>
+                            </div>
+                            <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                                Actively blocks synthetic audio farms (Suno, Udio, AI voice clones) to keep your sessions authentic.
+                            </div>
+                        </div>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={blockAiGenerated}
+                                onChange={(e) => setBlockAiGenerated(e.target.checked)}
+                                style={{ width: '22px', height: '22px', accentColor: '#10b981', cursor: 'pointer' }}
+                            />
+                        </label>
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2.5rem' }}>

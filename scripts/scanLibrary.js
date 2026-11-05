@@ -19,10 +19,26 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const ITUNES_SEARCH_API = 'https://itunes.apple.com/search';
 
 // Allow an explicit target path from CLI, fallback to default music library
-const LIBRARY_PATH = process.argv[2] || '\\\\192.168.0.2\\e$\\music';
+// Parse CLI flags and arguments
+const rawArgs = process.argv.slice(2);
+const isRandom = rawArgs.includes('--random') || process.env.npm_config_random === 'true';
+
+let sampleLimit = null;
+const limitIdx = rawArgs.indexOf('--limit');
+if (limitIdx !== -1 && rawArgs[limitIdx + 1]) {
+    sampleLimit = parseInt(rawArgs[limitIdx + 1], 10);
+}
+
+const pathArg = rawArgs.find((arg, idx) => {
+    if (arg.startsWith('--')) return false;
+    if (idx > 0 && rawArgs[idx - 1] === '--limit') return false;
+    return true;
+});
+
+const LIBRARY_PATH = pathArg || '\\\\192.168.0.2\\e$\\music';
 
 // Allow isolated JSON stat outputs if scanning custom paths in parallel
-const customSuffix = process.argv[2] ? `_custom_${path.basename(LIBRARY_PATH)}` : '';
+const customSuffix = pathArg ? `_custom_${path.basename(LIBRARY_PATH)}` : '';
 const OUTPUT_FILE = path.join(process.cwd(), 'public', `local_library_stats${customSuffix}.json`);
 
 const VALID_EXTENSIONS = ['.mp3', '.flac', '.m4a', '.wav', '.ogg'];
@@ -220,8 +236,21 @@ async function runStaticScanner() {
         process.exit(1);
     }
 
-    const audioFiles = getAudioFiles(LIBRARY_PATH);
+    let audioFiles = getAudioFiles(LIBRARY_PATH);
     console.log(`Found ${audioFiles.length} audio files.`);
+
+    if (isRandom) {
+        console.log(`🎲 Random mode enabled: shuffling all ${audioFiles.length} files to capture a diverse spread of artists...`);
+        for (let i = audioFiles.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [audioFiles[i], audioFiles[j]] = [audioFiles[j], audioFiles[i]];
+        }
+    }
+
+    if (sampleLimit && sampleLimit > 0 && sampleLimit < audioFiles.length) {
+        console.log(`🎯 Sample limit applied: processing ${sampleLimit} tracks...`);
+        audioFiles = audioFiles.slice(0, sampleLimit);
+    }
 
     const genreStats = {};
     let totalHits = 0;

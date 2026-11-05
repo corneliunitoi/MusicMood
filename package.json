@@ -9,7 +9,11 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "scan-library": "node scripts/scanLibrary.js",
-    "resolve-library": "node scripts/resolveVideoIds.js"
+    "scan-library:random": "node scripts/scanLibrary.js --random",
+    "resolve-library": "node scripts/resolveVideoIds.js",
+    "resolve-library:random": "node scripts/resolveVideoIds.js --random",
+    "enrich-genres": "node scripts/enrichArtistsFromMusicBrainz.js",
+    "enrich-genres:all": "node scripts/enrichArtistsFromMusicBrainz.js --all"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",

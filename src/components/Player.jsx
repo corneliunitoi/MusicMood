@@ -212,12 +212,16 @@ function Player({ initialTrack, token }) {
     };
 
     const handleGenreChange = async (newGenre) => {
-        sessionEngine.setGenre(newGenre);
+        if (!newGenre) return;
+        // Immediately reflect the change in local state so the dropdown updates with 0ms lag
+        setSessionState(prev => ({ ...prev, activeGenre: newGenre }));
+        // Force the state machine into the requested genre (bypassing background dealbreakers)
+        sessionEngine.setGenre(newGenre, true);
         await loadNextTrack(false);
     };
 
     const handleDislike = async () => {
-        setErrorMessage("Downvoted. Purging track and auto-skipping...");
+        setErrorMessage("Skipping track and tuning your recommendations...");
         if (currentTrackRef.current) {
             await sessionEngine.onDislike(currentTrackRef.current);
         }

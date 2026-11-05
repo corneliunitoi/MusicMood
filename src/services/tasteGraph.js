@@ -29,6 +29,7 @@ export const GENRE_NODES = {
     // ==========================================
     // 1. ROCK
     // ==========================================
+    'rock': { id: 'rock', label: 'Rock (General)', group: 'Rock', energy: 0.70, vocal: 'vocal', tags: ['guitar', 'drums', 'classic'] },
     'classic_rock': { id: 'classic_rock', label: 'Classic Rock', group: 'Rock', energy: 0.65, vocal: 'vocal', tags: ['guitar', '70s', 'classic'] },
     'alt_rock': { id: 'alt_rock', label: 'Alternative Rock', group: 'Rock', energy: 0.65, vocal: 'vocal', tags: ['indie', '90s', 'guitar'] },
     'indie_rock': { id: 'indie_rock', label: 'Indie Rock', group: 'Rock', energy: 0.55, vocal: 'vocal', tags: ['indie', 'chill', 'melodic'] },
@@ -46,6 +47,7 @@ export const GENRE_NODES = {
     // ==========================================
     // 2. METAL
     // ==========================================
+    'metal': { id: 'metal', label: 'Metal (General)', group: 'Metal', energy: 0.85, vocal: 'vocal', tags: ['heavy', 'metal', 'distortion'] },
     'heavy_metal': { id: 'heavy_metal', label: 'Heavy Metal', group: 'Metal', energy: 0.85, vocal: 'vocal', tags: ['distorted', 'classic', 'riffs'] },
     'thrash_metal': { id: 'thrash_metal', label: 'Thrash Metal', group: 'Metal', energy: 0.90, vocal: 'vocal', tags: ['fast', 'aggressive', 'double bass'] },
     'prog_metal': { id: 'prog_metal', label: 'Progressive Metal', group: 'Metal', energy: 0.85, vocal: 'vocal', tags: ['technical', 'epic', 'odd time'] },
@@ -59,6 +61,7 @@ export const GENRE_NODES = {
     // ==========================================
     // 3. ELECTRONIC & DANCE
     // ==========================================
+    'electronic': { id: 'electronic', label: 'Electronic (General)', group: 'Electronic', energy: 0.70, vocal: 'any', tags: ['synths', 'beats', 'electronic'] },
     'house': { id: 'house', label: 'Deep & Melodic House', group: 'Electronic', energy: 0.65, vocal: 'any', tags: ['groove', '4x4', 'smooth'] },
     'techno': { id: 'techno', label: 'Techno / Minimal', group: 'Electronic', energy: 0.75, vocal: 'instrumental', tags: ['hypnotic', 'dark', 'repetitive'] },
     'trance': { id: 'trance', label: 'Trance / Progressive', group: 'Electronic', energy: 0.80, vocal: 'instrumental', tags: ['uplifting', 'melodic', 'synths'] },
@@ -74,6 +77,7 @@ export const GENRE_NODES = {
     // ==========================================
     // 4. POP
     // ==========================================
+    'pop': { id: 'pop', label: 'Pop (General)', group: 'Pop', energy: 0.65, vocal: 'vocal', tags: ['catchy', 'melodic', 'pop'] },
     'indie_pop': { id: 'indie_pop', label: 'Indie Pop / Dream Pop', group: 'Pop', energy: 0.55, vocal: 'vocal', tags: ['catchy', 'ethereal', 'bright'] },
     'synth_pop': { id: 'synth_pop', label: 'Synth-Pop', group: 'Pop', energy: 0.65, vocal: 'vocal', tags: ['synths', '80s', 'catchy'] },
     'dance_pop': { id: 'dance_pop', label: 'Dance-Pop', group: 'Pop', energy: 0.75, vocal: 'vocal', tags: ['club', 'upbeat', 'danceable'] },
@@ -84,6 +88,7 @@ export const GENRE_NODES = {
     // ==========================================
     // 5. HIP-HOP & RAP
     // ==========================================
+    'hip_hop': { id: 'hip_hop', label: 'Hip-Hop (General)', group: 'Hip-Hop', energy: 0.70, vocal: 'vocal', tags: ['beats', 'rhymes', 'rap'] },
     'boom_bap': { id: 'boom_bap', label: '90s Boom Bap', group: 'Hip-Hop', energy: 0.60, vocal: 'vocal', tags: ['classic', 'sample', 'bars'] },
     'trap_modern': { id: 'trap_modern', label: 'Modern Trap / 808', group: 'Hip-Hop', energy: 0.75, vocal: 'vocal', tags: ['808', 'hihats', 'banger'] },
     'conscious_hiphop': { id: 'conscious_hiphop', label: 'Conscious Hip-Hop', group: 'Hip-Hop', energy: 0.60, vocal: 'vocal', tags: ['lyrical', 'storytelling', 'deep'] },
@@ -95,6 +100,8 @@ export const GENRE_NODES = {
     // ==========================================
     // 6. R&B, SOUL & FUNK
     // ==========================================
+    'rnb_soul': { id: 'rnb_soul', label: 'R&B / Soul (General)', group: 'R&B / Soul', energy: 0.55, vocal: 'vocal', tags: ['groove', 'smooth', 'soul'] },
+    'soul_funk': { id: 'soul_funk', label: 'Soul & Funk', group: 'R&B / Soul', energy: 0.65, vocal: 'vocal', tags: ['funk', 'soul', 'groove'] },
     'classic_soul': { id: 'classic_soul', label: 'Motown & Classic Soul', group: 'R&B / Soul', energy: 0.60, vocal: 'vocal', tags: ['motown', 'warm', 'horns'] },
     'neo_soul': { id: 'neo_soul', label: 'Neo-Soul', group: 'R&B / Soul', energy: 0.50, vocal: 'vocal', tags: ['chilled', 'rhodes', 'groove'] },
     'rnb': { id: 'rnb', label: 'Contemporary R&B', group: 'R&B / Soul', energy: 0.55, vocal: 'vocal', tags: ['smooth', 'sensual', 'vocal'] },
@@ -105,6 +112,7 @@ export const GENRE_NODES = {
     // ==========================================
     // 7. JAZZ
     // ==========================================
+    'jazz': { id: 'jazz', label: 'Jazz (General)', group: 'Jazz', energy: 0.50, vocal: 'any', tags: ['swing', 'improvisation', 'brass'] },
     'cool_jazz': { id: 'cool_jazz', label: 'Cool Jazz', group: 'Jazz', energy: 0.45, vocal: 'instrumental', tags: ['miles davis', 'mellow', 'trumpet'] },
     'bebop_jazz': { id: 'bebop_jazz', label: 'Bebop / Hard Bop', group: 'Jazz', energy: 0.65, vocal: 'instrumental', tags: ['virtuosic', 'fast', 'improv'] },
     'modal_jazz': { id: 'modal_jazz', label: 'Modal Jazz', group: 'Jazz', energy: 0.50, vocal: 'instrumental', tags: ['coltrane', 'deep', 'spiritual'] },
@@ -117,6 +125,7 @@ export const GENRE_NODES = {
     // ==========================================
     // 8. BLUES
     // ==========================================
+    'blues': { id: 'blues', label: 'Blues (General)', group: 'Blues', energy: 0.55, vocal: 'vocal', tags: ['guitar', 'chicago', '12bar'] },
     'delta_blues': { id: 'delta_blues', label: 'Delta / Acoustic Blues', group: 'Blues', energy: 0.45, vocal: 'vocal', tags: ['slide guitar', 'raw', 'acoustic'] },
     'chicago_blues': { id: 'chicago_blues', label: 'Chicago Blues', group: 'Blues', energy: 0.60, vocal: 'vocal', tags: ['harmonica', 'electric', 'muddy waters'] },
     'electric_blues': { id: 'electric_blues', label: 'Electric Blues', group: 'Blues', energy: 0.65, vocal: 'vocal', tags: ['bb king', 'guitar solo', 'expressive'] },
@@ -126,6 +135,7 @@ export const GENRE_NODES = {
     // ==========================================
     // 9. CLASSICAL & ORCHESTRAL
     // ==========================================
+    'classical': { id: 'classical', label: 'Classical (General)', group: 'Classical', energy: 0.40, vocal: 'instrumental', tags: ['orchestra', 'acoustic', 'symphony'] },
     'baroque': { id: 'baroque', label: 'Baroque (Bach, Vivaldi)', group: 'Classical', energy: 0.45, vocal: 'instrumental', tags: ['harpsichord', 'counterpoint', 'intricate'] },
     'classical_period': { id: 'classical_period', label: 'Classical Period (Mozart, Beethoven)', group: 'Classical', energy: 0.50, vocal: 'instrumental', tags: ['symphony', 'sonata', 'balanced'] },
     'romantic': { id: 'romantic', label: 'Romantic Era (Chopin, Tchaikovsky)', group: 'Classical', energy: 0.45, vocal: 'instrumental', tags: ['piano', 'emotive', 'grand'] },
@@ -138,6 +148,8 @@ export const GENRE_NODES = {
     // ==========================================
     // 10. FOLK & ACOUSTIC
     // ==========================================
+    'folk_acoustic': { id: 'folk_acoustic', label: 'Folk & Acoustic (General)', group: 'Folk', energy: 0.45, vocal: 'vocal', tags: ['acoustic', 'fingerpicking', 'story'] },
+    'acoustic_folk': { id: 'acoustic_folk', label: 'Acoustic Folk', group: 'Folk', energy: 0.40, vocal: 'vocal', tags: ['acoustic', 'intimate', 'unplugged'] },
     'traditional_folk': { id: 'traditional_folk', label: 'Traditional Folk', group: 'Folk', energy: 0.40, vocal: 'vocal', tags: ['acoustic', 'story', 'heritage'] },
     'indie_folk': { id: 'indie_folk', label: 'Indie Folk / Chamber Folk', group: 'Folk', energy: 0.45, vocal: 'vocal', tags: ['warm', 'organic', 'banjo'] },
     'singer_songwriter': { id: 'singer_songwriter', label: 'Singer-Songwriter', group: 'Folk', energy: 0.40, vocal: 'vocal', tags: ['intimate', 'acoustic guitar', 'lyrics'] },
@@ -147,6 +159,7 @@ export const GENRE_NODES = {
     // ==========================================
     // 11. COUNTRY & AMERICANA
     // ==========================================
+    'country': { id: 'country', label: 'Country (General)', group: 'Country', energy: 0.55, vocal: 'vocal', tags: ['twang', 'nashville', 'guitar'] },
     'classic_country': { id: 'classic_country', label: 'Classic Country / Honky-Tonk', group: 'Country', energy: 0.55, vocal: 'vocal', tags: ['twang', 'pedal steel', 'story'] },
     'outlaw_country': { id: 'outlaw_country', label: 'Outlaw Country', group: 'Country', energy: 0.65, vocal: 'vocal', tags: ['willie nelson', 'raw', 'rebel'] },
     'bluegrass': { id: 'bluegrass', label: 'Bluegrass', group: 'Country', energy: 0.75, vocal: 'any', tags: ['fast', 'banjo', 'mandolin'] },
@@ -156,6 +169,7 @@ export const GENRE_NODES = {
     // ==========================================
     // 12. REGGAE, LATIN & WORLD
     // ==========================================
+    'world_reggae': { id: 'world_reggae', label: 'Reggae & World (General)', group: 'World / Reggae', energy: 0.60, vocal: 'any', tags: ['reggae', 'dub', 'island'] },
     'roots_reggae': { id: 'roots_reggae', label: 'Roots Reggae', group: 'World / Reggae', energy: 0.60, vocal: 'vocal', tags: ['bob marley', 'bassline', 'conscious'] },
     'dub': { id: 'dub', label: 'Dub / Sound System', group: 'World / Reggae', energy: 0.55, vocal: 'instrumental', tags: ['echo', 'deep bass', 'reverb'] },
     'ska': { id: 'ska', label: 'Ska / Rocksteady', group: 'World / Reggae', energy: 0.75, vocal: 'vocal', tags: ['upbeat', 'brass', 'danceable'] },
@@ -167,6 +181,8 @@ export const GENRE_NODES = {
     // ==========================================
     // 13. AMBIENT & CHILL
     // ==========================================
+    'ambient_chill': { id: 'ambient_chill', label: 'Ambient & Chill (General)', group: 'Ambient', energy: 0.25, vocal: 'instrumental', tags: ['relax', 'drone', 'soundscape'] },
+    'chill': { id: 'chill', label: 'Chillout', group: 'Ambient', energy: 0.30, vocal: 'any', tags: ['chill', 'lo-fi', 'relax'] },
     'ambient': { id: 'ambient', label: 'Pure Ambient / Drone', group: 'Ambient', energy: 0.15, vocal: 'instrumental', tags: ['meditation', 'sleep', 'pads'] },
     'nature_soundscape': { id: 'nature_soundscape', label: 'Nature & Soundscape', group: 'Ambient', energy: 0.10, vocal: 'instrumental', tags: ['rain', 'forest', 'field recording'] },
     'new_age': { id: 'new_age', label: 'New Age / Meditation', group: 'Ambient', energy: 0.25, vocal: 'instrumental', tags: ['calm', 'crystal', 'relax'] },
@@ -175,6 +191,7 @@ export const GENRE_NODES = {
     // ==========================================
     // 14. AVANT-GARDE & EXPERIMENTAL
     // ==========================================
+    'avant_garde': { id: 'avant_garde', label: 'Avant-Garde (General)', group: 'Avant-Garde', energy: 0.50, vocal: 'any', tags: ['experimental', 'abstract', 'art'] },
     'experimental_rock': { id: 'experimental_rock', label: 'Experimental / Krautrock', group: 'Avant-Garde', energy: 0.60, vocal: 'any', tags: ['can', 'motorik', 'weird'] },
     'noise': { id: 'noise', label: 'Noise & Drone', group: 'Avant-Garde', energy: 0.75, vocal: 'instrumental', tags: ['textures', 'harsh', 'sound art'] },
     'musique_concrete': { id: 'musique_concrete', label: 'Musique Concrète', group: 'Avant-Garde', energy: 0.40, vocal: 'instrumental', tags: ['tape loops', 'found sound', 'academic'] },
@@ -186,6 +203,25 @@ export const GENRE_NODES = {
  * Connects stylistically and harmonic neighbors for smooth state machine transitions.
  */
 export const TASTE_GRAPH_EDGES = [
+    // Family Hub Bridges (Connecting family centroids to subgenres)
+    ['rock', 'classic_rock'], ['rock', 'alt_rock'], ['rock', 'hard_rock'], ['rock', 'indie_rock'], ['rock', 'metal'],
+    ['metal', 'heavy_metal'], ['metal', 'thrash_metal'], ['metal', 'prog_metal'], ['metal', 'hard_rock'],
+    ['electronic', 'synthwave'], ['electronic', 'house'], ['electronic', 'techno'], ['electronic', 'ambient_electronic'],
+    ['pop', 'indie_pop'], ['pop', 'synth_pop'], ['pop', 'dance_pop'], ['pop', 'mainstream_pop'],
+    ['hip_hop', 'boom_bap'], ['hip_hop', 'lofi_hiphop'], ['hip_hop', 'trap_modern'],
+    ['rnb_soul', 'classic_soul'], ['rnb_soul', 'neo_soul'], ['rnb_soul', 'funk'], ['rnb_soul', 'soul_funk'],
+    ['soul_funk', 'funk'], ['soul_funk', 'classic_soul'],
+    ['jazz', 'cool_jazz'], ['jazz', 'bebop_jazz'], ['jazz', 'modal_jazz'], ['jazz', 'jazz_fusion'], ['jazz', 'blues'],
+    ['blues', 'delta_blues'], ['blues', 'chicago_blues'], ['blues', 'electric_blues'], ['blues', 'blues_rock'],
+    ['classical', 'baroque'], ['classical', 'classical_period'], ['classical', 'romantic'], ['classical', 'neo_classical'], ['classical', 'contemporary_classical'],
+    ['folk_acoustic', 'traditional_folk'], ['folk_acoustic', 'acoustic_folk'], ['folk_acoustic', 'indie_folk'], ['folk_acoustic', 'singer_songwriter'],
+    ['acoustic_folk', 'traditional_folk'], ['acoustic_folk', 'singer_songwriter'],
+    ['country', 'classic_country'], ['country', 'bluegrass'], ['country', 'americana'],
+    ['world_reggae', 'roots_reggae'], ['world_reggae', 'dub'], ['world_reggae', 'bossa_nova'],
+    ['ambient_chill', 'ambient'], ['ambient_chill', 'chillout'], ['ambient_chill', 'chill'], ['ambient_chill', 'new_age'],
+    ['chill', 'chillout'], ['chill', 'ambient'], ['chill', 'lofi_hiphop'],
+    ['avant_garde', 'experimental_rock'], ['avant_garde', 'noise'], ['avant_garde', 'musique_concrete'], ['avant_garde', 'avant_jazz'],
+
     // Rock internal
     ['classic_rock', 'hard_rock'],
     ['classic_rock', 'psychedelic_rock'],

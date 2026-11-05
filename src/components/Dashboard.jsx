@@ -77,8 +77,12 @@ function Dashboard({ token, onLogout }) {
         };
 
         fetchStatus();
-        const interval = setInterval(fetchStatus, 30000);
-        return () => clearInterval(interval);
+        const interval = setInterval(fetchStatus, 15000); // Check every 15s
+        window.addEventListener('focus', fetchStatus);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('focus', fetchStatus);
+        };
     }, []);
 
     // Subscribe to state machine to keep calibration in sync
@@ -229,8 +233,20 @@ function Dashboard({ token, onLogout }) {
                                     ))}
                                 </div>
                             </div>
-                            <div style={{ fontSize: '0.75rem', color: '#ef4444' }}>
-                                🚫 {calibration.dealbreakers.length} dealbreaker guards active
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                                <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>
+                                    🚫 {calibration.dealbreakers?.length || 0} dealbreakers
+                                </span>
+                                <span style={{
+                                    fontSize: '0.75rem',
+                                    padding: '0.15rem 0.5rem',
+                                    borderRadius: '6px',
+                                    background: calibration.blockAiGenerated !== false ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.05)',
+                                    color: calibration.blockAiGenerated !== false ? '#34d399' : '#94a3b8',
+                                    border: calibration.blockAiGenerated !== false ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(255,255,255,0.1)'
+                                }}>
+                                    🛡️ Anti-AI: {calibration.blockAiGenerated !== false ? 'ON' : 'OFF'}
+                                </span>
                             </div>
                         </div>
                     </div>

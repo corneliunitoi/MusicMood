@@ -1,5 +1,6 @@
 import { supabase } from './supabaseService.js';
 import { GENRE_FAMILIES, GENRE_NODES } from './tasteGraph.js';
+import { normalizeGenre } from './genreNormalizer.js';
 
 /**
  * Auto-detects the most probable genre from a playlist title
@@ -19,7 +20,8 @@ export function inferGenreFromTitle(title) {
     if (lower.includes('pop') || lower.includes('top hits') || lower.includes('billboard')) return 'pop';
     if (lower.includes('electronic') || lower.includes('edm') || lower.includes('dance') || lower.includes('house')) return 'electronic';
     if (lower.includes('hip hop') || lower.includes('rap') || lower.includes('trap')) return 'hip_hop';
-    if (lower.includes('jazz') || lower.includes('blues') || lower.includes('swing')) return 'jazz';
+    if (lower.includes('blues')) return 'blues';
+    if (lower.includes('jazz') || lower.includes('swing')) return 'jazz';
     if (lower.includes('classical') || lower.includes('piano') || lower.includes('orchestral') || lower.includes('symphony')) return 'classical';
     if (lower.includes('ambient') || lower.includes('chill') || lower.includes('lo-fi') || lower.includes('lofi') || lower.includes('relax') || lower.includes('focus')) return 'ambient_chill';
     if (lower.includes('soul') || lower.includes('funk') || lower.includes('r&b') || lower.includes('rnb')) return 'rnb_soul';
@@ -113,15 +115,18 @@ export async function ingestPlaylistTracks({ tracks, primaryGenreId, sourceName 
                     }
                 }
 
-                // 3. Insert into public.tracks table
-                const trackInserts = newTracks.map(t => ({
-                    title: t.title,
-                    artist: t.artist,
-                    artist_id: artistIdMap[t.artist] || null,
-                    primary_genre_id: primaryGenreId,
-                    youtube_video_id: t.videoId,
-                    source: sourceName
-                }));
+                // 3. Insert into public.tracks table with per-track genre normalization
+                const trackInserts = newTracks.map(t => {
+                    const resolvedGenre = normalizeGenre(primaryGenreId, t.artist, t.title);
+                    return {
+                        title: t.title,
+                        artist: t.artist,
+                        artist_id: artistIdMap[t.artist] || null,
+                        primary_genre_id: resolvedGenre,
+                        youtube_video_id: t.videoId,
+                        source: sourceName
+                    };
+                });
 
                 const { error: trackInsertError } = await supabase
                     .from('tracks')
@@ -134,12 +139,15 @@ export async function ingestPlaylistTracks({ tracks, primaryGenreId, sourceName 
                     newlyAdded += newTracks.length;
 
                     // 4. Also insert into public.local_metadata so Dashboard cloudCount immediately reflects it!
-                    const metaInserts = newTracks.map(t => ({
-                        artist: t.artist,
-                        track_name: t.title,
-                        genre: primaryGenreId,
-                        source: sourceName
-                    }));
+                    const metaInserts = newTracks.map(t => {
+                        const resolvedGenre = normalizeGenre(primaryGenreId, t.artist, t.title);
+                        return {
+                            artist: t.artist,
+                            track_name: t.title,
+                            genre: resolvedGenre,
+                            source: sourceName
+                        };
+                    });
 
                     try {
                         await supabase.from('local_metadata').insert(metaInserts);

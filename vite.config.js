@@ -41,32 +41,91 @@ function titlesMatch(targetTitle, ytVideoTitle) {
   return (matchedWords.length / targetWords.length) >= 0.5;
 }
 
-function parseTitleAndArtist(rawTitle, rawAuthor) {
-  let clean = (rawTitle || '').replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim();
-  let artist = (rawAuthor || '').replace(/\s*-\s*Topic$/i, '').trim();
-  let title = clean;
+function isChannelOrJunkArtist(artist) {
+  if (!artist || typeof artist !== 'string') return true;
+  const clean = artist.trim().toLowerCase();
+  if (clean.length < 2) return true;
+  if (/^(unknown(\s*artist)?|various(\s*artists)?|track\s*[0-9]+|disc\s*[0-9]+|cd\s*[0-9]+)$/i.test(clean)) return true;
 
-  if (clean.includes(' - ')) {
-    const parts = clean.split(' - ');
-    artist = parts[0].trim();
-    title = parts.slice(1).join(' - ').trim();
-  } else if (clean.includes(' – ')) {
-    const parts = clean.split(' – ');
-    artist = parts[0].trim();
-    title = parts.slice(1).join(' – ').trim();
-  } else if (clean.includes(': ')) {
-    const parts = clean.split(': ');
-    if (parts[0].length > 2 && parts[0].length < 30) {
-      artist = parts[0].trim();
-      title = parts.slice(1).join(': ').trim();
+  if (/records|recordings|official|show|archives|hall of fame|vevo|npr|workshp|club|planet|archéologie|guitar|tv|radio|war|master|monster|alancox|proko|atsusiueno|jeffrey|rinconcete|unstitched|youmoretv|vaimusic/i.test(clean)) {
+    return true;
+  }
+  if (/^[a-z0-9_]{10,}$/i.test(clean) && !clean.includes(' ')) return true;
+  if (/[0-9]{2,}$/.test(clean)) return true;
+
+  return false;
+}
+
+function cleanVideoTitle(rawTitle) {
+  return (rawTitle || '')
+    .replace(/\[(official\s*(music\s*)?video|audio|lyrics?|hd|4k|remastered?|live.*?|archive.*?)\]/gi, '')
+    .replace(/\((official\s*(music\s*)?video|audio|lyrics?|hd|4k|remastered?|live.*?|upscaled|correct.*?)\)/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseTitleAndArtist(rawTitle, rawAuthor) {
+  let title = cleanVideoTitle(rawTitle);
+  let artist = (rawAuthor || '').replace(/\s*-\s*Topic$/i, '').trim();
+
+  if (isChannelOrJunkArtist(artist) || !artist) {
+    let matched = false;
+
+    // Pattern: "Title by Artist"
+    const byMatch = title.match(/^(.*?)\s+by\s+(?:the\s+)?([A-Za-z0-9\s&,.']+?)(?:\s+featuring.*|\s*\([0-9]+\)|\s*$)/i);
+    if (byMatch && byMatch[2].trim().length >= 2) {
+      artist = byMatch[2].trim();
+      title = byMatch[1].trim();
+      matched = true;
+    }
+
+    // Separators: ' - ', ' – ', ' — ', ' ~ ', or hyphen with no space 'Artist-Title'
+    if (!matched) {
+      const sepMatch = title.match(/^(.*?)\s*([–—~]|\s-\s|-(?=[A-Za-z0-9]))\s*(.*)$/);
+      if (sepMatch) {
+        const left = sepMatch[1].trim();
+        const right = sepMatch[3].trim();
+        if (left.length >= 2 && right.length >= 2) {
+          artist = left;
+          title = right;
+          matched = true;
+        }
+      }
+    }
+
+    if (!matched && title.includes(' / ')) {
+      const parts = title.split(' / ');
+      if (parts[0].length >= 2 && parts[1].length >= 2) {
+        artist = parts[0].trim();
+        title = parts.slice(1).join(' / ').trim();
+        matched = true;
+      }
+    }
+
+    if (!matched && title.includes(': ')) {
+      const parts = title.split(': ');
+      if (parts[0].length >= 2 && parts[0].length < 35 && parts[1].length >= 2) {
+        artist = parts[0].trim();
+        title = parts.slice(1).join(': ').trim();
+        matched = true;
+      }
+    }
+
+    if (!matched) {
+      const quoteMatch = title.match(/^(.*?)\s*["“](.*?)["”]/);
+      if (quoteMatch && quoteMatch[1].trim().length >= 2) {
+        artist = quoteMatch[1].trim();
+        title = quoteMatch[2].trim();
+        matched = true;
+      }
     }
   }
 
-  // Clean leading numbers
+  // Clean leading track numbers
   title = title.replace(/^[0-9]+(\s*[-_.]\s*|\s+)/, '').trim();
   artist = artist.replace(/^[0-9]+(\s*[-_.]\s*|\s+)/, '').trim();
 
-  return { artist: artist || 'Unknown Artist', title: title || rawTitle };
+  return { artist: artist || rawAuthor || 'Unknown Artist', title: title || rawTitle };
 }
 
 async function scrapePlaylistTracks(playlistIdOrUrl) {

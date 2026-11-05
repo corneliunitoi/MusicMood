@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
+import { normalizeGenre, isSongCandidate } from '../src/services/genreNormalizer.js';
+import { fetchMusicBrainzArtistGenres } from '../src/services/musicBrainzService.js';
 
 // Load environment variables from .env
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
@@ -12,11 +14,11 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Configuration
 const BATCH_SIZE = 50;
-const BASE_DELAY_MS = 1800; // Polite delay between tracks to avoid triggering rate limits
+const BASE_DELAY_MS = 2200; // Polite delay between tracks to avoid triggering rate limits
 
-const JUNK_ARTIST_REGEX = /^(cd\s*[0-9]+|disc\s*[0-9]+|track\s*[0-9]+|unknown(\s*artist)?)$/i;
-const JUNK_TITLE_REGEX = /^[0-9]+$/;
-const NON_MUSIC_TERMS = ['recitation', 'audiobook', 'lesson', 'speaking', 'chinese', 'meditation guide', 'podcast', 'episode'];
+const isRandom = process.argv.includes('--random') || process.env.npm_config_random === 'true';
+const artistCache = new Map();
+let consecutiveZeroes = 0;
 
 /**
  * Detects and heals CP1251 (Cyrillic) mojibake decoded as ISO-8859-1/Latin1.
@@ -50,22 +52,13 @@ function fixMojibake(str) {
     return str;
 }
 
-function isCorruptedJunk(artist, title) {
-    if (!title || title.trim().length < 2) return true;
-    if (JUNK_TITLE_REGEX.test(title.trim())) return true;
-    const lowerTitle = title.toLowerCase();
-    const lowerArtist = (artist || '').toLowerCase();
-    if (NON_MUSIC_TERMS.some(t => lowerTitle.includes(t) || lowerArtist.includes(t))) return true;
-    return false;
-}
-
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
- * Verifies that the YouTube search candidate actually matches the requested song title.
- * Prevents mapping completely different songs to random channel trailers.
+ * Verifies that the YouTube search candidate actually matches the requested song title and artist.
+ * Prevents mapping completely different songs to random channel trailers or gameplay walkthroughs.
  */
 function titlesMatch(targetTitle, ytVideoTitle) {
     if (!targetTitle || !ytVideoTitle) return false;
@@ -82,39 +75,52 @@ function titlesMatch(targetTitle, ytVideoTitle) {
 
 /**
  * Resolves a track to a verified YouTube video ID with zero API quota consumption.
- * Includes rate-limit retry, title verification, and mojibake healing.
+ * Includes rate-limit retry, title verification, mojibake healing, and bot-throttle detection.
  */
 async function resolveYouTubeTrack(artist, trackName, retryCount = 0) {
-    if (isCorruptedJunk(artist, trackName)) {
-        return { status: 'JUNK' };
+    // 1. Gatekeeper: Ensure it is a genuine song and not junk / stem / podcast
+    const gateCheck = isSongCandidate({ title: trackName, artist });
+    if (!gateCheck.pass) {
+        return { status: 'JUNK', reason: gateCheck.reason };
     }
 
-    // 1. Auto-heal mojibake
+    // 2. Auto-heal mojibake
     const healedArtistTag = fixMojibake(artist);
     const healedTitleTag = fixMojibake(trackName);
 
     let cleanArtist = (healedArtistTag || '')
         .replace(/^[0-9]+(\s*[-_.]\s*|\s+)/, '')
         .replace(/\[[^\]]+\]/g, '')
+        .replace(/["“”«»]/g, ' ')
+        .replace(/\s+/g, ' ')
         .trim();
 
     let cleanTitle = (healedTitleTag || '')
         .replace(/^[0-9]+(\s*[-_.]\s*|\s+)/, '')
         .replace(/\((Alternate|Remix|Live|Stem|Dublex|Prod\.|Demo|Version|Remaster).*?\)/gi, '')
         .replace(/\[.*?\]/g, '')
+        .replace(/["“”«»]/g, ' ')
+        .replace(/\s+/g, ' ')
         .trim();
 
     const isNumericArtist = !cleanArtist || /^[0-9]+$/.test(cleanArtist);
+    const primaryArtist = cleanArtist.split(/[,;&]/)[0].trim();
 
     const queries = [];
     if (!isNumericArtist) {
         queries.push(`"${cleanArtist}" "${cleanTitle}" Topic`);
         queries.push(`"${cleanArtist}" "${cleanTitle}"`);
         queries.push(`${cleanArtist} ${cleanTitle}`);
+        if (primaryArtist && primaryArtist !== cleanArtist) {
+            queries.push(`"${primaryArtist}" "${cleanTitle}" Topic`);
+            queries.push(`${primaryArtist} ${cleanTitle}`);
+        }
     } else {
         queries.push(`"${cleanTitle}" Topic`);
         queries.push(`${cleanTitle}`);
     }
+
+    let totalCandidatesSeen = 0;
 
     for (const q of queries) {
         const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
@@ -122,15 +128,16 @@ async function resolveYouTubeTrack(artist, trackName, retryCount = 0) {
         try {
             const res = await fetch(url, {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                     'Accept-Language': 'en-US,en;q=0.9',
+                    'Cookie': 'SOCS=CAESEwgDEgk2OTg5MTcyMDcaAmVuIAEaBgiA_LyaBg;'
                 }
             });
 
             // Handle 429 Too Many Requests
             if (res.status === 429) {
                 if (retryCount < 3) {
-                    const waitSec = 20 * (retryCount + 1);
+                    const waitSec = 25 * (retryCount + 1);
                     console.warn(`\n⏳ YouTube 429 Rate Limit hit. Backing off for ${waitSec}s (Retry ${retryCount + 1}/3)...`);
                     await sleep(waitSec * 1000);
                     return resolveYouTubeTrack(artist, trackName, retryCount + 1);
@@ -142,11 +149,21 @@ async function resolveYouTubeTrack(artist, trackName, retryCount = 0) {
 
             const html = await res.text();
 
-            // Extract ytInitialData
-            const match = html.match(/var ytInitialData = ({.*?});<\/script>/);
-            if (!match) continue;
+            // Extract ytInitialData robustly without fragile single-line regex
+            const startIdx = html.indexOf('var ytInitialData =');
+            if (startIdx === -1) continue;
 
-            const data = JSON.parse(match[1]);
+            const scriptCloseIdx = html.indexOf('</script>', startIdx);
+            if (scriptCloseIdx === -1) continue;
+
+            const slice = html.substring(startIdx + 'var ytInitialData ='.length, scriptCloseIdx).trim().replace(/;$/, '');
+            let data;
+            try {
+                data = JSON.parse(slice);
+            } catch (e) {
+                continue;
+            }
+
             const candidateVideos = [];
 
             function extractVideos(obj) {
@@ -167,10 +184,29 @@ async function resolveYouTubeTrack(artist, trackName, retryCount = 0) {
             }
 
             extractVideos(data);
+            totalCandidatesSeen += candidateVideos.length;
 
-            // Find first video that genuinely matches the track title
+            // Find first video that genuinely matches both the track title and artist
             for (const candidate of candidateVideos) {
                 if (titlesMatch(cleanTitle, candidate.title)) {
+                    const candAuthor = (candidate.author || '').toLowerCase();
+                    const candTitle = (candidate.title || '').toLowerCase();
+                    const primLower = primaryArtist.toLowerCase();
+                    const primCleanNoSpace = primLower.replace(/\s+/g, '');
+                    const authorCleanNoSpace = candAuthor.replace(/\s+/g, '');
+
+                    // Match artist name (handles "SteveVaiHimself" matching "Steve Vai", and Topic channels)
+                    const artistMatches = isNumericArtist || 
+                        !candAuthor || 
+                        candAuthor.includes('topic') || 
+                        candAuthor.includes(primLower) || 
+                        candTitle.includes(primLower) || 
+                        (primCleanNoSpace.length > 3 && authorCleanNoSpace.includes(primCleanNoSpace));
+
+                    if (!artistMatches) {
+                        continue; // Skip video from completely unrelated channel
+                    }
+
                     let finalArtist = cleanArtist;
                     if (isNumericArtist && candidate.author) {
                         finalArtist = candidate.author.replace(/\s*-\s*Topic$/i, '').trim();
@@ -190,7 +226,75 @@ async function resolveYouTubeTrack(artist, trackName, retryCount = 0) {
         }
     }
 
+    if (totalCandidatesSeen === 0) {
+        return { status: 'ZERO_CANDIDATES', healedTitle: healedTitleTag !== trackName ? healedTitleTag : null };
+    }
+
     return { status: 'NOT_FOUND', healedTitle: healedTitleTag !== trackName ? healedTitleTag : null };
+}
+
+async function getOrCreateArtistMetadata(artistName, defaultGenre) {
+    if (!artistName) return null;
+    if (artistCache.has(artistName)) return artistCache.get(artistName);
+
+    try {
+        const { data: existing } = await supabase
+            .from('artists')
+            .select('id, primary_genre_id, secondary_genre_ids')
+            .eq('name', artistName)
+            .maybeSingle();
+
+        if (existing) {
+            let secondary = existing.secondary_genre_ids || [];
+            let primary = existing.primary_genre_id || defaultGenre;
+
+            // If existing artist has no secondary genres, enrich lazily via MusicBrainz
+            if (secondary.length === 0) {
+                const mbData = await fetchMusicBrainzArtistGenres(artistName);
+                if (mbData) {
+                    secondary = mbData.secondary_genre_ids || [];
+                    if (mbData.primary_genre_id) primary = mbData.primary_genre_id;
+                    await supabase.from('artists').update({
+                        primary_genre_id: primary,
+                        secondary_genre_ids: secondary,
+                        tags: mbData.tags || [],
+                        mbid: mbData.mbid || null
+                    }).eq('id', existing.id);
+                }
+            }
+
+            const info = { id: existing.id, primaryGenre: primary, secondaryGenres: secondary };
+            artistCache.set(artistName, info);
+            return info;
+        }
+
+        // Brand new artist: query MusicBrainz first
+        const mbData = await fetchMusicBrainzArtistGenres(artistName);
+        const primary = mbData?.primary_genre_id || defaultGenre;
+        const secondary = mbData?.secondary_genre_ids || [];
+        const slug = artistName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+        const { data: inserted } = await supabase
+            .from('artists')
+            .insert({
+                name: artistName,
+                slug,
+                primary_genre_id: primary,
+                secondary_genre_ids: secondary,
+                tags: mbData?.tags || [],
+                mbid: mbData?.mbid || null,
+                track_count: 1
+            })
+            .select('id')
+            .maybeSingle();
+
+        const info = { id: inserted?.id || null, primaryGenre: primary, secondaryGenres: secondary };
+        artistCache.set(artistName, info);
+        return info;
+    } catch (e) {
+        // Non-fatal artist link exception
+    }
+    return { id: null, primaryGenre: defaultGenre, secondaryGenres: [] };
 }
 
 async function startResolver() {
@@ -199,7 +303,9 @@ async function startResolver() {
     console.log("   • Source: public.local_metadata (44.8k archive)");
     console.log("   • Target: public.tracks (Playable catalog)");
     console.log("   • Automatic CP1251 Cyrillic Mojibake Healing");
-    console.log("   • Strict Title-Matching Verification");
+    console.log("   • Canonical Taxonomy Genre Normalization (115 IDs)");
+    console.log("   • Song-Only Gatekeeper (Stems & Compilations filtered)");
+    console.log(isRandom ? "   • Sampling: RANDOM 🎲 (Diverse artists across library)" : "   • Sampling: SEQUENTIAL (pass --random for diverse artists)");
     console.log("=================================================\n");
 
     let totalResolved = 0;
@@ -213,11 +319,22 @@ async function startResolver() {
 
     while (isRunning) {
         // 1. Fetch unmapped tracks from public.local_metadata archive
-        const { data: records, error } = await supabase
-            .from('local_metadata')
-            .select('id, artist, track_name, genre')
-            .is('youtube_video_id', null)
-            .limit(BATCH_SIZE);
+        let records;
+        let error;
+
+        if (isRandom) {
+            const res = await supabase.rpc('get_random_unmapped_local_tracks', { batch_size: BATCH_SIZE });
+            records = res.data;
+            error = res.error;
+        } else {
+            const res = await supabase
+                .from('local_metadata')
+                .select('id, artist, track_name, genre')
+                .is('youtube_video_id', null)
+                .limit(BATCH_SIZE);
+            records = res.data;
+            error = res.error;
+        }
 
         if (error) {
             console.error("❌ Supabase query error:", error.message);
@@ -242,8 +359,21 @@ async function startResolver() {
                 continue; // Do NOT flag as unresolved!
             }
 
+            if (res.status === 'ZERO_CANDIDATES') {
+                consecutiveZeroes++;
+                if (consecutiveZeroes >= 2) {
+                    console.warn(`\n⏳ YouTube anti-bot cooldown detected (${consecutiveZeroes} empty pages in a row). Pausing polite resolver for 35s...`);
+                    await sleep(35000);
+                    consecutiveZeroes = 0;
+                }
+                console.log(`[Cooldown ⏸️] Anti-bot / empty results: "${record.artist} - ${res.healedTitle || record.track_name}" (Leaving unmapped for next run)`);
+                continue; // Do NOT flag as unresolved!
+            }
+
+            consecutiveZeroes = 0;
+
             if (res.status === 'JUNK') {
-                console.log(`[Junk Filter 🗑️] Non-music: "${record.artist} - ${record.track_name}"`);
+                console.log(`[Junk Filter 🗑️] ${res.reason || 'Non-music'}: "${record.artist} - ${record.track_name}"`);
                 await supabase.from('local_metadata').update({ youtube_video_id: 'CORRUPT_TAGS' }).eq('id', record.id);
                 continue;
             }
@@ -251,16 +381,21 @@ async function startResolver() {
             if (res.status === 'FOUND' && res.videoId) {
                 const finalArtist = res.healedArtist || record.artist;
                 const finalTitle = res.healedTitle || record.track_name;
-                const finalGenre = (record.genre || 'rock').toLowerCase();
+                const finalGenre = normalizeGenre(record.genre, finalArtist, finalTitle);
 
-                // 1. Update local_metadata
+                // 1. Ensure artist exists in public.artists with multi-genre metadata
+                const artistInfo = await getOrCreateArtistMetadata(finalArtist, finalGenre);
+                const artistId = artistInfo?.id || null;
+                const effectivePrimary = artistInfo?.primaryGenre || finalGenre;
+                const effectiveSecondary = artistInfo?.secondaryGenres || [];
+
+                // 2. Update local_metadata
                 await supabase
                     .from('local_metadata')
                     .update({ youtube_video_id: res.videoId })
                     .eq('id', record.id);
 
-                // 2. Insert verified playable track into public.tracks
-                // Check if already in tracks by video ID
+                // 3. Insert verified playable track into public.tracks
                 const { data: existing } = await supabase
                     .from('tracks')
                     .select('id')
@@ -268,18 +403,26 @@ async function startResolver() {
                     .limit(1);
 
                 if (!existing || existing.length === 0) {
-                    await supabase.from('tracks').insert({
+                    const { error: insertError } = await supabase.from('tracks').insert({
                         title: finalTitle,
                         artist: finalArtist,
-                        primary_genre_id: finalGenre,
+                        artist_id: artistId,
+                        primary_genre_id: effectivePrimary,
+                        secondary_genre_ids: effectiveSecondary,
                         youtube_video_id: res.videoId,
                         source: 'local_disk_resolved'
                     });
+
+                    if (insertError) {
+                        console.error(`❌ DB Insert Error for "${finalArtist} - ${finalTitle}" (${effectivePrimary}):`, insertError.message);
+                        continue;
+                    }
                 }
 
                 totalResolved++;
                 const healedNote = (res.healedTitle || res.healedArtist) ? ' 🩹 [Healed]' : '';
-                console.log(`[${totalResolved}] ✅ Mapped to Catalog: "${finalArtist} - ${finalTitle}" -> ${res.videoId}${healedNote}`);
+                const multiNote = effectiveSecondary.length > 0 ? ` + [${effectiveSecondary.slice(0, 3).join(', ')}]` : '';
+                console.log(`[${totalResolved}] ✅ Mapped to Catalog: "${finalArtist} - ${finalTitle}" -> ${res.videoId} (${effectivePrimary}${multiNote})${healedNote}`);
             } else {
                 totalSkipped++;
                 console.log(`[Skip] ⏭️ No verified match: "${record.artist} - ${res.healedTitle || record.track_name}" (Flagged UNRESOLVED in archive)`);
