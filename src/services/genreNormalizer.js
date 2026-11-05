@@ -64,6 +64,34 @@ export const ARTIST_CANONICAL_GENRES = {
     'sinead o\'connor': 'alt_rock',
     'joni mitchell': 'singer_songwriter',
 
+    // Synth-Pop, New Wave & Electronic Icons
+    'depeche mode': 'synth_pop',
+    'duran duran': 'synth_pop',
+    'new order': 'synth_pop',
+    'pet shop boys': 'synth_pop',
+    'tears for fears': 'synth_pop',
+    'the human league': 'synth_pop',
+    'spandau ballet': 'synth_pop',
+    'visage': 'synth_pop',
+    'soft cell': 'synth_pop',
+    'omd': 'synth_pop',
+    'orchestral manoeuvres in the dark': 'synth_pop',
+    'gary numan': 'synth_pop',
+    'kraftwerk': 'electronic',
+    'erasure': 'synth_pop',
+    'a-ha': 'synth_pop',
+    'talk talk': 'synth_pop',
+    'ultravox': 'synth_pop',
+    'eurythmics': 'synth_pop',
+    'yazoo': 'synth_pop',
+    'the cure': 'post_punk',
+    'joy division': 'post_punk',
+    'blondie': 'post_punk',
+    'siouxsie and the banshees': 'post_punk',
+    'echo & the bunnymen': 'post_punk',
+    'the smiths': 'indie_rock',
+    'cocteau twins': 'shoegaze',
+
     // Progressive Rock & Art Rock
     'pink floyd': 'prog_rock',
     'rush': 'prog_rock',
@@ -309,6 +337,11 @@ const ALIAS_MAP = {
     'synthpop': 'synth_pop',
     'synth-pop': 'synth_pop',
     'synth pop': 'synth_pop',
+    'new romantic': 'synth_pop',
+    'new-romantic': 'synth_pop',
+    'new romanticism': 'synth_pop',
+    'electropop': 'synth_pop',
+    'electro-pop': 'synth_pop',
     'dance-pop': 'dance_pop',
     'dance pop': 'dance_pop',
     'art pop': 'art_pop',
@@ -416,7 +449,7 @@ const ALIAS_MAP = {
  * @param {string} [trackTitle] - Optional track title for opus, form and classical detection
  * @returns {string} Valid genre ID from VALID_GENRE_IDS
  */
-export function normalizeGenre(rawGenre, artistName = '', trackTitle = '') {
+export function normalizeGenre(rawGenre, artistName = '', trackTitle = '', fallback = null) {
     const cleanArtist = (artistName || '').trim().toLowerCase();
     const cleanTitle = (trackTitle || '').trim().toLowerCase();
     const cleanRaw = (typeof rawGenre === 'string' ? rawGenre : '').trim().toLowerCase();
@@ -449,8 +482,11 @@ export function normalizeGenre(rawGenre, artistName = '', trackTitle = '') {
     if (/\b(baroque|bach|vivaldi|handel|händel|scarlatti|purcell|harpsichord|cantata|bwv\s*[0-9]+|rv\s*[0-9]+|z[0-9]{2,3}|choir of new college oxford|king's consort)\b/i.test(combined)) {
         return 'baroque';
     }
-    if (/\b(romantic|chopin|liszt|schumann|schubert|tchaikovsky|rachmaninoff|brahms|mussorgsky|moussorgsky|grieg|dvorak|dvořák|horowitz|rubinstein|nocturne|etude|étude|valse|waltz|walzer|polonaise|mazurka|liebeslieder)\b/i.test(combined)) {
-        return 'romantic';
+    // Guard: Prevent "new romantic" or modern songs with "romantic" in title from polluting classical Romantic Era
+    if (!cleanRaw.includes('new romantic') && !cleanRaw.includes('new-romantic') && !cleanTitle.includes('new romantic')) {
+        if (/\b(chopin|liszt|schumann|schubert|tchaikovsky|rachmaninoff|brahms|mussorgsky|moussorgsky|grieg|dvorak|dvořák|horowitz|rubinstein|nocturne|etude|étude|valse|waltz|walzer|polonaise|mazurka|liebeslieder)\b/i.test(combined)) {
+            return 'romantic';
+        }
     }
     if (/\b(classical period|mozart|beethoven|haydn|bagatelle|für elise|woo\s*[0-9]+|k\.\s*[0-9]+|hob\.\s*[0-9]+)\b/i.test(combined)) {
         return 'classical_period';
@@ -460,7 +496,7 @@ export function normalizeGenre(rawGenre, artistName = '', trackTitle = '') {
     }
 
     if (!rawGenre || typeof rawGenre !== 'string' || cleanRaw === 'unknown' || cleanRaw === 'other') {
-        return 'rock';
+        return fallback;
     }
 
     // Clean up compound genres (e.g. "Rock | Blues | Hard Rock", "Metal; Rock", "Pop/Dance")
@@ -485,7 +521,8 @@ export function normalizeGenre(rawGenre, artistName = '', trackTitle = '') {
     // Classical / Opera
     if (clean.includes('opera')) return 'opera';
     if (clean.includes('baroque') || clean.includes('bach') || clean.includes('vivaldi')) return 'baroque';
-    if (clean.includes('romantic') || clean.includes('chopin') || clean.includes('tchaikovsky')) return 'romantic';
+    if (clean.includes('new romantic') || clean.includes('new-romantic')) return 'synth_pop';
+    if (clean === 'romantic' || clean === 'romantic period' || clean === 'romantic era' || clean === 'romantic classical' || clean.includes('chopin') || clean.includes('tchaikovsky')) return 'romantic';
     if (clean.includes('soundtrack') || clean.includes('score') || clean.includes('cinematic')) return 'cinematic_orchestral';
     if (clean.includes('classic') && (clean.includes('orchestr') || clean.includes('symphon'))) return 'classical';
     if (clean.includes('chamber') || clean.includes('quartet')) return 'chamber_music';
@@ -551,8 +588,8 @@ export function normalizeGenre(rawGenre, artistName = '', trackTitle = '') {
     if (clean.includes('soul') || clean.includes('funk') || clean.includes('r&b') || clean.includes('rnb')) return 'rnb_soul';
     if (clean.includes('pop')) return 'pop';
 
-    // Fallback safely to canonical rock
-    return 'rock';
+    // Fallback safely only if caller provided an explicit fallback
+    return fallback;
 }
 
 /**

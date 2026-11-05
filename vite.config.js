@@ -232,6 +232,87 @@ async function scrapePlaylistTracks(playlistIdOrUrl) {
   };
 }
 
+async function resolveViaInnertube(cleanArtist, cleanTitle, isNumericArtist) {
+  const primaryArtist = cleanArtist ? cleanArtist.split(/[,;&]/)[0].trim() : '';
+  const queries = [];
+  if (!isNumericArtist && cleanArtist) {
+    queries.push(`"${cleanArtist}" "${cleanTitle}"`);
+    if (primaryArtist && primaryArtist !== cleanArtist) {
+      queries.push(`"${primaryArtist}" "${cleanTitle}"`);
+    }
+    queries.push(`${cleanArtist} ${cleanTitle}`);
+  } else {
+    queries.push(`${cleanTitle}`);
+  }
+
+  const INNERTUBE_URL = 'https://music.youtube.com/youtubei/v1/search';
+  const INNERTUBE_BODY = {
+    context: {
+      client: {
+        clientName: 'WEB_REMIX',
+        clientVersion: '1.20240101.01.00',
+        hl: 'en',
+        gl: 'US'
+      }
+    },
+    params: 'Eg-KAQwIARAAGAAgACgAMABqChAGGAMQAxAFGAg%3D'
+  };
+
+  for (const q of queries) {
+    try {
+      const res = await fetch(INNERTUBE_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Origin': 'https://music.youtube.com',
+          'Referer': 'https://music.youtube.com/'
+        },
+        body: JSON.stringify({ ...INNERTUBE_BODY, query: q })
+      });
+
+      if (!res.ok) continue;
+      const data = await res.json();
+      const candidates = [];
+
+      function extract(obj) {
+        if (!obj || typeof obj !== 'object') return;
+        if (obj.musicCardShelfRenderer) {
+          const shelf = obj.musicCardShelfRenderer;
+          const title = shelf.title?.runs?.[0]?.text || '';
+          const author = shelf.subtitle?.runs?.[0]?.text || '';
+          const videoId = shelf.onTap?.watchEndpoint?.videoId;
+          if (videoId && videoId.length === 11) candidates.push({ videoId, title, author });
+        }
+        if (obj.musicResponsiveListItemRenderer) {
+          const item = obj.musicResponsiveListItemRenderer;
+          const flexCols = item.flexColumns || [];
+          const title = flexCols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || '';
+          const author = flexCols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || '';
+          const videoId = item.playlistItemData?.videoId || item.doubleTapCommand?.watchEndpoint?.videoId;
+          if (videoId && videoId.length === 11) candidates.push({ videoId, title, author });
+        }
+        for (const v of Object.values(obj)) extract(v);
+      }
+
+      extract(data);
+
+      for (const c of candidates) {
+        if (titlesMatch(cleanTitle, c.title)) {
+          let healed = cleanArtist;
+          if (isNumericArtist && c.author) {
+            healed = c.author.split('•')[0].trim();
+          }
+          return { videoId: c.videoId, artist: healed, title: cleanTitle, engine: 'innertube' };
+        }
+      }
+    } catch (e) {
+      // Continue to next query
+    }
+  }
+  return null;
+}
+
 function zeroQuotaResolverPlugin() {
   return {
     name: 'zero-quota-resolver',
@@ -262,6 +343,14 @@ function zeroQuotaResolverPlugin() {
             .trim();
 
           const isNumericArtist = !cleanArtist || /^[0-9]+$/.test(cleanArtist);
+
+          // Fast Tier 1: YouTube Music Innertube API (~200ms pure JSON)
+          const innertubeMatch = await resolveViaInnertube(cleanArtist, cleanTitle, isNumericArtist);
+          if (innertubeMatch && innertubeMatch.videoId) {
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify(innertubeMatch));
+            return;
+          }
 
           const queries = [];
           if (!isNumericArtist) {

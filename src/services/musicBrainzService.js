@@ -211,3 +211,48 @@ async function fallbackWikipedia(cleanArtist, mbid = null) {
         return null;
     }
 }
+
+/**
+ * Fetches popular, iconic recordings for a specific genre tag directly from MusicBrainz.
+ * Used by the JIT Engine to pull authoritative tracks inside the active genre.
+ * 
+ * @param {string} tag - MusicBrainz genre tag (e.g. 'synthpop', 'shoegaze', 'grunge')
+ * @param {number} [limit=15] - Maximum candidate recordings to inspect
+ * @returns {Promise<Array<{ artist: string, title: string, duration: number }>>}
+ */
+export async function fetchMusicBrainzGenreRecordings(tag, limit = 15) {
+    if (!tag) return [];
+    await throttle();
+
+    try {
+        const url = `https://musicbrainz.org/ws/2/recording/?query=tag:${encodeURIComponent(tag)}&fmt=json&limit=${limit}`;
+        const res = await fetch(url, {
+            headers: {
+                'User-Agent': 'MusicMood/1.0.0 ( contact@musicmood.local )'
+            }
+        });
+
+        if (!res.ok) return [];
+
+        const data = await res.json();
+        const recordings = data.recordings || [];
+        const candidates = [];
+
+        for (const rec of recordings) {
+            const artist = rec['artist-credit']?.[0]?.artist?.name || rec['artist-credit']?.[0]?.name;
+            const title = rec.title;
+            const dur = rec.length ? Math.round(rec.length / 1000) : 0;
+
+            if (!artist || !title) continue;
+            if (dur && (dur < 90 || dur > 700)) continue;
+            if (/live|interview|remix|version|demo|tribute/i.test(title)) continue;
+
+            candidates.push({ artist: artist.trim(), title: title.trim(), duration: dur });
+        }
+
+        return candidates;
+    } catch (e) {
+        console.warn(`[MusicBrainz] Genre recording lookup error for "${tag}":`, e.message);
+        return [];
+    }
+}

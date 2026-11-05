@@ -517,7 +517,7 @@ async function startResolver() {
             if (res.status === 'FOUND' && res.videoId) {
                 const finalArtist = res.healedArtist || record.artist;
                 const finalTitle = res.healedTitle || record.track_name;
-                const finalGenre = normalizeGenre(record.genre, finalArtist, finalTitle);
+                const finalGenre = normalizeGenre(record.genre, finalArtist, finalTitle, 'rock') || 'rock';
 
                 // 1. Ensure artist exists in public.artists with multi-genre metadata
                 const artistInfo = await getOrCreateArtistMetadata(finalArtist, finalGenre);

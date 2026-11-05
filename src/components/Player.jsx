@@ -367,6 +367,9 @@ function Player({ initialTrack, token }) {
                             {currentTrack?.source === 'local_library' && (
                                 <span style={{ marginLeft: '0.5rem', color: '#60a5fa', fontSize: '0.75rem' }}>📁 From Your Server</span>
                             )}
+                            {(currentTrack?.source?.startsWith('jit') || currentTrack?.source === 'jit_player_expansion' || currentTrack?.source === 'jit_local_archive' || currentTrack?.source === 'jit_musicbrainz') && (
+                                <span style={{ marginLeft: '0.5rem', color: '#34d399', fontSize: '0.75rem', fontWeight: '500' }}>⚡ JIT Discovery</span>
+                            )}
                         </p>
                     </div>
                 </div>

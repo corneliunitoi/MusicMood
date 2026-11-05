@@ -14,6 +14,7 @@ import { supabase, recordListenEvent } from './supabaseService.js';
 import { GENRE_FAMILIES, GENRE_NODES, getConnectedGenres, getMoodCompatibleGenres, violatesDealbreakers, normalizeWeights } from './tasteGraph.js';
 import { isSongCandidate, isAiGenerated } from './genreNormalizer.js';
 import { allMoods } from './moods.js';
+import { jitEngine } from './jitEngine.js';
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 
@@ -281,6 +282,9 @@ class SessionStateMachine {
         this.state.consecutiveInNode = 0;
         this.queue = [];
         this.notify();
+        setTimeout(() => {
+            jitEngine.replenishBuffer(genreId, this);
+        }, 150);
     }
 
     setEnergy(energyFloat) {
@@ -422,6 +426,7 @@ class SessionStateMachine {
                 const candidate = this.queue.shift();
                 if (this.passesGuards(candidate)) {
                     this.commitTrack(candidate);
+                    jitEngine.replenishBuffer(this.state.activeGenre, this);
                     return candidate;
                 }
             }
@@ -432,6 +437,7 @@ class SessionStateMachine {
                 // If track already has pre-mapped 11-char YouTube ID, play immediately (Zero Quota!)
                 if (libCandidate.id && this.passesGuards(libCandidate)) {
                     this.commitTrack(libCandidate);
+                    jitEngine.replenishBuffer(this.state.activeGenre, this);
                     return libCandidate;
                 }
                 
@@ -440,21 +446,32 @@ class SessionStateMachine {
                     const resolved = await this.resolveTrackToYouTube(libCandidate, token);
                     if (resolved && this.passesGuards(resolved)) {
                         this.commitTrack(resolved);
+                        jitEngine.replenishBuffer(this.state.activeGenre, this);
                         return resolved;
                     }
                 }
             }
 
-            // 2. Targeted Anti-Drift YouTube Sourcing
+            // 2. JIT Organic Catalog Expansion: Pull a brand new track for this active genre
+            console.log(`[StateMachine ⚡] Catalog exhausted for "${this.state.activeGenre}". Triggering JIT Organic Expansion...`);
+            const jitCandidate = await jitEngine.pullTrackForGenre(this.state.activeGenre, this);
+            if (jitCandidate && this.passesGuards(jitCandidate)) {
+                this.commitTrack(jitCandidate);
+                jitEngine.replenishBuffer(this.state.activeGenre, this);
+                return jitCandidate;
+            }
+
+            // 3. Targeted Anti-Drift YouTube Sourcing
             if (token) {
                 const ytCandidate = await this.sourceFromYouTube(token);
                 if (ytCandidate) {
                     this.commitTrack(ytCandidate);
+                    jitEngine.replenishBuffer(this.state.activeGenre, this);
                     return ytCandidate;
                 }
             }
 
-            // 3. Resilient Fallback: If YouTube search was blocked/rate-limited, pick a guaranteed safe track!
+            // 4. Resilient Fallback: If YouTube search was blocked/rate-limited, pick a guaranteed safe track!
             const emergencyTrack = await this.sourceEmergencyTrack();
             if (emergencyTrack) {
                 console.log(`[Emergency Fallback 🛡️] Played safe track: "${emergencyTrack.artist} - ${emergencyTrack.title}" (${emergencyTrack.genre})`);
@@ -563,6 +580,11 @@ class SessionStateMachine {
         });
 
         this.notify();
+
+        // Background JIT buffer replenishment for active genre (catalog grows organically!)
+        setTimeout(() => {
+            jitEngine.replenishBuffer(this.state.activeGenre, this);
+        }, 400);
     }
 
     async sourceEmergencyTrack() {
