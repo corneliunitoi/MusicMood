@@ -64,6 +64,102 @@ const POLES = [
     }
 ];
 
+// -------------------------------------------------------------
+// 9 FAR-APART POLAR TIE-BREAKERS (TAB 3)
+// -------------------------------------------------------------
+const NINE_TIE_BREAKERS = [
+    {
+        id: 'cosmic_prog',
+        icon: '🌌',
+        title: 'Cosmic Prog & Space',
+        subtitle: 'Slow-burn suites, analog synths, soaring solos',
+        artists: ['Pink Floyd', 'Porcupine Tree', 'Camel'],
+        anchorGenre: 'prog_rock',
+        family: 'rock',
+        accentColor: '#a855f7'
+    },
+    {
+        id: 'heavy_riff',
+        icon: '⚡',
+        title: 'Heavy & Polyrhythmic Drive',
+        subtitle: 'Crunchy dynamic distortion, complex time signatures',
+        artists: ['Tool', 'Opeth', 'Led Zeppelin'],
+        anchorGenre: 'hard_rock',
+        family: 'rock',
+        accentColor: '#ec4899'
+    },
+    {
+        id: 'synthwave_pulse',
+        icon: '🪐',
+        title: 'Synthwave & Cyber Beats',
+        subtitle: 'Neon night-drives, analog arpeggios, retro pulse',
+        artists: ['Tycho', 'Daft Punk', 'Kavinsky'],
+        anchorGenre: 'synthwave',
+        family: 'electronic',
+        accentColor: '#3b82f6'
+    },
+    {
+        id: 'modal_jazz',
+        icon: '🎷',
+        title: 'Modal Jazz & Swing',
+        subtitle: 'Upright double-bass, modal brass, late-night club intimacy',
+        artists: ['Miles Davis', 'John Coltrane', 'Bill Evans'],
+        anchorGenre: 'cool_jazz',
+        family: 'jazz',
+        accentColor: '#f59e0b'
+    },
+    {
+        id: 'delta_blues',
+        icon: '🎸',
+        title: 'Electric & Delta Blues',
+        subtitle: 'Soulful guitar bends, raw room warmth, expressive grit',
+        artists: ['B.B. King', 'Muddy Waters', 'Stevie Ray Vaughan'],
+        anchorGenre: 'electric_blues',
+        family: 'blues',
+        accentColor: '#eab308'
+    },
+    {
+        id: 'neo_soul_groove',
+        icon: '🎤',
+        title: 'Neo-Soul & Funk Groove',
+        subtitle: 'Silky chord voicings, deep pocket bass, vocal emotion',
+        artists: ['Stevie Wonder', 'Erykah Badu', 'Anderson .Paak'],
+        anchorGenre: 'neo_soul',
+        family: 'rnb_soul',
+        accentColor: '#f43f5e'
+    },
+    {
+        id: 'acoustic_folk',
+        icon: '🌾',
+        title: 'Acoustic Folk & Intimacy',
+        subtitle: 'Fingerpicked acoustic guitar, poetic storytelling, warmth',
+        artists: ['Nick Drake', 'Fleet Foxes', 'Iron & Wine'],
+        anchorGenre: 'indie_folk',
+        family: 'folk_acoustic',
+        accentColor: '#10b981'
+    },
+    {
+        id: 'cinematic_classical',
+        icon: '🎻',
+        title: 'Cinematic Neoclassical',
+        subtitle: 'Grand orchestral tension, emotive piano, sweeping soundtrack swells',
+        artists: ['Hans Zimmer', 'Max Richter', 'Ólafur Arnalds'],
+        anchorGenre: 'neo_classical',
+        family: 'classical',
+        accentColor: '#6366f1'
+    },
+    {
+        id: 'deep_ambient',
+        icon: '🧘',
+        title: 'Deep Ambient & Drone',
+        subtitle: 'Meditative soundscapes, zero percussion, timeless space',
+        artists: ['Brian Eno', 'Stars of the Lid', 'Tim Hecker'],
+        anchorGenre: 'ambient_chill',
+        family: 'ambient_chill',
+        accentColor: '#14b8a6'
+    }
+];
+
 const MAX_RADIUS = 100;
 const MIN_RADIUS = 20;
 
@@ -92,9 +188,29 @@ function OnboardingWizard({ onComplete, onClose }) {
     const [discoveryLevel, setDiscoveryLevel] = useState(() => existingCalib.discoveryLevel || 0.5);
     const [blockAiGenerated, setBlockAiGenerated] = useState(() => existingCalib.blockAiGenerated !== false);
 
-    // 3. Seed Artists & Dynamic Anchors
-    const [seedArtists, setSeedArtists] = useState(() => existingCalib.seedArtists || ['Pink Floyd', 'Tycho', 'Miles Davis', 'Radiohead']);
+    // 3. Polar Tie-Breakers (Pick 3 out of 9)
+    const [selectedTieBreakers, setSelectedTieBreakers] = useState(() => {
+        if (existingCalib.tieBreakers && Array.isArray(existingCalib.tieBreakers) && existingCalib.tieBreakers.length === 3) {
+            return existingCalib.tieBreakers;
+        }
+        return ['cosmic_prog', 'synthwave_pulse', 'modal_jazz'];
+    });
+    const [seedArtists, setSeedArtists] = useState(() => existingCalib.seedArtists || ['Pink Floyd', 'Tycho', 'Miles Davis']);
     const [customArtistText, setCustomArtistText] = useState('');
+
+    const toggleTieBreaker = (id) => {
+        setSelectedTieBreakers(prev => {
+            if (prev.includes(id)) {
+                if (prev.length <= 1) return prev; // keep at least 1
+                return prev.filter(x => x !== id);
+            }
+            if (prev.length >= 3) {
+                // Smooth shift: replace oldest selection to keep exactly 3
+                return [...prev.slice(1), id];
+            }
+            return [...prev, id];
+        });
+    };
 
     // Power user NAS profiling state
     const [isProfilingNas, setIsProfilingNas] = useState(false);
@@ -226,26 +342,11 @@ function OnboardingWizard({ onComplete, onClose }) {
     // Top 3 default subgenre anchors
     const activeAnchors = [topPole1.defaultSub, topPole2.defaultSub, topPole3.defaultSub];
 
-    // Recommended artists based on top poles
-    const recommendedArtists = [
-        ...topPole1.artists.slice(0, 2),
-        ...topPole2.artists.slice(0, 2),
-        ...topPole3.artists.slice(0, 2)
-    ];
-
     // Toggle Dealbreaker
     const toggleDealbreaker = (id) => {
         setSelectedDealbreakers(prev => {
             if (prev.includes(id)) return prev.filter(x => x !== id);
             return [...prev, id];
-        });
-    };
-
-    // Toggle Seed Artist
-    const toggleSeedArtist = (artistName) => {
-        setSeedArtists(prev => {
-            if (prev.includes(artistName)) return prev.filter(x => x !== artistName);
-            return [...prev, artistName];
         });
     };
 
@@ -279,6 +380,15 @@ function OnboardingWizard({ onComplete, onClose }) {
     // GENERATE FULL CALIBRATION PAYLOAD & COMPLETE
     // -------------------------------------------------------------
     const handleFinish = async () => {
+        // Resolve chosen 3 tie breakers
+        const chosenItems = NINE_TIE_BREAKERS.filter(item => selectedTieBreakers.includes(item.id));
+        const finalAnchors = chosenItems.map(item => item.anchorGenre);
+        const resolvedSeedArtists = [
+            ...chosenItems.flatMap(item => item.artists.slice(0, 2)),
+            ...seedArtists
+        ];
+        const uniqueArtists = Array.from(new Set(resolvedSeedArtists)).slice(0, 10);
+
         // Map all 115 genre nodes to weights based on active pole values
         const weights = {};
         Object.entries(GENRE_NODES).forEach(([nodeId, node]) => {
@@ -288,6 +398,11 @@ function OnboardingWizard({ onComplete, onClose }) {
             }
             const baseValue = (poleValues[matchedPole.id] || 50) / 100;
             let weight = baseValue;
+
+            // Apply tie-breaker boost: the chosen 3 anchors get a high weight boost!
+            if (finalAnchors.includes(nodeId)) {
+                weight = 1.0;
+            }
 
             // Apply emotional reflex nudges
             if (melancholyReflex === 'lean' && (nodeId.includes('sad') || nodeId.includes('dark') || nodeId.includes('post_rock') || nodeId.includes('ambient'))) {
@@ -301,7 +416,7 @@ function OnboardingWizard({ onComplete, onClose }) {
         });
 
         const calibration = {
-            anchors: activeAnchors,
+            anchors: finalAnchors.length > 0 ? finalAnchors : activeAnchors,
             dealbreakers: selectedDealbreakers,
             discoveryLevel,
             blockAiGenerated,
@@ -310,7 +425,8 @@ function OnboardingWizard({ onComplete, onClose }) {
                 melancholy: melancholyReflex,
                 vocals: vocalReflex
             },
-            seedArtists,
+            seedArtists: uniqueArtists,
+            tieBreakers: selectedTieBreakers,
             radarValues: poleValues
         };
 
@@ -374,7 +490,7 @@ function OnboardingWizard({ onComplete, onClose }) {
                         <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#f8fafc' }}>
                             {step === 1 && 'Step 1: Sculpt Your Sound Polygon'}
                             {step === 2 && 'Step 2: Emotional Reflexes & Filters'}
-                            {step === 3 && 'Step 3: Artist Resonance & Launch'}
+                            {step === 3 && 'Step 3: Polar Tie-Breakers (Pick 3 of 9)'}
                         </div>
                     </div>
                 </div>
@@ -845,51 +961,89 @@ function OnboardingWizard({ onComplete, onClose }) {
                             onClick={() => setStep(3)}
                             style={{ width: 'auto', padding: '0.65rem 1.75rem', fontSize: '0.9rem' }}
                         >
-                            Next: Seed Artists →
+                            Next: Polar Tie-Breakers →
                         </button>
                     </div>
                 </div>
             )}
 
             {/* ========================================================= */}
-            {/* STEP 3: SEED ARTISTS & CONFIRMATION                       */}
+            {/* STEP 3: POLAR TIE-BREAKERS (PICK 3 OUT OF 9)              */}
             {/* ========================================================= */}
             {step === 3 && (
                 <div className="fade-in">
-                    <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                        Based on your sculpted sound polygon, we matched these iconic seed artists. Keep what you like or add your favorites:
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                        <div>
+                            <p style={{ color: '#cbd5e1', fontSize: '0.85rem', margin: 0 }}>
+                                Select your <strong>Top 3 Far-Apart Anchors</strong> to break ties and anchor your sessions:
+                            </p>
+                        </div>
+                        <span style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 'bold',
+                            color: selectedTieBreakers.length === 3 ? '#34d399' : '#a855f7',
+                            background: selectedTieBreakers.length === 3 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(168, 85, 247, 0.15)',
+                            border: selectedTieBreakers.length === 3 ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(168, 85, 247, 0.35)',
+                            borderRadius: '999px',
+                            padding: '0.2rem 0.65rem',
+                            whiteSpace: 'nowrap'
+                        }}>
+                            🎯 {selectedTieBreakers.length}/3 Selected
+                        </span>
+                    </div>
 
-                    {/* Recommended Artists Grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.5rem', marginBottom: '1.25rem' }}>
-                        {recommendedArtists.map(artist => {
-                            const isSelected = seedArtists.includes(artist);
+                    {/* 3x3 Polar Tie-Breakers Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '0.65rem', marginBottom: '1.25rem' }}>
+                        {NINE_TIE_BREAKERS.map(item => {
+                            const isSelected = selectedTieBreakers.includes(item.id);
+                            const selectionOrder = selectedTieBreakers.indexOf(item.id);
                             return (
-                                <button
-                                    key={artist}
-                                    type="button"
-                                    onClick={() => toggleSeedArtist(artist)}
+                                <div
+                                    key={item.id}
+                                    onClick={() => toggleTieBreaker(item.id)}
                                     style={{
-                                        padding: '0.65rem 0.85rem',
-                                        borderRadius: '12px',
-                                        fontSize: '0.8rem',
-                                        fontWeight: '600',
+                                        padding: '0.75rem 0.85rem',
+                                        borderRadius: '14px',
                                         textAlign: 'left',
                                         display: 'flex',
+                                        flexDirection: 'column',
                                         justifyContent: 'space-between',
-                                        alignItems: 'center',
                                         cursor: 'pointer',
-                                        border: isSelected ? '1px solid #a855f7' : '1px solid rgba(255,255,255,0.08)',
-                                        background: isSelected ? 'rgba(168, 85, 247, 0.2)' : 'rgba(255,255,255,0.03)',
-                                        color: isSelected ? '#f8fafc' : '#94a3b8',
-                                        transition: 'all 0.15s ease'
+                                        border: isSelected ? '2px solid #a855f7' : '1px solid rgba(255,255,255,0.08)',
+                                        background: isSelected ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.28), rgba(99, 102, 241, 0.18))' : 'rgba(255,255,255,0.03)',
+                                        boxShadow: isSelected ? '0 0 16px rgba(168, 85, 247, 0.25)' : 'none',
+                                        transition: 'all 0.18s ease',
+                                        position: 'relative'
                                     }}
                                 >
-                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist}</span>
-                                    <span style={{ color: isSelected ? '#a855f7' : '#64748b', fontWeight: 'bold' }}>
-                                        {isSelected ? '✓' : '+'}
-                                    </span>
-                                </button>
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                                <span style={{ fontSize: '1.1rem' }}>{item.icon}</span>
+                                                <strong style={{ fontSize: '0.85rem', color: isSelected ? '#f8fafc' : '#e2e8f0', lineHeight: 1.2 }}>
+                                                    {item.title}
+                                                </strong>
+                                            </div>
+                                            <span style={{
+                                                fontSize: '0.7rem',
+                                                fontWeight: 'bold',
+                                                padding: '0.1rem 0.45rem',
+                                                borderRadius: '999px',
+                                                background: isSelected ? '#a855f7' : 'rgba(255,255,255,0.08)',
+                                                color: isSelected ? 'white' : '#64748b'
+                                            }}>
+                                                {isSelected ? `#${selectionOrder + 1}` : '+'}
+                                            </span>
+                                        </div>
+                                        <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.35rem', lineHeight: 1.35 }}>
+                                            {item.subtitle}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ fontSize: '0.7rem', color: isSelected ? '#e9d5ff' : '#64748b', marginTop: '0.5rem', fontWeight: '500' }}>
+                                        {item.artists.join(' • ')}
+                                    </div>
+                                </div>
                             );
                         })}
                     </div>
@@ -933,19 +1087,24 @@ function OnboardingWizard({ onComplete, onClose }) {
 
                     {/* Engine Configuration Summary Card */}
                     <div style={{
-                        background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(99, 102, 241, 0.1))',
-                        border: '1px solid rgba(168, 85, 247, 0.3)',
+                        background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(99, 102, 241, 0.12))',
+                        border: '1px solid rgba(168, 85, 247, 0.35)',
                         borderRadius: '16px',
                         padding: '1rem 1.25rem',
                         marginBottom: '1.5rem',
                         fontSize: '0.8rem'
                     }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#e9d5ff', fontWeight: 'bold', marginBottom: '0.25rem' }}>
-                            <span>⚡ Ready to Calibrate Engine</span>
-                            <span>{activeAnchors.length} Anchors • {selectedDealbreakers.length} Dealbreakers</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#e9d5ff', fontWeight: 'bold', marginBottom: '0.35rem' }}>
+                            <span>⚡ Live Engine Configuration</span>
+                            <span>{selectedTieBreakers.length} Anchors • {selectedDealbreakers.length} Dealbreakers</span>
                         </div>
-                        <div style={{ color: '#cbd5e1', fontSize: '0.75rem' }}>
-                            Your taste DNA will be loaded into the <strong>session state machine</strong>. The algorithm will strictly steer along harmonic edges without drifting.
+                        <div style={{ color: '#cbd5e1', fontSize: '0.75rem', lineHeight: 1.4 }}>
+                            <strong>Selected Session Anchors:</strong> {
+                                selectedTieBreakers.map(id => NINE_TIE_BREAKERS.find(t => t.id === id)?.title).filter(Boolean).join('  |  ')
+                            }
+                        </div>
+                        <div style={{ color: '#94a3b8', fontSize: '0.7rem', marginTop: '0.25rem' }}>
+                            Your taste DNA will strictly steer along harmonic edges without drifting.
                         </div>
                     </div>
 
