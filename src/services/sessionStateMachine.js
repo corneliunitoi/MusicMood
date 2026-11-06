@@ -24,6 +24,16 @@ const USER_CALIBRATION_KEY = 'musicMood_user_calibration';
 
 const MAX_DWELL_PER_NODE = 2; // Maximum consecutive tracks allowed in the same subgenre
 
+function shuffleArray(arr) {
+    if (!Array.isArray(arr) || arr.length <= 1) return arr;
+    const shuffled = [...arr];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+}
+
 class SessionStateMachine {
     constructor() {
         this.listeners = new Set();
@@ -40,11 +50,15 @@ class SessionStateMachine {
         // Anti-stagnation fatigue map: { [genreId]: float between 0.0 and 1.0 }
         this.nodeFatigue = {};
 
-        // Initial session state
+        // Initial session state with randomized initial anchor
+        const initialAnchors = (this.calibration && this.calibration.anchors) || ['post_rock', 'synthwave', 'lofi_hiphop'];
+        const randomInitialGenre = initialAnchors[Math.floor(Math.random() * initialAnchors.length)] || 'neo_classical';
+
         this.state = savedState || {
             currentMood: 'focus',
-            activeGenre: this.calibration.anchors[0] || 'neo_classical',
+            activeGenre: randomInitialGenre,
             consecutiveInNode: 0,
+            consecutiveSkips: 0,
             energyLevel: 0.5,
             vocalPreference: 'any', // 'any' | 'instrumental' | 'vocal'
             discoveryLevel: this.calibration.discoveryLevel || 0.5,
@@ -56,6 +70,37 @@ class SessionStateMachine {
             status: 'idle',
             traversalHistory: [], // Log of graph hops
         };
+    }
+
+    resetSession(keepCalibration = true) {
+        console.log('[StateMachine] Resetting session state with fresh random seed...');
+        const initialAnchors = (this.calibration && this.calibration.anchors) || ['post_rock', 'synthwave', 'lofi_hiphop'];
+        const randomInitialGenre = initialAnchors[Math.floor(Math.random() * initialAnchors.length)] || 'neo_classical';
+
+        this.queue = [];
+        this.trackHistory = [];
+        this.nodeFatigue = {};
+        this.state = {
+            currentMood: 'focus',
+            activeGenre: randomInitialGenre,
+            consecutiveInNode: 0,
+            consecutiveSkips: 0,
+            energyLevel: 0.5,
+            vocalPreference: 'any',
+            discoveryLevel: this.calibration.discoveryLevel || 0.5,
+            recentTracks: [],
+            recentArtists: [],
+            likedTracks: [],
+            skippedTracks: [],
+            currentTrack: null,
+            status: 'idle',
+            traversalHistory: [],
+        };
+        if (!keepCalibration) {
+            this.calibration = this.loadCalibration();
+        }
+        this.saveSessionState();
+        this.notify();
     }
 
     loadCalibration() {
@@ -272,10 +317,22 @@ class SessionStateMachine {
         const currentAllowed = !violatesDealbreakers(GENRE_NODES[this.state.activeGenre]?.label, this.state.activeGenre, this.calibration.dealbreakers);
 
         if (!currentFitsMood || !currentAllowed) {
-            // Prefer an anchor if it matches this mood, else pick from mood's core genres
-            const compatibleAnchor = this.calibration.anchors.find(a => moodCompatible.includes(a) && !violatesDealbreakers(a, a, this.calibration.dealbreakers));
+            // Find all matching anchors that fit this mood without dealbreakers
+            const matchingAnchors = (this.calibration.anchors || []).filter(a => moodCompatible.includes(a) && !violatesDealbreakers(GENRE_NODES[a]?.label || a, a, this.calibration.dealbreakers));
             const validMoodGenres = moodCompatible.filter(g => !violatesDealbreakers(GENRE_NODES[g]?.label, g, this.calibration.dealbreakers));
-            const newGenre = compatibleAnchor || validMoodGenres[0] || 'lofi_hiphop';
+
+            let newGenre;
+            if (matchingAnchors.length > 0) {
+                // Randomly select among user's matching anchors so it doesn't always start on anchor #1
+                newGenre = matchingAnchors[Math.floor(Math.random() * matchingAnchors.length)];
+            } else if (validMoodGenres.length > 0) {
+                // Randomly select among top 4 compatible genres for this mood to ensure fresh variety on reset
+                const poolSize = Math.min(4, validMoodGenres.length);
+                newGenre = validMoodGenres[Math.floor(Math.random() * poolSize)];
+            } else {
+                newGenre = 'lofi_hiphop';
+            }
+
             console.log(`[StateMachine] Switched active genre to align with mood "${moodObj.label}": ${newGenre}`);
             this.state.activeGenre = newGenre;
         }
@@ -709,7 +766,11 @@ class SessionStateMachine {
 
             if (!data || data.length === 0) return null;
 
-            // Pass A: Find candidate that passes ALL strict guards
+            // SHUFFLE data array so initial selection is never biased to row 0
+            data = shuffleArray(data);
+
+            // Pass A: Find all candidates that pass ALL strict guards and pick randomly
+            const validPassA = [];
             for (const t of data) {
                 if (t.youtube_video_id && t.youtube_video_id.length === 11) {
                     const candidate = {
@@ -722,20 +783,24 @@ class SessionStateMachine {
                         source: 'emergency_zero_quota'
                     };
                     if (this.passesGuards(candidate)) {
-                        return candidate;
+                        validPassA.push(candidate);
                     }
                 }
+            }
+            if (validPassA.length > 0) {
+                return validPassA[Math.floor(Math.random() * validPassA.length)];
             }
 
             // Pass B: Relax artist fatigue but strictly avoid recent 15 tracks and recent 5 artists
             const recentTracksSet = new Set((this.state.recentTracks || []).slice(-15));
             const recentArtistsSet = new Set((this.state.recentArtists || []).slice(-5));
+            const validPassB = [];
             for (const t of data) {
                 const vid = t.youtube_video_id;
                 const a = (t.artist || '').toLowerCase();
                 if (vid && vid.length === 11 && !recentTracksSet.has(vid) && !recentArtistsSet.has(a)) {
                     if (this.passesMetadataGuards(t)) {
-                        return {
+                        validPassB.push({
                             id: vid,
                             dbId: t.id,
                             artist: t.artist,
@@ -743,25 +808,28 @@ class SessionStateMachine {
                             genre: t.primary_genre_id || this.state.activeGenre,
                             thumbnail: `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`,
                             source: 'emergency_diverse'
-                        };
+                        });
                     }
                 }
+            }
+            if (validPassB.length > 0) {
+                return validPassB[Math.floor(Math.random() * validPassB.length)];
             }
 
             // Pass C: Last resort safe return avoiding current video ID
             const currentVideoId = this.state.currentTrack?.id;
-            for (const t of data) {
-                if (t.youtube_video_id && t.youtube_video_id.length === 11 && t.youtube_video_id !== currentVideoId) {
-                    return {
-                        id: t.youtube_video_id,
-                        dbId: t.id,
-                        artist: t.artist,
-                        title: t.title,
-                        genre: t.primary_genre_id || this.state.activeGenre,
-                        thumbnail: `https://i.ytimg.com/vi/${t.youtube_video_id}/hqdefault.jpg`,
-                        source: 'emergency_safe_fallback'
-                    };
-                }
+            const validPassC = data.filter(t => t.youtube_video_id && t.youtube_video_id.length === 11 && t.youtube_video_id !== currentVideoId);
+            if (validPassC.length > 0) {
+                const chosen = validPassC[Math.floor(Math.random() * validPassC.length)];
+                return {
+                    id: chosen.youtube_video_id,
+                    dbId: chosen.id,
+                    artist: chosen.artist,
+                    title: chosen.title,
+                    genre: chosen.primary_genre_id || this.state.activeGenre,
+                    thumbnail: `https://i.ytimg.com/vi/${chosen.youtube_video_id}/hqdefault.jpg`,
+                    source: 'emergency_safe_fallback'
+                };
             }
 
             const fallback = data[0];
@@ -817,7 +885,7 @@ class SessionStateMachine {
             };
 
             // Tier 1: Exact active subgenre in tracks table (with randomized offset sampling)
-            const randOffset1 = Math.floor(Math.random() * 50);
+            const randOffset1 = Math.floor(Math.random() * 100);
             let { data: exactMapped } = await supabase
                 .from('tracks')
                 .select('*')
@@ -837,6 +905,7 @@ class SessionStateMachine {
                 exactMapped = res.data;
             }
 
+            exactMapped = shuffleArray(exactMapped);
             let available = filterCandidates(exactMapped);
             if (available.length === 0 && exactMapped && exactMapped.length > 0) {
                 available = filterCandidates(exactMapped, true);
@@ -851,7 +920,7 @@ class SessionStateMachine {
                 }) || groupLower;
 
                 if (parentId && parentId !== activeGenreId) {
-                    const randOffset2 = Math.floor(Math.random() * 50);
+                    const randOffset2 = Math.floor(Math.random() * 100);
                     let { data: familyMapped } = await supabase
                         .from('tracks')
                         .select('*')
@@ -871,6 +940,7 @@ class SessionStateMachine {
                         familyMapped = res.data;
                     }
 
+                    familyMapped = shuffleArray(familyMapped);
                     available = filterCandidates(familyMapped);
                     if (available.length === 0 && familyMapped && familyMapped.length > 0) {
                         available = filterCandidates(familyMapped, true);
@@ -883,7 +953,7 @@ class SessionStateMachine {
                 const neighbors = getConnectedGenres(activeGenreId).filter(g => g !== activeGenreId);
                 if (neighbors.length > 0) {
                     const neighborList = neighbors.join(',');
-                    const randOffset3 = Math.floor(Math.random() * 40);
+                    const randOffset3 = Math.floor(Math.random() * 80);
                     let { data: neighborMapped } = await supabase
                         .from('tracks')
                         .select('*')
@@ -903,6 +973,7 @@ class SessionStateMachine {
                         neighborMapped = res.data;
                     }
 
+                    neighborMapped = shuffleArray(neighborMapped);
                     available = filterCandidates(neighborMapped);
                     if (available.length === 0 && neighborMapped && neighborMapped.length > 0) {
                         available = filterCandidates(neighborMapped, true);
