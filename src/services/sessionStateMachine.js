@@ -30,6 +30,10 @@ class SessionStateMachine {
         this.isResolving = false;
         this.queue = [];
 
+        // Stack of full track objects for the Back button
+        const savedState = this.loadSessionState();
+        this.trackHistory = (savedState && savedState.trackHistory) || [];
+
         // Load saved calibration or defaults
         this.calibration = this.loadCalibration();
 
@@ -37,7 +41,7 @@ class SessionStateMachine {
         this.nodeFatigue = {};
 
         // Initial session state
-        this.state = this.loadSessionState() || {
+        this.state = savedState || {
             currentMood: 'focus',
             activeGenre: this.calibration.anchors[0] || 'neo_classical',
             consecutiveInNode: 0,
@@ -108,6 +112,7 @@ class SessionStateMachine {
                     recentTracks: this.state.recentTracks.slice(-50),
                     recentArtists: this.state.recentArtists.slice(-15),
                     traversalHistory: (this.state.traversalHistory || []).slice(-20),
+                    trackHistory: (this.trackHistory || []).slice(-25),
                 };
                 localStorage.setItem(SESSION_STATE_KEY, JSON.stringify(toSave));
             }
@@ -131,6 +136,8 @@ class SessionStateMachine {
         return {
             ...this.state,
             queue: [...this.queue],
+            canGoBack: (this.trackHistory || []).length > 0,
+            historyCount: (this.trackHistory || []).length,
             maxDwell: MAX_DWELL_PER_NODE,
             currentFatigue: Math.round((this.nodeFatigue[this.state.activeGenre] || 0) * 100),
         };
@@ -581,6 +588,17 @@ class SessionStateMachine {
     }
 
     commitTrack(track) {
+        if (!track || !track.id) return;
+
+        // Push previous track to history stack so Back button can return to it
+        if (this.state.currentTrack && this.state.currentTrack.id && this.state.currentTrack.id !== track.id) {
+            if (!this.trackHistory) this.trackHistory = [];
+            this.trackHistory.push(this.state.currentTrack);
+            if (this.trackHistory.length > 25) {
+                this.trackHistory.shift();
+            }
+        }
+
         this.state.currentTrack = track;
         this.state.recentTracks.push(track.id);
         const artist = (track.artist || track.channelTitle || '').toLowerCase();
@@ -601,6 +619,22 @@ class SessionStateMachine {
         setTimeout(() => {
             jitEngine.replenishBuffer(this.state.activeGenre, this);
         }, 400);
+    }
+
+    canGoBack() {
+        return (this.trackHistory || []).length > 0;
+    }
+
+    getPreviousTrack() {
+        if (!this.trackHistory || this.trackHistory.length === 0) return null;
+        const prevTrack = this.trackHistory.pop();
+        if (this.state.currentTrack && this.state.currentTrack.id) {
+            // Keep track we are leaving at head of queue so Next moves forward to it
+            this.queue.unshift(this.state.currentTrack);
+        }
+        this.state.currentTrack = prevTrack;
+        this.notify();
+        return prevTrack;
     }
 
     async sourceEmergencyTrack() {

@@ -38,6 +38,19 @@ function loadYouTubeIframeApi() {
     return ytApiPromise;
 }
 
+function formatTime(totalSeconds) {
+    if (isNaN(totalSeconds) || totalSeconds < 0) return '0:00';
+    const s = Math.floor(totalSeconds);
+    const mins = Math.floor(s / 60);
+    const secs = s % 60;
+    const hours = Math.floor(mins / 60);
+    if (hours > 0) {
+        const remMins = mins % 60;
+        return `${hours}:${remMins < 10 ? '0' : ''}${remMins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
 function Player({ initialTrack, token }) {
     const [currentTrack, setCurrentTrack] = useState(initialTrack);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -48,6 +61,15 @@ function Player({ initialTrack, token }) {
     const [copiedLink, setCopiedLink] = useState(false);
     const [showQueue, setShowQueue] = useState(false);
     const [isCurrentFav, setIsCurrentFav] = useState(() => isFavorite(initialTrack));
+
+    // Progress Bar & Scrubber state
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [isSeeking, setIsSeeking] = useState(false);
+    const [seekTime, setSeekTime] = useState(0);
+
+    const displayTime = isSeeking ? seekTime : currentTime;
+    const progressPercent = duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0;
 
     const playerRef = useRef(null);
     const isPlayerReadyRef = useRef(false);
@@ -88,6 +110,26 @@ function Player({ initialTrack, token }) {
         });
         return unsub;
     }, []);
+
+    // Real-time time progress polling
+    useEffect(() => {
+        let interval = null;
+        if (isPlaying && !isSeeking) {
+            interval = setInterval(() => {
+                if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+                    try {
+                        const cur = playerRef.current.getCurrentTime() || 0;
+                        const dur = playerRef.current.getDuration() || 0;
+                        setCurrentTime(cur);
+                        if (dur > 0) setDuration(dur);
+                    } catch (e) {}
+                }
+            }, 500);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [isPlaying, isSeeking]);
 
     // Subscribe to state machine updates
     useEffect(() => {
@@ -146,6 +188,10 @@ function Player({ initialTrack, token }) {
                             try {
                                 if (event.target.isMuted()) event.target.unMute();
                                 event.target.setVolume(100);
+                                const dur = event.target.getDuration();
+                                if (dur > 0) setDuration(dur);
+                                const cur = event.target.getCurrentTime();
+                                if (cur >= 0) setCurrentTime(cur);
                             } catch (e) {}
                         }
                         if (event.data === 2) {
@@ -244,6 +290,9 @@ function Player({ initialTrack, token }) {
         setErrorMessage(null);
         setIsBuffering(true);
         setIsPlaying(false);
+        setCurrentTime(0);
+        setDuration(0);
+        setIsSeeking(false);
 
         if (playerRef.current && isPlayerReadyRef.current && typeof playerRef.current.loadVideoById === 'function') {
             console.log(`[HardenedPlayer] Loading video ID via persistent player: ${track.id} (${track.title})`);
@@ -295,6 +344,49 @@ function Player({ initialTrack, token }) {
                     loadNextTrack(false);
                 }
             }, 6000);
+        }
+    };
+
+    const handleSeekChange = (e) => {
+        setIsSeeking(true);
+        setSeekTime(Number(e.target.value));
+    };
+
+    const handleSeekCommit = (newSecs) => {
+        const target = typeof newSecs === 'number' ? newSecs : seekTime;
+        if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+            try {
+                playerRef.current.seekTo(target, true);
+            } catch (e) {}
+        }
+        setCurrentTime(target);
+        setIsSeeking(false);
+    };
+
+    const handlePreviousTrack = async () => {
+        clearWatchdog();
+        if (isTransitioningRef.current) return;
+
+        if (sessionState.canGoBack) {
+            isTransitioningRef.current = true;
+            setIsSteering(true);
+            try {
+                const prev = sessionEngine.getPreviousTrack();
+                if (prev && prev.id) {
+                    playTrackImmediately(prev);
+                }
+            } finally {
+                isTransitioningRef.current = false;
+                setIsSteering(false);
+            }
+        } else {
+            // No previous tracks in history: seek to 0:00 of current track
+            if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+                try {
+                    playerRef.current.seekTo(0, true);
+                    setCurrentTime(0);
+                } catch (e) {}
+            }
         }
     };
 
@@ -449,216 +541,301 @@ function Player({ initialTrack, token }) {
             )}
 
             {/* MAIN PLAYER DOCK */}
-            <div className="player-dock" style={{ borderRadius: '0 0 16px 16px', borderTop: 'none' }}>
-                <div className="player-info">
-                    {currentTrack?.thumbnail ? (
-                        <img src={currentTrack.thumbnail} alt={currentTrack.title} className="player-thumbnail" referrerPolicy="no-referrer" />
-                    ) : (
-                        <div className="player-thumbnail-placeholder" />
-                    )}
-
-                    <div className="player-text">
-                        <span className="player-status">
-                            {isSteering ? 'Traversing Graph...' : isBuffering ? 'Buffering Audio...' : isPlaying ? 'Now Playing' : 'Paused'}
-                            {isPlaying && !isSteering && !isBuffering && (
-                                <span className="visualizer">
-                                    <span className="bar" />
-                                    <span className="bar" />
-                                    <span className="bar" />
-                                </span>
-                            )}
-                        </span>
-                        <h3 className="player-title">
-                            {youtubeUrl ? (
-                                <a
-                                    href={youtubeUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title="Open track on YouTube (New Tab)"
-                                    style={{ color: 'inherit', textDecoration: 'none' }}
-                                >
-                                    {currentTrack?.title || 'Loading session...'}
-                                    <span style={{ fontSize: '0.72rem', marginLeft: '0.4rem', opacity: 0.5 }}>↗</span>
-                                </a>
-                            ) : (
-                                currentTrack?.title || 'Loading session...'
-                            )}
-                        </h3>
-                        <p className="player-channel">
-                            {currentTrack?.artist || currentTrack?.channelTitle || 'MusicMood Engine'}
-                            {currentTrack?.source === 'local_library' && (
-                                <span style={{ marginLeft: '0.5rem', color: '#60a5fa', fontSize: '0.75rem' }}>📁 From Your Server</span>
-                            )}
-                            {(currentTrack?.source?.startsWith('jit') || currentTrack?.source === 'jit_player_expansion' || currentTrack?.source === 'jit_local_archive' || currentTrack?.source === 'jit_musicbrainz') && (
-                                <span style={{ marginLeft: '0.5rem', color: '#34d399', fontSize: '0.75rem', fontWeight: '500' }}>⚡ JIT Discovery</span>
-                            )}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="player-controls" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    {/* More Like This (Heart / Favorite) */}
-                    <button
-                        className="control-btn"
-                        onClick={handleLike}
-                        title={isCurrentFav ? "Favorited! (Click to remove from favorites)" : "Save to Favorites ❤️ (and subtle affinity nudge)"}
-                        style={{
-                            background: isCurrentFav ? 'rgba(236, 72, 153, 0.35)' : 'rgba(236, 72, 153, 0.12)',
-                            borderColor: isCurrentFav ? '#ec4899' : 'rgba(236, 72, 153, 0.4)',
-                            boxShadow: isCurrentFav ? '0 0 12px rgba(236, 72, 153, 0.4)' : 'none',
-                            transform: isCurrentFav ? 'scale(1.05)' : 'scale(1)',
-                            transition: 'all 0.2s ease'
-                        }}
-                    >
-                        {isCurrentFav ? '❤️' : '🤍'}
-                    </button>
-
-                    {/* Dislike / Not Music (Downvote) */}
-                    <button
-                        className="control-btn"
-                        onClick={handleDislike}
-                        disabled={isSteering}
-                        title="Dislike / Not Music (Immediately skips, blacklists, and removes bad mapping)"
-                        style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444' }}
-                    >
-                        👎
-                    </button>
-
-                    {/* Play / Pause */}
-                    <button className="control-btn" onClick={togglePlay} aria-label={isPlaying ? "Pause" : "Play"}>
-                        {isPlaying ? (
-                            <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+            <div className="player-dock" style={{
+                borderRadius: '0 0 16px 16px',
+                borderTop: 'none',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.85rem'
+            }}>
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                    gap: '1rem',
+                    flexWrap: 'wrap'
+                }}>
+                    <div className="player-info">
+                        {currentTrack?.thumbnail ? (
+                            <img src={currentTrack.thumbnail} alt={currentTrack.title} className="player-thumbnail" referrerPolicy="no-referrer" />
                         ) : (
-                            <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                            <div className="player-thumbnail-placeholder" />
                         )}
-                    </button>
 
-                    {/* Skip / Next */}
-                    <button className="control-btn" onClick={() => loadNextTrack(true)} disabled={isSteering} title="Skip Track & Nudge Graph">
-                        <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                        </svg>
-                    </button>
+                        <div className="player-text">
+                            <span className="player-status">
+                                {isSteering ? 'Traversing Graph...' : isBuffering ? 'Buffering Audio...' : isPlaying ? 'Now Playing' : 'Paused'}
+                                {isPlaying && !isSteering && !isBuffering && (
+                                    <span className="visualizer">
+                                        <span className="bar" />
+                                        <span className="bar" />
+                                        <span className="bar" />
+                                    </span>
+                                )}
+                            </span>
+                            <h3 className="player-title">
+                                {youtubeUrl ? (
+                                    <a
+                                        href={youtubeUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title="Open track on YouTube (New Tab)"
+                                        style={{ color: 'inherit', textDecoration: 'none' }}
+                                    >
+                                        {currentTrack?.title || 'Loading session...'}
+                                        <span style={{ fontSize: '0.72rem', marginLeft: '0.4rem', opacity: 0.5 }}>↗</span>
+                                    </a>
+                                ) : (
+                                    currentTrack?.title || 'Loading session...'
+                                )}
+                            </h3>
+                            <p className="player-channel">
+                                {currentTrack?.artist || currentTrack?.channelTitle || 'MusicMood Engine'}
+                                {currentTrack?.source === 'local_library' && (
+                                    <span style={{ marginLeft: '0.5rem', color: '#60a5fa', fontSize: '0.75rem' }}>📁 From Your Server</span>
+                                )}
+                                {(currentTrack?.source?.startsWith('jit') || currentTrack?.source === 'jit_player_expansion' || currentTrack?.source === 'jit_local_archive' || currentTrack?.source === 'jit_musicbrainz') && (
+                                    <span style={{ marginLeft: '0.5rem', color: '#34d399', fontSize: '0.75rem', fontWeight: '500' }}>⚡ JIT Discovery</span>
+                                )}
+                            </p>
+                        </div>
+                    </div>
 
-                    {/* Step along Graph Edge */}
-                    <button
-                        className="btn-text"
-                        onClick={handleShiftNode}
-                        disabled={isSteering}
-                        title="Step to an adjacent harmonic subgenre in the graph"
-                        style={{
-                            background: 'rgba(168, 85, 247, 0.2)',
-                            border: '1px solid #a855f7',
-                            borderRadius: '8px',
-                            padding: '0.4rem 0.8rem',
-                            color: '#e9d5ff',
-                            fontSize: '0.8rem',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        🔀 Step Node
-                    </button>
-
-                    {/* Copy YouTube Link */}
-                    {youtubeUrl && (
+                    <div className="player-controls" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        {/* More Like This (Heart / Favorite) */}
                         <button
                             className="control-btn"
-                            onClick={handleCopyLink}
-                            title={copiedLink ? "Link copied to clipboard!" : "Copy YouTube link"}
+                            onClick={handleLike}
+                            title={isCurrentFav ? "Favorited! (Click to remove from favorites)" : "Save to Favorites ❤️ (and subtle affinity nudge)"}
                             style={{
-                                background: copiedLink ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                                border: copiedLink ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.15)',
-                                color: copiedLink ? '#34d399' : '#94a3b8',
-                                width: '36px',
-                                height: '36px',
-                                padding: '0.4rem',
-                                borderRadius: '10px',
-                                transition: 'all 0.2s ease',
-                                cursor: 'pointer'
+                                background: isCurrentFav ? 'rgba(236, 72, 153, 0.35)' : 'rgba(236, 72, 153, 0.12)',
+                                borderColor: isCurrentFav ? '#ec4899' : 'rgba(236, 72, 153, 0.4)',
+                                boxShadow: isCurrentFav ? '0 0 12px rgba(236, 72, 153, 0.4)' : 'none',
+                                transform: isCurrentFav ? 'scale(1.05)' : 'scale(1)',
+                                transition: 'all 0.2s ease'
                             }}
                         >
-                            {copiedLink ? (
-                                <span style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>✓</span>
+                            {isCurrentFav ? '❤️' : '🤍'}
+                        </button>
+
+                        {/* Dislike / Not Music (Downvote) */}
+                        <button
+                            className="control-btn"
+                            onClick={handleDislike}
+                            disabled={isSteering}
+                            title="Dislike / Not Music (Immediately skips, blacklists, and removes bad mapping)"
+                            style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444' }}
+                        >
+                            👎
+                        </button>
+
+                        {/* Previous Track / Back Button */}
+                        <button
+                            className="control-btn"
+                            onClick={handlePreviousTrack}
+                            disabled={isSteering}
+                            title={sessionState.canGoBack ? `Previous Track: Return to last track (${sessionState.historyCount || 1} in history)` : "Restart track (No previous tracks yet)"}
+                            style={{
+                                opacity: sessionState.canGoBack ? 1 : 0.45,
+                                cursor: 'pointer',
+                                transition: 'opacity 0.2s ease, transform 0.2s ease'
+                            }}
+                        >
+                            <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                            </svg>
+                        </button>
+
+                        {/* Play / Pause */}
+                        <button className="control-btn" onClick={togglePlay} aria-label={isPlaying ? "Pause" : "Play"}>
+                            {isPlaying ? (
+                                <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
                             ) : (
-                                <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '1.15rem', height: '1.15rem' }}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                             )}
                         </button>
-                    )}
 
-                    {/* Open in YouTube */}
-                    {youtubeUrl && (
-                        <a
-                            href={youtubeUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="control-btn"
-                            title="Open track on YouTube (New Tab)"
+                        {/* Skip / Next */}
+                        <button className="control-btn" onClick={() => loadNextTrack(true)} disabled={isSteering} title="Skip Track & Nudge Graph">
+                            <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                            </svg>
+                        </button>
+
+                        {/* Step along Graph Edge */}
+                        <button
+                            className="btn-text"
+                            onClick={handleShiftNode}
+                            disabled={isSteering}
+                            title="Step to an adjacent harmonic subgenre in the graph"
                             style={{
-                                background: 'rgba(239, 68, 68, 0.15)',
-                                border: '1px solid rgba(239, 68, 68, 0.35)',
-                                color: '#ef4444',
-                                width: '36px',
-                                height: '36px',
-                                padding: '0.4rem',
-                                borderRadius: '10px',
-                                textDecoration: 'none',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'all 0.2s ease',
+                                background: 'rgba(168, 85, 247, 0.2)',
+                                border: '1px solid #a855f7',
+                                borderRadius: '8px',
+                                padding: '0.4rem 0.8rem',
+                                color: '#e9d5ff',
+                                fontSize: '0.8rem',
+                                fontWeight: 'bold',
                                 cursor: 'pointer'
                             }}
                         >
-                            <svg className="icon" fill="currentColor" viewBox="0 0 24 24" style={{ width: '1.25rem', height: '1.25rem' }}>
-                                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                            </svg>
-                        </a>
-                    )}
+                            🔀 Step Node
+                        </button>
 
-                    {/* Up Next / JIT Queue Drawer Toggle */}
-                    <button
-                        className="btn-text"
-                        onClick={() => {
-                            const willOpen = !showQueue;
-                            setShowQueue(willOpen);
-                            if (willOpen && (sessionState.queue || []).length < 2) {
-                                jitEngine.replenishBuffer(sessionState.activeGenre, sessionEngine);
-                            }
-                        }}
-                        title="View Up Next & JIT Buffered Queue"
-                        style={{
-                            background: showQueue ? 'rgba(52, 211, 153, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                            border: showQueue ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.15)',
-                            color: showQueue ? '#34d399' : '#94a3b8',
-                            borderRadius: '8px',
-                            padding: '0.4rem 0.75rem',
-                            fontSize: '0.8rem',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.35rem'
-                        }}
-                    >
-                        <span>📋 Up Next</span>
-                        <span style={{
-                            background: (sessionState.queue || []).length > 0 ? 'rgba(52, 211, 153, 0.3)' : 'rgba(255, 255, 255, 0.1)',
-                            borderRadius: '9999px',
-                            padding: '0.1rem 0.45rem',
-                            fontSize: '0.72rem',
-                            color: (sessionState.queue || []).length > 0 ? '#34d399' : '#94a3b8'
-                        }}>
-                            {(sessionState.queue || []).length}
-                        </span>
-                    </button>
+                        {/* Copy YouTube Link */}
+                        {youtubeUrl && (
+                            <button
+                                className="control-btn"
+                                onClick={handleCopyLink}
+                                title={copiedLink ? "Link copied to clipboard!" : "Copy YouTube link"}
+                                style={{
+                                    background: copiedLink ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                                    border: copiedLink ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.15)',
+                                    color: copiedLink ? '#34d399' : '#94a3b8',
+                                    width: '36px',
+                                    height: '36px',
+                                    padding: '0.4rem',
+                                    borderRadius: '10px',
+                                    transition: 'all 0.2s ease',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                {copiedLink ? (
+                                    <span style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>✓</span>
+                                ) : (
+                                    <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '1.15rem', height: '1.15rem' }}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                    </svg>
+                                )}
+                            </button>
+                        )}
+
+                        {/* Open in YouTube */}
+                        {youtubeUrl && (
+                            <a
+                                href={youtubeUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="control-btn"
+                                title="Open track on YouTube (New Tab)"
+                                style={{
+                                    background: 'rgba(239, 68, 68, 0.15)',
+                                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                                    color: '#ef4444',
+                                    width: '36px',
+                                    height: '36px',
+                                    padding: '0.4rem',
+                                    borderRadius: '10px',
+                                    textDecoration: 'none',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'all 0.2s ease',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <svg className="icon" fill="currentColor" viewBox="0 0 24 24" style={{ width: '1.25rem', height: '1.25rem' }}>
+                                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                                </svg>
+                            </a>
+                        )}
+
+                        {/* Up Next / JIT Queue Drawer Toggle */}
+                        <button
+                            className="btn-text"
+                            onClick={() => {
+                                const willOpen = !showQueue;
+                                setShowQueue(willOpen);
+                                if (willOpen && (sessionState.queue || []).length < 2) {
+                                    jitEngine.replenishBuffer(sessionState.activeGenre, sessionEngine);
+                                }
+                            }}
+                            title="View Up Next & JIT Buffered Queue"
+                            style={{
+                                background: showQueue ? 'rgba(52, 211, 153, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                                border: showQueue ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.15)',
+                                color: showQueue ? '#34d399' : '#94a3b8',
+                                borderRadius: '8px',
+                                padding: '0.4rem 0.75rem',
+                                fontSize: '0.8rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.35rem'
+                            }}
+                        >
+                            <span>📋 Up Next</span>
+                            <span style={{
+                                background: (sessionState.queue || []).length > 0 ? 'rgba(52, 211, 153, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                                borderRadius: '9999px',
+                                padding: '0.1rem 0.45rem',
+                                fontSize: '0.72rem',
+                                color: (sessionState.queue || []).length > 0 ? '#34d399' : '#94a3b8'
+                            }}>
+                                {(sessionState.queue || []).length}
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                {/* INTERACTIVE PROGRESS BAR & SCRUBBER */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    width: '100%',
+                    paddingTop: '0.25rem',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.05)'
+                }}>
+                    <span style={{
+                        fontSize: '0.72rem',
+                        color: '#94a3b8',
+                        minWidth: '32px',
+                        textAlign: 'right',
+                        fontVariantNumeric: 'tabular-nums',
+                        fontFamily: 'monospace'
+                    }}>
+                        {formatTime(displayTime)}
+                    </span>
+                    <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+                        <input
+                            type="range"
+                            min="0"
+                            max={duration > 0 ? duration : 100}
+                            step="0.5"
+                            value={displayTime}
+                            onChange={handleSeekChange}
+                            onMouseUp={() => handleSeekCommit()}
+                            onTouchEnd={() => handleSeekCommit()}
+                            onKeyUp={(e) => {
+                                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                                    handleSeekCommit(Number(e.target.value));
+                                }
+                            }}
+                            className="player-progress-bar"
+                            style={{
+                                background: `linear-gradient(to right, #a855f7 0%, #6366f1 ${progressPercent}%, rgba(255, 255, 255, 0.15) ${progressPercent}%, rgba(255, 255, 255, 0.15) 100%)`
+                            }}
+                            title="Click or drag to seek in track"
+                        />
+                    </div>
+                    <span style={{
+                        fontSize: '0.72rem',
+                        color: '#64748b',
+                        minWidth: '32px',
+                        textAlign: 'left',
+                        fontVariantNumeric: 'tabular-nums',
+                        fontFamily: 'monospace'
+                    }}>
+                        {duration > 0 ? formatTime(duration) : '--:--'}
+                    </span>
                 </div>
             </div>
 
