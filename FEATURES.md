@@ -137,21 +137,22 @@ This document tracks the technical specifications, development milestones, and b
 
 ---
 
+### Milestone 15: Universal Sonic DNA Radar & Emotional Reflex Profiler (v0.6.0)
+* **Interactive 6-Point Multi-Vertex Draggable Radar:** Completely rebuilt `OnboardingWizard.jsx` with an SVG-based multi-point radar allowing users to independently sculpt 6 canonical sound pillars (`🎸 Rock & Metal`, `⚡ Electronic & Synth`, `🎤 Hip-Hop & Soul`, `🎷 Jazz & Blues`, `🌾 Folk & Acoustic`, `🎻 Classical & Ambient`) without 2-pole directional bias.
+* **Instant Preset Starting Shapes:** 1-click preset shapes (`⚖️ All Balanced`, `🎸 Rock + Classical`, `⚡ Electronic + Rock`, `🎷 Jazz & Blues + Soul`) for rapid calibration.
+* **Dynamic Acoustic Archetype Engine:** Real-time archetype classification (e.g. *The Progressive Architect*, *The Cyber-Rocker*, *The Roots Connoisseur*, *The Blue Note Groover*, *The Ambient Alchemist*) providing live behavioral feedback as points deform.
+* **Emotional Reflexes & Instant Dealbreaker Shield:** Fast 1-tap emotional configuration for melancholy response (*Lean Into It* vs *Lift My Spirits*), deep focus vocal handling (*100% Instrumental* vs *Vocals Welcome*), instant dealbreaker shields, and Anti-AI gatekeeping.
+* **Dynamic Seed Artist Resonance:** Automatically matches curated seed artists based on the custom polygon shape with 1-click toggling and instant custom artist search.
+* **Universal Decoupling:** Replaced hardcoded local NAS table requirements with an in-memory & Supabase/localStorage normalized weight synthesizer, while preserving optional local NAS scanning for power users.
+
+---
+
 ## 🔮 Feature Backlog (Upcoming Roadmap)
 
-### 1. Universal YouTube Library Taste Profiler (Refactor "Calibrate from Library")
-* **Current Bottleneck:** The current "Calibrate from Library" scans `public.local_metadata` which is hardcoded to the local developer SMB archive (`\\192.168.0.2\e$\music`), making it useless for any other user.
-* **Universal Refactoring:**
-  - Connect to user's authentic **YouTube Music Liked Videos & Playlists** (or allow public playlist URL / M3U import).
-  - Pipe ingested artists and tracks through `genreNormalizer.js` and MusicBrainz to calculate personal genre affinity weights, dealbreakers, and anchors per user.
-  - Multi-tenant storage in `public.user_profiles.taste_weights` keyed by `user_id`.
-  - Provide an interactive 60-second "Pick 5 Favorite Artists" onboarding fallback for guest/unconnected users.
-  - Relegate local file directory scanning (`scanLibrary.js`) to an optional "Power User / Self-Hosted NAS" feature in Settings.
-
-### 2. Artist Finder & Favorites
+### 1. Artist Finder & Favorites ("Artist Radio")
 * **Search & Autocomplete:** Search for any artist across the 44.8k archive and 4.3k verified catalog.
 * **Artist Profile View:** View an artist's MusicBrainz tags, biography, discography in the library, and primary genres.
-* **Favorite Toggle:** Star an artist to increase their base affinity weight in the state machine without restricting discovery.
+* **Favorite Toggle & Radio Seed:** Star an artist to increase their base affinity weight in the state machine or launch an instant station seeded from their sound.
 
 ### 3. Experimental: YouTube "MusicMood Favorites" Auto-Sync
 * **One-Click Favorite:** Liking a track with ❤️ can optionally append that video ID directly to a dedicated playlist titled `"MusicMood Favorites"` in the user's authentic YouTube account.

@@ -290,7 +290,11 @@ function Dashboard({ token, onLogout }) {
                         onComplete={(saved) => {
                             setCalibration(saved);
                             setShowWizard(false);
+                            if (!activeTrack) {
+                                handleMoodSelect(selectedMood);
+                            }
                         }}
+                        onClose={() => setShowWizard(false)}
                     />
                 )}
 

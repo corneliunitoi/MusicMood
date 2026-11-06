@@ -1,360 +1,977 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { GENRE_NODES, DEALBREAKER_PRESETS } from '../services/tasteGraph';
 import { sessionEngine } from '../services/sessionStateMachine';
 import { syncCalibrationToSupabase } from '../services/supabaseService';
 import { profileLibraryTaste } from '../services/libraryProfiler';
 
-function OnboardingWizard({ onComplete }) {
+// -------------------------------------------------------------
+// 6 CANONICAL RADAR POLES
+// -------------------------------------------------------------
+const POLES = [
+    {
+        id: 'rock_metal',
+        title: '🎸 Rock & Metal',
+        subtitle: 'Prog, Hard Rock, Grunge, Metal',
+        angle: -90,
+        families: ['rock', 'metal'],
+        defaultSub: 'prog_rock',
+        artists: ['Pink Floyd', 'Tool', 'Led Zeppelin', 'Opeth', 'Radiohead', 'Porcupine Tree']
+    },
+    {
+        id: 'electronic',
+        title: '⚡ Electronic & Synth',
+        subtitle: 'Synthwave, IDM, Ambient Beats',
+        angle: -30,
+        families: ['electronic'],
+        defaultSub: 'synthwave',
+        artists: ['Tycho', 'Daft Punk', 'Jon Hopkins', 'Kavinsky', 'Boards of Canada', 'Kraftwerk']
+    },
+    {
+        id: 'hiphop_soul',
+        title: '🎤 Hip-Hop & Soul',
+        subtitle: 'Neo-Soul, Funk, Conscious Rap',
+        angle: 30,
+        families: ['hip_hop', 'rnb_soul'],
+        defaultSub: 'neo_soul',
+        artists: ['Stevie Wonder', 'Erykah Badu', 'Kendrick Lamar', 'Anderson .Paak', 'Marvin Gaye']
+    },
+    {
+        id: 'jazz_blues',
+        title: '🎷 Jazz & Blues',
+        subtitle: 'Cool Jazz, Blues, Bebop, Fusion',
+        angle: 90,
+        families: ['jazz', 'blues'],
+        defaultSub: 'cool_jazz',
+        artists: ['Miles Davis', 'B.B. King', 'John Coltrane', 'Muddy Waters', 'Bill Evans', 'Chet Baker']
+    },
+    {
+        id: 'folk_acoustic',
+        title: '🌾 Folk & Acoustic',
+        subtitle: 'Indie Folk, Americana, Fingerstyle',
+        angle: 150,
+        families: ['folk_acoustic', 'country', 'world_reggae'],
+        defaultSub: 'indie_folk',
+        artists: ['Fleet Foxes', 'Nick Drake', 'Iron & Wine', 'Bon Iver', 'Sufjan Stevens', 'Bob Dylan']
+    },
+    {
+        id: 'classical_ambient',
+        title: '🎻 Classical & Ambient',
+        subtitle: 'Neo-Classical, Post-Rock, Drone',
+        angle: 210,
+        families: ['classical', 'ambient_chill', 'avant_garde'],
+        defaultSub: 'ambient_chill',
+        artists: ['Brian Eno', 'Hans Zimmer', 'Max Richter', 'Sigur Rós', 'Ólafur Arnalds', 'Ludovico Einaudi']
+    }
+];
+
+const MAX_RADIUS = 100;
+const MIN_RADIUS = 20;
+
+function OnboardingWizard({ onComplete, onClose }) {
+    const existingCalib = sessionEngine.getCalibration() || {};
+
     const [step, setStep] = useState(1);
-    const existingCalib = sessionEngine.getCalibration();
 
-    const [selectedAnchors, setSelectedAnchors] = useState(existingCalib.anchors || []);
-    const [selectedDealbreakers, setSelectedDealbreakers] = useState(existingCalib.dealbreakers || []);
-    const [discoveryLevel, setDiscoveryLevel] = useState(existingCalib.discoveryLevel || 0.5);
-    const [blockAiGenerated, setBlockAiGenerated] = useState(existingCalib.blockAiGenerated !== false);
+    // 1. Radar Pole Values (20 to 100)
+    const [poleValues, setPoleValues] = useState(() => {
+        if (existingCalib.radarValues) return existingCalib.radarValues;
+        return {
+            rock_metal: 75,
+            electronic: 65,
+            hiphop_soul: 55,
+            jazz_blues: 60,
+            folk_acoustic: 50,
+            classical_ambient: 70
+        };
+    });
 
-    const [isProfiling, setIsProfiling] = useState(false);
-    const [profileStats, setProfileStats] = useState(null);
+    // 2. Emotional Reflexes & Constraints
+    const [melancholyReflex, setMelancholyReflex] = useState(() => existingCalib.reflexes?.melancholy || 'lean');
+    const [vocalReflex, setVocalReflex] = useState(() => existingCalib.reflexes?.vocals || 'instrumental');
+    const [selectedDealbreakers, setSelectedDealbreakers] = useState(() => existingCalib.dealbreakers || ['no_harsh_vocals', 'no_autotune_trap']);
+    const [discoveryLevel, setDiscoveryLevel] = useState(() => existingCalib.discoveryLevel || 0.5);
+    const [blockAiGenerated, setBlockAiGenerated] = useState(() => existingCalib.blockAiGenerated !== false);
 
-    const toggleAnchor = (genreId) => {
-        setSelectedAnchors(prev => {
-            if (prev.includes(genreId)) {
-                return prev.filter(id => id !== genreId);
-            }
-            if (prev.length >= 6) return prev; // Max 6 anchors
-            return [...prev, genreId];
-        });
+    // 3. Seed Artists & Dynamic Anchors
+    const [seedArtists, setSeedArtists] = useState(() => existingCalib.seedArtists || ['Pink Floyd', 'Tycho', 'Miles Davis', 'Radiohead']);
+    const [customArtistText, setCustomArtistText] = useState('');
+
+    // Power user NAS profiling state
+    const [isProfilingNas, setIsProfilingNas] = useState(false);
+    const [nasStats, setNasStats] = useState(null);
+
+    // Drag interaction refs for SVG radar
+    const svgRef = useRef(null);
+    const activeDragPoleRef = useRef(null);
+
+    // -------------------------------------------------------------
+    // RADAR DRAG HANDLERS (Pointer Events)
+    // -------------------------------------------------------------
+    const getSvgCoords = (e) => {
+        if (!svgRef.current) return { x: 0, y: 0 };
+        const pt = svgRef.current.createSVGPoint();
+        pt.x = e.clientX;
+        pt.y = e.clientY;
+        return pt.matrixTransform(svgRef.current.getScreenCTM().inverse());
     };
 
-    const toggleDealbreaker = (dbId) => {
-        setSelectedDealbreakers(prev => {
-            if (prev.includes(dbId)) {
-                return prev.filter(id => id !== dbId);
-            }
-            return [...prev, dbId];
-        });
+    const handlePointerDown = (poleId, e) => {
+        activeDragPoleRef.current = poleId;
+        e.currentTarget.setPointerCapture(e.pointerId);
     };
 
-    const handleAutoCalibrate = async () => {
-        setIsProfiling(true);
-        try {
-            const calib = await profileLibraryTaste();
-            setSelectedAnchors(calib.anchors);
-            setSelectedDealbreakers(calib.dealbreakers);
-            setDiscoveryLevel(calib.discoveryLevel || 0.4);
-            setBlockAiGenerated(calib.blockAiGenerated !== false);
-            setProfileStats(calib.stats);
-        } catch (err) {
-            console.error('Failed to profile library:', err);
-        } finally {
-            setIsProfiling(false);
+    const handlePointerMove = (e) => {
+        if (!activeDragPoleRef.current) return;
+        const pole = POLES.find(p => p.id === activeDragPoleRef.current);
+        if (!pole) return;
+
+        const { x, y } = getSvgCoords(e);
+        const rad = (pole.angle * Math.PI) / 180;
+        const axisX = Math.cos(rad);
+        const axisY = Math.sin(rad);
+
+        // Project pointer onto the axis
+        const proj = x * axisX + y * axisY;
+        const clamped = Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, Math.round(proj)));
+
+        setPoleValues(prev => ({
+            ...prev,
+            [pole.id]: clamped
+        }));
+    };
+
+    const handlePointerUp = () => {
+        activeDragPoleRef.current = null;
+    };
+
+    // -------------------------------------------------------------
+    // PRESETS
+    // -------------------------------------------------------------
+    const applyPreset = (presetKey) => {
+        if (presetKey === 'balanced') {
+            setPoleValues({
+                rock_metal: 60,
+                electronic: 60,
+                hiphop_soul: 60,
+                jazz_blues: 60,
+                folk_acoustic: 60,
+                classical_ambient: 60
+            });
+        } else if (presetKey === 'prog') {
+            setPoleValues({
+                rock_metal: 95,
+                classical_ambient: 90,
+                electronic: 60,
+                jazz_blues: 45,
+                folk_acoustic: 40,
+                hiphop_soul: 25
+            });
+        } else if (presetKey === 'synth_rock') {
+            setPoleValues({
+                electronic: 95,
+                rock_metal: 85,
+                classical_ambient: 70,
+                hiphop_soul: 40,
+                jazz_blues: 30,
+                folk_acoustic: 30
+            });
+        } else if (presetKey === 'jazz_blues') {
+            setPoleValues({
+                jazz_blues: 95,
+                hiphop_soul: 85,
+                folk_acoustic: 70,
+                classical_ambient: 50,
+                rock_metal: 35,
+                electronic: 30
+            });
         }
     };
 
+    // -------------------------------------------------------------
+    // COMPUTE ARCHETYPE & ANCHORS
+    // -------------------------------------------------------------
+    const sortedPoles = [...POLES].sort((a, b) => (poleValues[b.id] || 0) - (poleValues[a.id] || 0));
+    const topPole1 = sortedPoles[0];
+    const topPole2 = sortedPoles[1];
+    const topPole3 = sortedPoles[2];
+
+    const isMultiHigh = (poleValues[topPole1.id] >= 75) && (poleValues[topPole2.id] >= 75);
+    let archetypeName = '✨ The Polymath Listener';
+    let archetypeDesc = 'Versatile appetite spanning rock, jazz, and electronics.';
+
+    if (isMultiHigh) {
+        const id1 = topPole1.id;
+        const id2 = topPole2.id;
+        if ((id1 === 'rock_metal' && id2 === 'classical_ambient') || (id2 === 'rock_metal' && id1 === 'classical_ambient')) {
+            archetypeName = '🌌 The Progressive Architect';
+            archetypeDesc = 'Heavy guitar mastery seamlessly paired with ambient neo-classical space.';
+        } else if ((id1 === 'rock_metal' && id2 === 'electronic') || (id2 === 'rock_metal' && id1 === 'electronic')) {
+            archetypeName = '⚡ The Cyber-Rocker';
+            archetypeDesc = 'High-octane synth pulses fused with crunchy electric riffs and driving drums.';
+        } else if ((id1 === 'jazz_blues' && id2 === 'folk_acoustic') || (id2 === 'jazz_blues' && id1 === 'folk_acoustic')) {
+            archetypeName = '🪵 The Roots Connoisseur';
+            archetypeDesc = 'Acoustic authenticity: soulful blues licks, modal jazz, and fingerpicking intimacy.';
+        } else if ((id1 === 'jazz_blues' && id2 === 'hiphop_soul') || (id2 === 'jazz_blues' && id1 === 'hiphop_soul')) {
+            archetypeName = '🎷 The Blue Note Groover';
+            archetypeDesc = 'Deep blues roots, modal jazz harmony, and swinging neo-soul rhythm sections.';
+        } else if ((id1 === 'electronic' && id2 === 'classical_ambient') || (id2 === 'electronic' && id1 === 'classical_ambient')) {
+            archetypeName = '🪐 The Ambient Alchemist';
+            archetypeDesc = 'Sweeping synthesizer pads, lush orchestral soundscapes, and meditative pulses.';
+        }
+    } else if (poleValues[topPole1.id] >= 80) {
+        archetypeName = `🎯 Dedicated ${topPole1.title.split(' ')[1]} Devotee`;
+        archetypeDesc = `Clear sonic focus anchored around ${topPole1.subtitle}.`;
+    }
+
+    // Top 3 default subgenre anchors
+    const activeAnchors = [topPole1.defaultSub, topPole2.defaultSub, topPole3.defaultSub];
+
+    // Recommended artists based on top poles
+    const recommendedArtists = [
+        ...topPole1.artists.slice(0, 2),
+        ...topPole2.artists.slice(0, 2),
+        ...topPole3.artists.slice(0, 2)
+    ];
+
+    // Toggle Dealbreaker
+    const toggleDealbreaker = (id) => {
+        setSelectedDealbreakers(prev => {
+            if (prev.includes(id)) return prev.filter(x => x !== id);
+            return [...prev, id];
+        });
+    };
+
+    // Toggle Seed Artist
+    const toggleSeedArtist = (artistName) => {
+        setSeedArtists(prev => {
+            if (prev.includes(artistName)) return prev.filter(x => x !== artistName);
+            return [...prev, artistName];
+        });
+    };
+
+    const handleAddCustomArtist = () => {
+        const val = customArtistText.trim();
+        if (!val) return;
+        if (!seedArtists.includes(val)) {
+            setSeedArtists(prev => [val, ...prev]);
+        }
+        setCustomArtistText('');
+    };
+
+    // Power User: Local Library NAS Profiler
+    const handleAutoCalibrateFromNas = async () => {
+        setIsProfilingNas(true);
+        try {
+            const calib = await profileLibraryTaste();
+            setSelectedDealbreakers(calib.dealbreakers || []);
+            setDiscoveryLevel(calib.discoveryLevel || 0.4);
+            setBlockAiGenerated(calib.blockAiGenerated !== false);
+            setNasStats(calib.stats);
+        } catch (err) {
+            console.error('Failed to profile NAS library:', err);
+            alert('Could not profile local metadata table. Proceeding with Sonic Radar calibration.');
+        } finally {
+            setIsProfilingNas(false);
+        }
+    };
+
+    // -------------------------------------------------------------
+    // GENERATE FULL CALIBRATION PAYLOAD & COMPLETE
+    // -------------------------------------------------------------
     const handleFinish = async () => {
+        // Map all 115 genre nodes to weights based on active pole values
+        const weights = {};
+        Object.entries(GENRE_NODES).forEach(([nodeId, node]) => {
+            let matchedPole = POLES.find(p => p.families.includes(node.group?.toLowerCase()) || p.families.some(f => nodeId.includes(f)));
+            if (!matchedPole) {
+                matchedPole = POLES[0]; // fallback
+            }
+            const baseValue = (poleValues[matchedPole.id] || 50) / 100;
+            let weight = baseValue;
+
+            // Apply emotional reflex nudges
+            if (melancholyReflex === 'lean' && (nodeId.includes('sad') || nodeId.includes('dark') || nodeId.includes('post_rock') || nodeId.includes('ambient'))) {
+                weight = Math.min(1.0, weight * 1.25);
+            }
+            if (vocalReflex === 'instrumental' && node.vocal === 'instrumental') {
+                weight = Math.min(1.0, weight * 1.2);
+            }
+
+            weights[nodeId] = Number(weight.toFixed(2));
+        });
+
         const calibration = {
-            anchors: selectedAnchors.length > 0 ? selectedAnchors : ['prog_rock', 'classical', 'hard_rock'],
+            anchors: activeAnchors,
             dealbreakers: selectedDealbreakers,
             discoveryLevel,
             blockAiGenerated,
-            weights: selectedAnchors.reduce((acc, curr) => {
-                acc[curr] = 1.0;
-                return acc;
-            }, {})
+            weights,
+            reflexes: {
+                melancholy: melancholyReflex,
+                vocals: vocalReflex
+            },
+            seedArtists,
+            radarValues: poleValues
         };
 
+        // Save into session state machine
         sessionEngine.saveCalibration(calibration);
 
-        // Sync to Supabase in the background
+        // Background sync to Supabase if authenticated
         try {
             await syncCalibrationToSupabase(calibration);
         } catch (e) {
-            console.warn("Could not sync calibration to Supabase:", e);
+            console.warn('Could not sync calibration to Supabase:', e);
         }
 
-        if (onComplete) onComplete(calibration);
+        if (onComplete) {
+            onComplete(calibration);
+        }
     };
 
+    // -------------------------------------------------------------
+    // SVG POLYGON POINTS CALCULATION
+    // -------------------------------------------------------------
+    const polyPoints = POLES.map(pole => {
+        const rad = (pole.angle * Math.PI) / 180;
+        const val = poleValues[pole.id] || 50;
+        const px = Math.cos(rad) * val;
+        const py = Math.sin(rad) * val;
+        return `${px.toFixed(1)},${py.toFixed(1)}`;
+    }).join(' ');
+
     return (
-        <div className="glass-card fade-in" style={{ maxWidth: '750px', margin: '2rem auto', textAlign: 'left', padding: '2.5rem' }}>
-            {/* Header with Step Indicator */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
-                <div>
-                    <h2 style={{ margin: 0, fontSize: '1.8rem' }}>Sonic Calibration Wizard</h2>
-                    <p style={{ margin: '0.25rem 0 0 0', color: '#94a3b8', fontSize: '0.9rem' }}>
-                        Telling MusicMood exactly what you want to hear so the algorithm never drifts.
-                    </p>
+        <div className="glass-card fade-in" style={{
+            maxWidth: '680px',
+            margin: '1.5rem auto',
+            textAlign: 'left',
+            padding: '2rem 2.25rem',
+            position: 'relative',
+            borderRadius: '24px',
+            boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.7)',
+            border: '1px solid rgba(255, 255, 255, 0.12)'
+        }}>
+            {/* Top Stepper & Dismiss */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '10px',
+                        background: 'linear-gradient(135deg, #a855f7, #6366f1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '1.1rem',
+                        boxShadow: '0 4px 12px rgba(168, 85, 247, 0.35)'
+                    }}>
+                        🎵
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8' }}>
+                            Universal Sonic Profiler
+                        </div>
+                        <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#f8fafc' }}>
+                            {step === 1 && 'Step 1: Sculpt Your Sound Polygon'}
+                            {step === 2 && 'Step 2: Emotional Reflexes & Filters'}
+                            {step === 3 && 'Step 3: Artist Resonance & Launch'}
+                        </div>
+                    </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     {[1, 2, 3].map(s => (
-                        <div
+                        <button
                             key={s}
+                            type="button"
+                            onClick={() => setStep(s)}
                             style={{
-                                width: '32px',
-                                height: '32px',
+                                width: '30px',
+                                height: '30px',
                                 borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
+                                border: 'none',
                                 fontWeight: 'bold',
-                                fontSize: '0.85rem',
-                                background: step === s ? 'linear-gradient(135deg, #6366f1, #a855f7)' : step > s ? '#10b981' : 'rgba(255,255,255,0.1)',
-                                color: 'white'
+                                fontSize: '0.8rem',
+                                cursor: 'pointer',
+                                background: step === s ? 'linear-gradient(135deg, #a855f7, #6366f1)' : step > s ? '#10b981' : 'rgba(255,255,255,0.08)',
+                                color: 'white',
+                                boxShadow: step === s ? '0 0 10px rgba(168, 85, 247, 0.5)' : 'none',
+                                transition: 'all 0.2s ease'
                             }}
                         >
                             {step > s ? '✓' : s}
-                        </div>
+                        </button>
                     ))}
+
+                    {onClose && (
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#94a3b8',
+                                fontSize: '1.25rem',
+                                cursor: 'pointer',
+                                marginLeft: '0.5rem',
+                                padding: '0.2rem 0.5rem'
+                            }}
+                            title="Close Wizard"
+                        >
+                            ✕
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* STEP 1: ANCHOR SOUNDS */}
+            {/* ========================================================= */}
+            {/* STEP 1: MULTI-POINT DRAGGABLE RADAR                       */}
+            {/* ========================================================= */}
             {step === 1 && (
                 <div className="fade-in">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                        <div>
-                            <h3 style={{ margin: '0 0 0.5rem 0' }}>Step 1: Your Anchor Sounds ⚓</h3>
-                            <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>
-                                Select <strong>2 to 5 core styles</strong> that represent what you actually love.
-                            </p>
+                    <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
+                        <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: '0 0 0.5rem 0' }}>
+                            <strong>Drag each corner</strong> outward to boost what you love, or push inward to silence it.
+                        </p>
+
+                        {/* Presets Row */}
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>Presets:</span>
+                            <button
+                                type="button"
+                                onClick={() => applyPreset('balanced')}
+                                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '999px', padding: '0.2rem 0.6rem', fontSize: '0.75rem', color: '#e2e8f0', cursor: 'pointer' }}
+                            >
+                                ⚖️ All Balanced
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => applyPreset('prog')}
+                                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '999px', padding: '0.2rem 0.6rem', fontSize: '0.75rem', color: '#e2e8f0', cursor: 'pointer' }}
+                            >
+                                🎸 Rock + Classical
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => applyPreset('synth_rock')}
+                                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '999px', padding: '0.2rem 0.6rem', fontSize: '0.75rem', color: '#e2e8f0', cursor: 'pointer' }}
+                            >
+                                ⚡ Electronic + Rock
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => applyPreset('jazz_blues')}
+                                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '999px', padding: '0.2rem 0.6rem', fontSize: '0.75rem', color: '#e2e8f0', cursor: 'pointer' }}
+                            >
+                                🎷 Jazz & Blues + Soul
+                            </button>
                         </div>
                     </div>
 
-                    {/* 44.8k Library 1-Click Profiler Banner */}
+                    {/* Interactive SVG Canvas */}
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0.5rem 0' }}>
+                        <svg
+                            ref={svgRef}
+                            style={{ width: '100%', maxWidth: '380px', height: '340px', touchAction: 'none', overflow: 'visible', userSelect: 'none' }}
+                            viewBox="-165 -165 330 330"
+                            onPointerMove={handlePointerMove}
+                            onPointerUp={handlePointerUp}
+                        >
+                            <defs>
+                                <radialGradient id="radarFillGrad" cx="50%" cy="50%" r="50%">
+                                    <stop offset="0%" stopColor="#a855f7" stopOpacity="0.45" />
+                                    <stop offset="70%" stopColor="#6366f1" stopOpacity="0.22" />
+                                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
+                                </radialGradient>
+                                <filter id="radarHandleGlow">
+                                    <feGaussianBlur stdDeviation="3" result="blur" />
+                                    <feMerge>
+                                        <feMergeNode in="blur" />
+                                        <feMergeNode in="SourceGraphic" />
+                                    </feMerge>
+                                </filter>
+                            </defs>
+
+                            {/* Reference Concentric Rings */}
+                            <circle cx="0" cy="0" r="100" fill="none" stroke="#334155" strokeDasharray="3 3" strokeWidth="1" />
+                            <circle cx="0" cy="0" r="70" fill="none" stroke="#1e293b" strokeWidth="1" />
+                            <circle cx="0" cy="0" r="40" fill="none" stroke="#1e293b" strokeWidth="1" />
+
+                            {/* Axis Spokes */}
+                            {POLES.map(pole => {
+                                const rad = (pole.angle * Math.PI) / 180;
+                                const x2 = Math.cos(rad) * MAX_RADIUS;
+                                const y2 = Math.sin(rad) * MAX_RADIUS;
+                                return (
+                                    <line
+                                        key={`spoke-${pole.id}`}
+                                        x1="0"
+                                        y1="0"
+                                        x2={x2}
+                                        y2={y2}
+                                        stroke="#334155"
+                                        strokeWidth="1.2"
+                                        opacity="0.7"
+                                    />
+                                );
+                            })}
+
+                            {/* Filled Dynamic Polygon */}
+                            <polygon
+                                points={polyPoints}
+                                fill="url(#radarFillGrad)"
+                                stroke="#a855f7"
+                                strokeWidth="2.5"
+                                strokeLinejoin="round"
+                            />
+
+                            {/* Axis Labels & Subtitle Hints */}
+                            {POLES.map(pole => {
+                                const rad = (pole.angle * Math.PI) / 180;
+                                const lx = Math.cos(rad) * (MAX_RADIUS + 25);
+                                const ly = Math.sin(rad) * (MAX_RADIUS + 25);
+                                return (
+                                    <g key={`label-${pole.id}`} style={{ pointerEvents: 'none' }}>
+                                        <text
+                                            x={lx}
+                                            y={ly - 4}
+                                            textAnchor="middle"
+                                            fill="#f1f5f9"
+                                            fontSize="11"
+                                            fontWeight="bold"
+                                        >
+                                            {pole.title}
+                                        </text>
+                                        <text
+                                            x={lx}
+                                            y={ly + 9}
+                                            textAnchor="middle"
+                                            fill="#94a3b8"
+                                            fontSize="8.5"
+                                        >
+                                            {pole.subtitle}
+                                        </text>
+                                    </g>
+                                );
+                            })}
+
+                            {/* Draggable Vertex Handles */}
+                            {POLES.map(pole => {
+                                const rad = (pole.angle * Math.PI) / 180;
+                                const val = poleValues[pole.id] || 50;
+                                const hx = Math.cos(rad) * val;
+                                const hy = Math.sin(rad) * val;
+                                return (
+                                    <g
+                                        key={`handle-${pole.id}`}
+                                        transform={`translate(${hx}, ${hy})`}
+                                        style={{ cursor: 'grab' }}
+                                        onPointerDown={(e) => handlePointerDown(pole.id, e)}
+                                    >
+                                        <circle r="15" fill="rgba(168, 85, 247, 0.25)" />
+                                        <circle
+                                            r="8"
+                                            fill="#c084fc"
+                                            stroke="#ffffff"
+                                            strokeWidth="2.2"
+                                            filter="url(#radarHandleGlow)"
+                                        />
+                                    </g>
+                                );
+                            })}
+
+                            {/* Center Dot */}
+                            <circle cx="0" cy="0" r="3" fill="#64748b" />
+                        </svg>
+                    </div>
+
+                    {/* Live Archetype Banner */}
                     <div style={{
-                        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15))',
-                        border: '1px solid rgba(168, 85, 247, 0.35)',
-                        borderRadius: '14px',
-                        padding: '1rem 1.25rem',
-                        marginBottom: '1.5rem',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '16px',
+                        padding: '0.85rem 1.25rem',
                         display: 'flex',
                         justifyContent: 'space-between',
-                        alignItems: 'center'
+                        alignItems: 'center',
+                        marginBottom: '1rem'
                     }}>
                         <div>
-                            <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '0.95rem' }}>
-                                ⚡ Auto-Calibrate from Personal Archive
+                            <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', fontWeight: 'bold', color: '#a855f7', letterSpacing: '0.05em' }}>
+                                Active Flavor Profile
+                            </span>
+                            <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#f8fafc', marginTop: '0.1rem' }}>
+                                {archetypeName}
                             </div>
-                            <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginTop: '0.2rem' }}>
-                                Analyze your 44,885 personal library tracks to map your exact musical DNA.
+                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.1rem' }}>
+                                {archetypeDesc}
                             </div>
-                            {profileStats && (
-                                <div style={{ color: '#34d399', fontSize: '0.75rem', marginTop: '0.4rem', fontWeight: 'bold' }}>
-                                    ✓ Calibrated from {profileStats.totalTracks.toLocaleString()} tracks! Anchors: {profileStats.topAnchors.map(a => GENRE_NODES[a]?.label || a).join(', ')}
+                        </div>
+
+                        <div style={{ textAlign: 'right' }}>
+                            <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', fontWeight: 'bold', color: '#64748b' }}>
+                                Inferred Anchors
+                            </span>
+                            <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'flex-end', marginTop: '0.2rem', flexWrap: 'wrap', maxWidth: '200px' }}>
+                                {activeAnchors.map(a => (
+                                    <span key={a} style={{
+                                        fontSize: '0.7rem',
+                                        background: 'rgba(168, 85, 247, 0.2)',
+                                        border: '1px solid rgba(168, 85, 247, 0.4)',
+                                        borderRadius: '6px',
+                                        padding: '0.1rem 0.45rem',
+                                        color: '#e9d5ff'
+                                    }}>
+                                        {GENRE_NODES[a]?.label || a.replace('_', ' ')}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Bottom Navigation */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
+                        <div>
+                            <button
+                                type="button"
+                                onClick={handleAutoCalibrateFromNas}
+                                disabled={isProfilingNas}
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#64748b',
+                                    fontSize: '0.75rem',
+                                    cursor: 'pointer',
+                                    textDecoration: 'underline'
+                                }}
+                            >
+                                {isProfilingNas ? 'Analyzing local NAS...' : '⚡ Power User: Scan Local Archive'}
+                            </button>
+                            {nasStats && (
+                                <div style={{ color: '#34d399', fontSize: '0.7rem', marginTop: '0.2rem' }}>
+                                    ✓ Calibrated from {nasStats.totalTracks?.toLocaleString()} local tracks
                                 </div>
                             )}
                         </div>
+
                         <button
                             type="button"
                             className="btn-primary"
-                            onClick={handleAutoCalibrate}
-                            disabled={isProfiling}
-                            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                            onClick={() => setStep(2)}
+                            style={{ width: 'auto', padding: '0.65rem 1.75rem', fontSize: '0.9rem' }}
                         >
-                            {isProfiling ? 'Scanning 44.8k...' : '✨ Calibrate from Library'}
+                            Next: Emotional Reflexes →
                         </button>
                     </div>
+                </div>
+            )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem', maxHeight: '350px', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                        {Object.values(GENRE_NODES).map(node => {
-                            const isSelected = selectedAnchors.includes(node.id);
+            {/* ========================================================= */}
+            {/* STEP 2: EMOTIONAL REFLEXES & GUARDS                       */}
+            {/* ========================================================= */}
+            {step === 2 && (
+                <div className="fade-in">
+                    <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
+                        Music is emotional medicine. How do you instinctively want the algorithm to react?
+                    </p>
+
+                    {/* Melancholy Question */}
+                    <div style={{ marginBottom: '1.25rem' }}>
+                        <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
+                            <span>🌧️</span> When feeling down or introspective:
+                        </label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                            <button
+                                type="button"
+                                onClick={() => setMelancholyReflex('lean')}
+                                style={{
+                                    padding: '0.85rem 1rem',
+                                    borderRadius: '14px',
+                                    textAlign: 'left',
+                                    background: melancholyReflex === 'lean' ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(99, 102, 241, 0.25))' : 'rgba(255,255,255,0.03)',
+                                    border: melancholyReflex === 'lean' ? '2px solid #a855f7' : '1px solid rgba(255,255,255,0.08)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease'
+                                }}
+                            >
+                                <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '0.85rem' }}>🖤 Lean Into It</div>
+                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>Deep, minor-key, atmospheric catharsis</div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setMelancholyReflex('lift')}
+                                style={{
+                                    padding: '0.85rem 1rem',
+                                    borderRadius: '14px',
+                                    textAlign: 'left',
+                                    background: melancholyReflex === 'lift' ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(99, 102, 241, 0.25))' : 'rgba(255,255,255,0.03)',
+                                    border: melancholyReflex === 'lift' ? '2px solid #a855f7' : '1px solid rgba(255,255,255,0.08)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease'
+                                }}
+                            >
+                                <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '0.85rem' }}>☀️ Lift My Spirits</div>
+                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>Warm, uplifting, encouraging chords</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Vocals vs Instrumental */}
+                    <div style={{ marginBottom: '1.25rem' }}>
+                        <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
+                            <span>🎯</span> Deep Focus & Study Mode:
+                        </label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                            <button
+                                type="button"
+                                onClick={() => setVocalReflex('instrumental')}
+                                style={{
+                                    padding: '0.85rem 1rem',
+                                    borderRadius: '14px',
+                                    textAlign: 'left',
+                                    background: vocalReflex === 'instrumental' ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(99, 102, 241, 0.25))' : 'rgba(255,255,255,0.03)',
+                                    border: vocalReflex === 'instrumental' ? '2px solid #a855f7' : '1px solid rgba(255,255,255,0.08)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease'
+                                }}
+                            >
+                                <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '0.85rem' }}>🔇 100% Instrumental</div>
+                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>Zero lyrics to distract your cognitive flow</div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setVocalReflex('any')}
+                                style={{
+                                    padding: '0.85rem 1rem',
+                                    borderRadius: '14px',
+                                    textAlign: 'left',
+                                    background: vocalReflex === 'any' ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(99, 102, 241, 0.25))' : 'rgba(255,255,255,0.03)',
+                                    border: vocalReflex === 'any' ? '2px solid #a855f7' : '1px solid rgba(255,255,255,0.08)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease'
+                                }}
+                            >
+                                <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '0.85rem' }}>🎙️ Vocals Welcome</div>
+                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>Gentle or ambient singing is fine</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Instant Dealbreaker Shield */}
+                    <div style={{ marginBottom: '1.25rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                            <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <span>🛡️</span> Instant Dealbreaker Shield:
+                            </label>
+                            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Tap to block permanently</span>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            {DEALBREAKER_PRESETS.slice(0, 5).map(preset => {
+                                const isBlocked = selectedDealbreakers.includes(preset.id);
+                                return (
+                                    <button
+                                        key={preset.id}
+                                        type="button"
+                                        onClick={() => toggleDealbreaker(preset.id)}
+                                        style={{
+                                            padding: '0.4rem 0.8rem',
+                                            borderRadius: '10px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            border: isBlocked ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.1)',
+                                            background: isBlocked ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.04)',
+                                            color: isBlocked ? '#fca5a5' : '#cbd5e1',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                    >
+                                        {isBlocked ? '🚫 ' : ''}{preset.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Anti-AI Gatekeeper Toggle */}
+                    <div style={{
+                        padding: '0.85rem 1.25rem',
+                        background: blockAiGenerated ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255,255,255,0.03)',
+                        borderRadius: '14px',
+                        border: blockAiGenerated ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(255,255,255,0.08)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '1.25rem'
+                    }}>
+                        <div>
+                            <div style={{ fontWeight: '600', color: '#f8fafc', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                🛡️ Anti-AI Music Gatekeeper
+                                <span style={{
+                                    fontSize: '0.7rem',
+                                    background: blockAiGenerated ? '#10b981' : 'rgba(255,255,255,0.1)',
+                                    color: 'white',
+                                    padding: '0.1rem 0.5rem',
+                                    borderRadius: '999px',
+                                    fontWeight: 'bold'
+                                }}>
+                                    {blockAiGenerated ? 'ACTIVE' : 'OFF'}
+                                </span>
+                            </div>
+                            <div style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '0.15rem' }}>
+                                Drops synthetic AI generator farms (Suno, Udio) to preserve authentic human artistry.
+                            </div>
+                        </div>
+                        <input
+                            type="checkbox"
+                            checked={blockAiGenerated}
+                            onChange={(e) => setBlockAiGenerated(e.target.checked)}
+                            style={{ width: '20px', height: '20px', accentColor: '#10b981', cursor: 'pointer' }}
+                        />
+                    </div>
+
+                    {/* Step Navigation */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <button
+                            type="button"
+                            className="btn-text"
+                            onClick={() => setStep(1)}
+                            style={{ color: '#94a3b8' }}
+                        >
+                            ← Back to Radar
+                        </button>
+                        <button
+                            type="button"
+                            className="btn-primary"
+                            onClick={() => setStep(3)}
+                            style={{ width: 'auto', padding: '0.65rem 1.75rem', fontSize: '0.9rem' }}
+                        >
+                            Next: Seed Artists →
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* STEP 3: SEED ARTISTS & CONFIRMATION                       */}
+            {/* ========================================================= */}
+            {step === 3 && (
+                <div className="fade-in">
+                    <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                        Based on your sculpted sound polygon, we matched these iconic seed artists. Keep what you like or add your favorites:
+                    </p>
+
+                    {/* Recommended Artists Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.5rem', marginBottom: '1.25rem' }}>
+                        {recommendedArtists.map(artist => {
+                            const isSelected = seedArtists.includes(artist);
                             return (
                                 <button
-                                    key={node.id}
+                                    key={artist}
                                     type="button"
-                                    onClick={() => toggleAnchor(node.id)}
+                                    onClick={() => toggleSeedArtist(artist)}
                                     style={{
-                                        padding: '0.75rem 1rem',
+                                        padding: '0.65rem 0.85rem',
                                         borderRadius: '12px',
-                                        textAlign: 'center',
-                                        background: isSelected ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(168, 85, 247, 0.4))' : 'rgba(255,255,255,0.03)',
-                                        border: isSelected ? '2px solid #a855f7' : '1px solid rgba(255,255,255,0.1)',
-                                        color: isSelected ? '#f8fafc' : '#94a3b8',
-                                        fontWeight: isSelected ? 'bold' : 'normal',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s ease',
+                                        fontSize: '0.8rem',
+                                        fontWeight: '600',
+                                        textAlign: 'left',
                                         display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '0.25rem'
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        cursor: 'pointer',
+                                        border: isSelected ? '1px solid #a855f7' : '1px solid rgba(255,255,255,0.08)',
+                                        background: isSelected ? 'rgba(168, 85, 247, 0.2)' : 'rgba(255,255,255,0.03)',
+                                        color: isSelected ? '#f8fafc' : '#94a3b8',
+                                        transition: 'all 0.15s ease'
                                     }}
                                 >
-                                    <span style={{ fontSize: '0.95rem' }}>{node.label}</span>
-                                    <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>{node.group}</span>
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist}</span>
+                                    <span style={{ color: isSelected ? '#a855f7' : '#64748b', fontWeight: 'bold' }}>
+                                        {isSelected ? '✓' : '+'}
+                                    </span>
                                 </button>
                             );
                         })}
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2rem' }}>
-                        <span style={{ fontSize: '0.85rem', color: selectedAnchors.length >= 2 ? '#10b981' : '#f59e0b' }}>
-                            {selectedAnchors.length} selected (Pick at least 2)
-                        </span>
-                        <button
-                            className="btn-primary"
-                            disabled={selectedAnchors.length < 2}
-                            onClick={() => setStep(2)}
-                            style={{ opacity: selectedAnchors.length < 2 ? 0.5 : 1 }}
-                        >
-                            Continue to Dealbreakers →
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* STEP 2: DEALBREAKERS & NEGATIVE CONSTRAINTS */}
-            {step === 2 && (
-                <div className="fade-in">
-                    <h3 style={{ margin: '0 0 0.5rem 0' }}>Step 2: Hard Dealbreakers 🚫</h3>
-                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                        Select the sounds, styles, or aesthetics you <strong>never want to hear</strong>. The State Machine invariant guard will instantly drop any candidate matching these categories.
-                    </p>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '0.75rem' }}>
-                        {DEALBREAKER_PRESETS.map(preset => {
-                            const isExcluded = selectedDealbreakers.includes(preset.id);
-                            return (
-                                <div
-                                    key={preset.id}
-                                    onClick={() => toggleDealbreaker(preset.id)}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        padding: '1rem 1.25rem',
-                                        borderRadius: '12px',
-                                        background: isExcluded ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255,255,255,0.03)',
-                                        border: isExcluded ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.08)',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s ease'
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                        <span style={{ fontSize: '1.4rem' }}>{preset.emoji}</span>
-                                        <div>
-                                            <div style={{ fontWeight: '600', color: isExcluded ? '#fca5a5' : '#f8fafc' }}>
-                                                {preset.label}
-                                            </div>
-                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>
-                                                Excludes: {preset.excludeTerms.slice(0, 3).join(', ')}...
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <span style={{
-                                        padding: '0.25rem 0.75rem',
-                                        borderRadius: '20px',
-                                        fontSize: '0.8rem',
-                                        fontWeight: 'bold',
-                                        background: isExcluded ? '#ef4444' : 'rgba(255,255,255,0.1)',
-                                        color: 'white'
-                                    }}>
-                                        {isExcluded ? 'BLOCKED' : 'Allow'}
-                                    </span>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2rem' }}>
-                        <button
-                            className="btn-text"
-                            onClick={() => setStep(1)}
-                        >
-                            ← Back
-                        </button>
-                        <button
-                            className="btn-primary"
-                            onClick={() => setStep(3)}
-                        >
-                            Continue to Discovery & Safeguards →
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* STEP 3: DISCOVERY APPETITE & ANTI-AI SAFEGUARD */}
-            {step === 3 && (
-                <div className="fade-in">
-                    <h3 style={{ margin: '0 0 0.5rem 0' }}>Step 3: Discovery & Authenticity Safeguards 🧭</h3>
-                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '2rem' }}>
-                        Control algorithmic drift and guarantee purely human audio.
-                    </p>
-
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '2rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', fontWeight: 'bold' }}>
-                            <span style={{ color: discoveryLevel < 0.4 ? '#60a5fa' : '#94a3b8' }}>🎧 Familiar Comfort Zone</span>
-                            <span style={{ color: discoveryLevel >= 0.4 && discoveryLevel <= 0.7 ? '#a855f7' : '#94a3b8' }}>⚖️ Balanced Flow</span>
-                            <span style={{ color: discoveryLevel > 0.7 ? '#ec4899' : '#94a3b8' }}>🚀 Deep Cuts & Obscure Gems</span>
-                        </div>
-
+                    {/* Custom Artist Search / Add */}
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
                         <input
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.05"
-                            value={discoveryLevel}
-                            onChange={(e) => setDiscoveryLevel(parseFloat(e.target.value))}
-                            style={{ width: '100%', accentColor: '#a855f7', cursor: 'pointer', height: '8px' }}
+                            type="text"
+                            placeholder="Add your own holy-grail artist (e.g. Chopin, Tool, Daft Punk)..."
+                            value={customArtistText}
+                            onChange={(e) => setCustomArtistText(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleAddCustomArtist(); }}
+                            style={{
+                                flex: 1,
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.12)',
+                                borderRadius: '12px',
+                                padding: '0.65rem 1rem',
+                                color: '#f8fafc',
+                                fontSize: '0.85rem',
+                                outline: 'none'
+                            }}
                         />
-
-                        <p style={{ color: '#cbd5e1', fontSize: '0.85rem', marginTop: '1.25rem', textAlign: 'center' }}>
-                            {discoveryLevel < 0.4 && "Prioritizes your local library tracks and direct anchor subgenres."}
-                            {discoveryLevel >= 0.4 && discoveryLevel <= 0.7 && "Plays 70% core favorites, and carefully introduces harmonic neighbors in the graph."}
-                            {discoveryLevel > 0.7 && "Dives deep into uncommercialized audio, underground artists, and distant graph bridges."}
-                        </p>
-                    </div>
-
-                    {/* Anti-AI Gatekeeper Toggle */}
-                    <div style={{
-                        marginTop: '1.5rem',
-                        padding: '1.25rem',
-                        background: blockAiGenerated ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255,255,255,0.03)',
-                        borderRadius: '16px',
-                        border: blockAiGenerated ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(255,255,255,0.08)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                    }}>
-                        <div>
-                            <div style={{ fontWeight: '600', color: '#f8fafc', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                🛡️ Anti-AI Music Gatekeeper
-                                <span style={{
-                                    fontSize: '0.75rem',
-                                    background: blockAiGenerated ? '#10b981' : 'rgba(255,255,255,0.1)',
-                                    color: 'white',
-                                    padding: '0.15rem 0.55rem',
-                                    borderRadius: '999px',
-                                    fontWeight: 'bold'
-                                }}>
-                                    {blockAiGenerated ? 'ACTIVE (BLOCK AI)' : 'DISABLED (ALLOW AI)'}
-                                </span>
-                            </div>
-                            <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                                Actively blocks synthetic audio farms (Suno, Udio, AI voice clones) to keep your sessions authentic.
-                            </div>
-                        </div>
-                        <label style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
-                            <input
-                                type="checkbox"
-                                checked={blockAiGenerated}
-                                onChange={(e) => setBlockAiGenerated(e.target.checked)}
-                                style={{ width: '22px', height: '22px', accentColor: '#10b981', cursor: 'pointer' }}
-                            />
-                        </label>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2.5rem' }}>
                         <button
+                            type="button"
+                            onClick={handleAddCustomArtist}
+                            style={{
+                                background: '#a855f7',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '12px',
+                                padding: '0.65rem 1.25rem',
+                                fontWeight: 'bold',
+                                fontSize: '0.85rem',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            + Add
+                        </button>
+                    </div>
+
+                    {/* Engine Configuration Summary Card */}
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(99, 102, 241, 0.1))',
+                        border: '1px solid rgba(168, 85, 247, 0.3)',
+                        borderRadius: '16px',
+                        padding: '1rem 1.25rem',
+                        marginBottom: '1.5rem',
+                        fontSize: '0.8rem'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#e9d5ff', fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                            <span>⚡ Ready to Calibrate Engine</span>
+                            <span>{activeAnchors.length} Anchors • {selectedDealbreakers.length} Dealbreakers</span>
+                        </div>
+                        <div style={{ color: '#cbd5e1', fontSize: '0.75rem' }}>
+                            Your taste DNA will be loaded into the <strong>session state machine</strong>. The algorithm will strictly steer along harmonic edges without drifting.
+                        </div>
+                    </div>
+
+                    {/* Bottom Actions */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <button
+                            type="button"
                             className="btn-text"
                             onClick={() => setStep(2)}
+                            style={{ color: '#94a3b8' }}
                         >
                             ← Back
                         </button>
                         <button
+                            type="button"
                             className="btn-primary"
                             onClick={handleFinish}
-                            style={{ padding: '1rem 2rem' }}
+                            style={{
+                                width: 'auto',
+                                padding: '0.85rem 2.25rem',
+                                fontSize: '1rem',
+                                background: 'linear-gradient(135deg, #10b981 0%, #6366f1 100%)',
+                                boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.4)'
+                            }}
                         >
-                            Save Calibration & Start Listening 🚀
+                            🚀 Complete Calibration & Play
                         </button>
                     </div>
                 </div>
