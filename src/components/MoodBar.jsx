@@ -1,140 +1,83 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { moods, contextualMoods, nuanceMoods, modernMoods, cinematicMoods, allMoods } from '../services/moods.js';
 export { moods, contextualMoods, nuanceMoods, modernMoods, cinematicMoods, allMoods };
 
+const CATEGORIES = [
+    { id: 'core', label: 'Core', icon: '✨', list: moods },
+    { id: 'activities', label: 'Activities', icon: '🏃', list: contextualMoods },
+    { id: 'nuances', label: 'Nuances', icon: '🎨', list: nuanceMoods },
+    { id: 'aesthetics', label: 'Aesthetics', icon: '🔮', list: modernMoods },
+    { id: 'cinematic', label: 'Cinematic', icon: '🎬', list: cinematicMoods },
+];
+
 function MoodBar({ selectedMood, onSelectMood }) {
-    const isCustomMoodSelected = contextualMoods.some(m => m.id === selectedMood) ||
-        nuanceMoods.some(m => m.id === selectedMood) ||
-        modernMoods.some(m => m.id === selectedMood) ||
-        cinematicMoods.some(m => m.id === selectedMood);
+    // Find the category containing a given mood id
+    const getCategoryForMood = (moodId) => {
+        for (const cat of CATEGORIES) {
+            if (cat.list.some(m => m.id === moodId)) return cat.id;
+        }
+        return 'core';
+    };
 
-    // Hidden by default to keep the UI clean and uncluttered
-    const [showMoreVibes, setShowMoreVibes] = useState(isCustomMoodSelected);
+    const [activeTab, setActiveTab] = useState(() => getCategoryForMood(selectedMood));
 
-    const renderMoodGroup = (moodList) => (
-        <div className="mood-bar">
-            {moodList.map((mood) => (
-                <button
-                    key={mood.id}
-                    className={`mood-chip ${selectedMood === mood.id ? 'active' : ''}`}
-                    onClick={() => onSelectMood(mood.id)}
-                >
-                    <span className="mood-emoji">{mood.emoji}</span>
-                    <span className="mood-label">{mood.label}</span>
-                </button>
-            ))}
-        </div>
-    );
+    // Keep active tab synced if selectedMood changes externally and is not in current tab
+    useEffect(() => {
+        if (selectedMood) {
+            const currentCat = CATEGORIES.find(c => c.id === activeTab);
+            if (!currentCat || !currentCat.list.some(m => m.id === selectedMood)) {
+                setActiveTab(getCategoryForMood(selectedMood));
+            }
+        }
+    }, [selectedMood]);
+
+    const currentCategory = CATEGORIES.find(c => c.id === activeTab) || CATEGORIES[0];
 
     return (
         <div className="mood-bar-container">
-            <h3 className="section-subtitle" style={{ textAlign: 'center', marginBottom: '1rem', color: '#a8a8b3' }}>Emotions</h3>
-            {renderMoodGroup(moods)}
+            {/* Elegant Segmented Category Switcher */}
+            <nav className="mood-category-tabs" role="tablist" aria-label="Mood categories">
+                {CATEGORIES.map((cat) => {
+                    const isTabActive = activeTab === cat.id;
+                    const hasSelectedMood = cat.list.some(m => m.id === selectedMood);
 
-            {/* Optional Collapsible Button for Situations & Nuances */}
-            <div style={{ textAlign: 'center', marginTop: '1.25rem' }}>
-                <button
-                    type="button"
-                    onClick={() => setShowMoreVibes(!showMoreVibes)}
-                    style={{
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid rgba(255, 255, 255, 0.12)',
-                        color: isCustomMoodSelected ? '#60a5fa' : '#a8a8b3',
-                        borderRadius: '20px',
-                        padding: '0.4rem 1.1rem',
-                        fontSize: '0.8rem',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.45rem',
-                        transition: 'all 0.2s ease'
-                    }}
-                >
-                    <span>{showMoreVibes ? '▲ Hide Extra Vibes' : '✨ More Situations & Nuances ▾'}</span>
-                    {isCustomMoodSelected && !showMoreVibes && (
-                        <span style={{ background: '#3b82f6', color: '#fff', padding: '0.1rem 0.45rem', borderRadius: '10px', fontSize: '0.7rem' }}>
-                            Active
-                        </span>
-                    )}
-                </button>
+                    return (
+                        <button
+                            key={cat.id}
+                            role="tab"
+                            aria-selected={isTabActive}
+                            type="button"
+                            className={`mood-tab-btn ${isTabActive ? 'active' : ''}`}
+                            onClick={() => setActiveTab(cat.id)}
+                        >
+                            <span className="mood-tab-icon">{cat.icon}</span>
+                            <span className="mood-tab-label">{cat.label}</span>
+                            {hasSelectedMood && (
+                                <span className="mood-tab-indicator" title="Current active headspace is in this category" />
+                            )}
+                        </button>
+                    );
+                })}
+            </nav>
+
+            {/* Airy Mood Chips Shelf */}
+            <div className="mood-chips-shelf fade-in" key={activeTab}>
+                {currentCategory.list.map((mood) => {
+                    const isSelected = selectedMood === mood.id;
+                    return (
+                        <button
+                            key={mood.id}
+                            type="button"
+                            className={`mood-chip-modern ${isSelected ? 'active' : ''}`}
+                            onClick={() => onSelectMood(mood.id)}
+                            aria-pressed={isSelected}
+                        >
+                            <span className="mood-chip-emoji">{mood.emoji}</span>
+                            <span className="mood-chip-label">{mood.label}</span>
+                        </button>
+                    );
+                })}
             </div>
-
-            {/* Collapsible Dropdowns: Hidden by default so they don't crowd the UI */}
-            {showMoreVibes && (
-                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '1.5rem' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <h3 className="section-subtitle" style={{ marginBottom: '0.5rem', color: '#a8a8b3', fontSize: '0.85rem' }}>Situations</h3>
-                        <select
-                            className={`mood-dropdown ${contextualMoods.some(m => m.id === selectedMood) ? 'active' : ''}`}
-                            value={contextualMoods.some(m => m.id === selectedMood) ? selectedMood : ""}
-                            onChange={(e) => {
-                                if (e.target.value) onSelectMood(e.target.value);
-                            }}
-                        >
-                            <option value="" disabled>🏕️ Select a Situation...</option>
-                            {contextualMoods.map((mood) => (
-                                <option key={mood.id} value={mood.id}>
-                                    {mood.emoji} {mood.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <h3 className="section-subtitle" style={{ marginBottom: '0.5rem', color: '#a8a8b3', fontSize: '0.85rem' }}>Nuances</h3>
-                        <select
-                            className={`mood-dropdown ${nuanceMoods.some(m => m.id === selectedMood) ? 'active' : ''}`}
-                            value={nuanceMoods.some(m => m.id === selectedMood) ? selectedMood : ""}
-                            onChange={(e) => {
-                                if (e.target.value) onSelectMood(e.target.value);
-                            }}
-                        >
-                            <option value="" disabled>🎨 Select a Nuance...</option>
-                            {nuanceMoods.map((mood) => (
-                                <option key={mood.id} value={mood.id}>
-                                    {mood.emoji} {mood.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <h3 className="section-subtitle" style={{ marginBottom: '0.5rem', color: '#a8a8b3', fontSize: '0.85rem' }}>Aesthetics</h3>
-                        <select
-                            className={`mood-dropdown ${modernMoods.some(m => m.id === selectedMood) ? 'active' : ''}`}
-                            value={modernMoods.some(m => m.id === selectedMood) ? selectedMood : ""}
-                            onChange={(e) => {
-                                if (e.target.value) onSelectMood(e.target.value);
-                            }}
-                        >
-                            <option value="" disabled>📱 Select an Aesthetic...</option>
-                            {modernMoods.map((mood) => (
-                                <option key={mood.id} value={mood.id}>
-                                    {mood.emoji} {mood.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <h3 className="section-subtitle" style={{ marginBottom: '0.5rem', color: '#a8a8b3', fontSize: '0.85rem' }}>Cinematic</h3>
-                        <select
-                            className={`mood-dropdown ${cinematicMoods.some(m => m.id === selectedMood) ? 'active' : ''}`}
-                            value={cinematicMoods.some(m => m.id === selectedMood) ? selectedMood : ""}
-                            onChange={(e) => {
-                                if (e.target.value) onSelectMood(e.target.value);
-                            }}
-                        >
-                            <option value="" disabled>🎬 Select a Vibe...</option>
-                            {cinematicMoods.map((mood) => (
-                                <option key={mood.id} value={mood.id}>
-                                    {mood.emoji} {mood.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

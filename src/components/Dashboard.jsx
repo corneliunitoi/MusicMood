@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { fetchUserProfile, fetchUserPlaylists } from '../services/youtube';
 import { supabase } from '../services/supabaseService';
 import { sessionEngine } from '../services/sessionStateMachine';
-import { GENRE_NODES } from '../services/tasteGraph';
 import MoodBar, { allMoods } from './MoodBar';
 import PlaylistView from './PlaylistView';
 import TasteGraphSetup from './TasteGraphSetup';
@@ -318,71 +317,32 @@ function Dashboard({ token, onLogout }) {
                     />
                 )}
 
-                {/* ACTIVE ANCHORS & GUARDS SUMMARY BAR */}
-                {!showWizard && !showVisualGraph && (
-                    <div className="taste-profile-container fade-in" style={{ padding: '0.75rem 1.25rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', margin: '1rem auto', maxWidth: '850px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-                                <span style={{ color: '#a855f7', fontWeight: 'bold' }}>⚓ Active Anchors:</span>
-                                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                                    {calibration.anchors.map(id => (
-                                        <span key={id} style={{ background: 'rgba(168, 85, 247, 0.2)', border: '1px solid rgba(168, 85, 247, 0.4)', borderRadius: '6px', padding: '0.15rem 0.5rem', fontSize: '0.75rem', color: '#e9d5ff' }}>
-                                            {GENRE_NODES[id]?.label || id}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                                <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>
-                                    🚫 {calibration.dealbreakers?.length || 0} dealbreakers
-                                </span>
-                                <span style={{
-                                    fontSize: '0.75rem',
-                                    padding: '0.15rem 0.5rem',
-                                    borderRadius: '6px',
-                                    background: calibration.blockAiGenerated !== false ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.05)',
-                                    color: calibration.blockAiGenerated !== false ? '#34d399' : '#94a3b8',
-                                    border: calibration.blockAiGenerated !== false ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(255,255,255,0.1)'
-                                }}>
-                                    🛡️ Anti-AI: {calibration.blockAiGenerated !== false ? 'ON' : 'OFF'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <div className="fade-in" style={{ margin: '1.25rem auto 1rem', textAlign: 'center' }}>
-                    <h3 style={{
-                        fontSize: '1.2rem',
-                        fontWeight: '600',
-                        color: '#e2e8f0',
-                        margin: 0,
-                        letterSpacing: '-0.01em'
-                    }}>
-                        What headspace do you want right now?
-                    </h3>
+                {/* HEADSPACE SELECTION */}
+                <div className="headspace-header fade-in">
+                    <h2 className="headspace-title">What headspace do you want right now?</h2>
+                    <p className="headspace-subtitle">Choose an emotion, situation, or vibe to dynamically steer playback</p>
                 </div>
 
                 <MoodBar selectedMood={selectedMood} onSelectMood={handleMoodSelect} />
 
                 {/* PLAYBACK & STEERING SECTION */}
                 {selectedMood && !showWizard && (
-                    <div className="mood-feedback fade-in-up">
+                    <div className="playback-section fade-in">
                         {isDiscovering ? (
-                            <p className="subtitle" style={{ margin: '2rem auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                            <div className="discovering-card">
                                 <span className="spinner" style={{ width: '1.25rem', height: '1.25rem', borderWidth: '2px' }}></span>
-                                Resolving guard-checked track for <strong>{currentMoodObj?.label}</strong>...
-                            </p>
+                                <span>Resolving guard-checked track for <strong>{currentMoodObj?.emoji} {currentMoodObj?.label}</strong>...</span>
+                            </div>
                         ) : activeTrack ? (
                             <Player initialTrack={activeTrack} token={token} />
                         ) : (
-                            <div style={{ marginTop: '2rem' }}>
+                            <div style={{ marginTop: '2rem', textAlign: 'center' }}>
                                 <button
                                     className="btn-primary"
                                     onClick={() => handleMoodSelect(selectedMood)}
-                                    style={{ padding: '0.8rem 2rem', fontSize: '1rem' }}
+                                    style={{ padding: '0.85rem 2.2rem', fontSize: '1.05rem', borderRadius: '9999px', boxShadow: '0 8px 25px -4px rgba(99, 102, 241, 0.4)' }}
                                 >
-                                    Start Session in {currentMoodObj?.emoji} {currentMoodObj?.label} Mode
+                                    ▶ Start Session in {currentMoodObj?.emoji} {currentMoodObj?.label} Mode
                                 </button>
                             </div>
                         )}
