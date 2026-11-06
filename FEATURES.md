@@ -7,7 +7,7 @@ This document tracks the technical specifications, development milestones, and b
 ## 🏛️ Development Milestones & Feature History
 
 ```mermaid
-flowchart LR
+flowchart TD
     M1[M1: OAuth & Legacy Search] --> M2[M2: 44.8k Local Scan]
     M2 --> M3[M3: Schema v2 & Catalog Split]
     M3 --> M4[M4: Anti-Drift State Machine]
@@ -15,6 +15,12 @@ flowchart LR
     M5 --> M6[M6: MusicBrainz Multi-Genre]
     M6 --> M7[M7: Zero-Quota Scraper]
     M7 --> M8[M8: Sonic Calibration UI]
+    M8 --> M9[M9: Catalog Expansion & Caps v0.5.3]
+    M9 --> M10[M10: Deduplicated Scanner v0.5.5]
+    M10 --> M11[M11: JIT Organic Discovery v0.5.6]
+    M11 --> M12[M12: Local Favorites Pane v0.5.7]
+    M12 --> M13[M13: Audio Watchdog & Firewall v0.5.8]
+    M13 --> M14[M14: Back History & Scrubber v0.5.9]
 ```
 
 ---
@@ -98,6 +104,55 @@ flowchart LR
   - **Discovery Tier Toggles** (*Familiar*, *Balanced*, *Deep Cuts*).
   - **Family-Grouped Active Node Selector:** `<select>` with `<optgroup>` for all 115 genres.
   - Cluttered Nuance/Situation dropdowns tucked away to keep the interface fast and clean.
+
+---
+
+### Milestone 9: Catalog Expansion & Anti-Monopoly Cap (v0.5.3)
+* **MusicBrainz Automated Seeding:** Ingested 3,402 verified playable tracks across all 115 taxonomy nodes via `seedGenresFromMusicBrainz.js`, bringing the catalog to 26,882 tracks across 5,325 artists.
+* **Strict Anti-Monopoly Cap:** Enforces `MAX_TRACKS_PER_ARTIST = 3` cap across all genres, eliminating catalog domination by prolific artists and ensuring genuine acoustic diversity.
+* **Gatekeeper Hardening:** Upgraded `isSongCandidate` to filter out compilations, full albums, and badge labels (`Song`, `Video`, `Album`) mistakenly parsed from YouTube Music headers.
+
+---
+
+### Milestone 10: Deduplicated Scanner & Poison-Pill Recovery (v0.5.5)
+* **Fast Recursive NAS Engine:** Scanned 43,651 audio files across local SMB storage (`\\192.168.0.2\e$\music`) in 13.9 minutes, syncing 40,977 unique deduplicated tracks into `public.local_metadata` (51,254 total indexed paths).
+* **Persistent Artist Disk Cache:** Caches normalized artist-to-genre mappings in `scripts/cache/artist_genre_cache.json` for lightning-fast differential rescans.
+* **Poison-Pill Recovery & Sanitization:** Automatically strips PostgreSQL null bytes (`\u0000`) and surrogate pairs from corrupted ID3 tags, preventing transaction aborts on corrupted files.
+* **Skip-Already-Present Logic:** Differential scanner avoids reprocessing files already present in the database.
+
+---
+
+### Milestone 11: Organic Just-In-Time (JIT) Discovery Engine (v0.5.6)
+* **Zero-Quota Fast Innertube Resolver:** Dynamic `/api/resolve-track` proxy translates local artist/title strings into verified playable YouTube video IDs in <300ms without consuming Google API quotas.
+* **Hybrid Dual-Buffer Pipeline:** Concurrently pulls candidate tracks from both the user's unmapped local archive and the MusicBrainz global catalog whenever the playback queue runs low.
+* **Organic Database Expansion:** Every newly resolved track is dynamically inserted into `public.tracks` with full canonical and secondary genre tags, allowing the global library to grow passively during listening sessions.
+* **Interactive Up Next Drawer:** Live queue drawer with dynamic `⚡ JIT` badge displays buffered tracks and allows 1-click playback.
+
+---
+
+### Milestone 12: Offline-First Favorites Pane & Reactive Toggle (v0.5.7)
+* **0ms Latency Local Favorites:** Client-side `favoritesService.js` stores favorited tracks in `localStorage` with real-time `BroadcastChannel` synchronization across open browser tabs.
+* **Reactive Glowing Heart Control:** Dual-state glowing heart toggle (`❤️` / `🤍`) in the player dock provides immediate visual feedback and triggers subtle state machine affinity nudges.
+* **Dedicated Favorites Pane:** Comprehensive management drawer (`FavoritesPane.jsx`) with instant title/artist search, genre filter chips, sequential **Play All**, single-track removal, and **Export to JSON** backup.
+* **Streamlined UI Header:** Replaced cluttered dashboard banner with a sleek, minimalist single-line heading (*"What headspace do you want right now?"*).
+
+---
+
+### Milestone 13: Audio Stall Watchdog, Chromium Unmuting & Genre Firewall (v0.5.8)
+* **6-Second Audio Stall Watchdog:** Proactively detects silent, stalled, or geoblocked streams; automatically purges the bad video ID from Supabase catalog, blacklists it from the session, and auto-advances to the next song without user intervention.
+* **Chromium Audio Pipeline Fix:** Expanded persistent player frame to 240×240 off-screen (`fixed, bottom: -9999px, opacity: 1`) on `https://www.youtube.com`, preventing browser heuristics from throttling or suspending background media decoders.
+* **Aggressive State 5 / -1 Wakeup:** Automatically invokes `unMute()`, `setVolume(100)`, and `playVideo()` when YouTube places programmatic transitions into `CUED` (5) or `UNSTARTED` (-1) states.
+* **Truth-Based Playback Indicator:** Replaced premature "Now Playing" display with a truthful `Buffering Audio...` indicator (visualizer waves only animate when audio progress is verified).
+* **JIT Genre Family Firewall:** Strictly validates candidates against the active mood's genre family; prevents cross-genre leakage (e.g. Blues files mislabeled as Hip-Hop in local tags are saved to catalog under Blues, but never injected into a Hip-Hop session).
+* **Canonical Artist Knowledge Base:** Added Ray Charles, soul/blues pioneers, and legendary rap icons to Tier 1 canonical mappings.
+
+---
+
+### Milestone 14: Track History Back Navigation & Interactive Progress Scrubber (v0.5.9)
+* **Previous Track Navigation (`⏮️`):** Added Back button to the player dock powered by an active 25-track historical playback stack in `sessionStateMachine.js` with `localStorage` persistence.
+* **Forward-Backward Flow:** Outgoing track is unshifted to the head of the queue when going back, so clicking Next (`⏭️`) seamlessly returns to where you were.
+* **Interactive Progress Bar & Scrubber:** Dual-gradient progress bar (`#a855f7` to `#6366f1`) with live tabular timestamps (`0:45 / 3:18`). Supports smooth click-to-seek, drag-to-seek, and keyboard arrow controls.
+* **Tactile Styling:** Custom circular thumb with scale animation (`scale(1.3)`) and purple halo glow on hover.
 
 ---
 
