@@ -103,16 +103,25 @@ flowchart LR
 
 ## 🔮 Feature Backlog (Upcoming Roadmap)
 
-### 1. Artist Finder & Favorites
+### 1. Universal YouTube Library Taste Profiler (Refactor "Calibrate from Library")
+* **Current Bottleneck:** The current "Calibrate from Library" scans `public.local_metadata` which is hardcoded to the local developer SMB archive (`\\192.168.0.2\e$\music`), making it useless for any other user.
+* **Universal Refactoring:**
+  - Connect to user's authentic **YouTube Music Liked Videos & Playlists** (or allow public playlist URL / M3U import).
+  - Pipe ingested artists and tracks through `genreNormalizer.js` and MusicBrainz to calculate personal genre affinity weights, dealbreakers, and anchors per user.
+  - Multi-tenant storage in `public.user_profiles.taste_weights` keyed by `user_id`.
+  - Provide an interactive 60-second "Pick 5 Favorite Artists" onboarding fallback for guest/unconnected users.
+  - Relegate local file directory scanning (`scanLibrary.js`) to an optional "Power User / Self-Hosted NAS" feature in Settings.
+
+### 2. Artist Finder & Favorites
 * **Search & Autocomplete:** Search for any artist across the 44.8k archive and 4.3k verified catalog.
 * **Artist Profile View:** View an artist's MusicBrainz tags, biography, discography in the library, and primary genres.
 * **Favorite Toggle:** Star an artist to increase their base affinity weight in the state machine without restricting discovery.
 
-### 2. Experimental: YouTube "MusicMood Favorites" Auto-Sync
+### 3. Experimental: YouTube "MusicMood Favorites" Auto-Sync
 * **One-Click Favorite:** Liking a track with ❤️ can optionally append that video ID directly to a dedicated playlist titled `"MusicMood Favorites"` in the user's authentic YouTube account.
 * **Overwriting Protection:** Uses single-playlist append-only mode to prevent overwriting or deleting any of the user's pre-existing YouTube playlists.
 
-### 3. User-Selected Localized / Regional Music
+### 4. User-Selected Localized / Regional Music
 * **Optional Language Filter:** Allow users to request music in specific languages (e.g., French, Romanian, Japanese, Spanish) on demand.
 * **Non-Invasive:** Kept strictly outside the core engine defaults so regional music never plays unless explicitly chosen by the user.
 
