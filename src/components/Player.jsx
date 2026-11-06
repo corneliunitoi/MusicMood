@@ -460,18 +460,9 @@ function Player({ initialTrack, token }) {
     const dwellCount = (sessionState.consecutiveInNode || 0) + 1;
 
     return (
-        <div className="player-container fade-in-up" style={{ width: '100%', maxWidth: '850px', margin: '2rem auto' }}>
-            {/* ANTI-DRIFT & PERSISTENT STATUS BANNER */}
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                background: 'rgba(16, 185, 129, 0.1)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                borderRadius: '12px 12px 0 0',
-                padding: '0.6rem 1.25rem',
-                fontSize: '0.85rem'
-            }}>
+        <div className="player-card fade-in-up">
+            {/* 1. SESSION & ACTIVE NODE CONTEXT HEADER */}
+            <div className="player-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#10b981', fontWeight: 'bold', flexWrap: 'wrap' }}>
                     <span>🛡️ Active Node:</span>
                     <select
@@ -480,14 +471,14 @@ function Player({ initialTrack, token }) {
                         style={{
                             background: '#0f172a',
                             color: '#38bdf8',
-                            border: '1px solid #38bdf8',
+                            border: '1px solid rgba(56, 189, 248, 0.4)',
                             borderRadius: '8px',
                             padding: '0.2rem 0.5rem',
                             fontSize: '0.82rem',
                             fontWeight: 'bold',
                             cursor: 'pointer',
                             outline: 'none',
-                            maxWidth: '260px'
+                            maxWidth: '240px'
                         }}
                         title="Click to jump to any genre or explore outside initial picks"
                     >
@@ -531,7 +522,7 @@ function Player({ initialTrack, token }) {
                 <div style={{
                     background: 'rgba(239, 68, 68, 0.15)',
                     borderLeft: '4px solid #ef4444',
-                    padding: '0.5rem 1rem',
+                    padding: '0.5rem 1.25rem',
                     fontSize: '0.8rem',
                     color: '#fca5a5',
                     textAlign: 'left'
@@ -540,30 +531,19 @@ function Player({ initialTrack, token }) {
                 </div>
             )}
 
-            {/* MAIN PLAYER DOCK */}
-            <div className="player-dock" style={{
-                borderRadius: '0 0 16px 16px',
-                borderTop: 'none',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.85rem'
-            }}>
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    width: '100%',
-                    gap: '1rem',
-                    flexWrap: 'wrap'
-                }}>
-                    <div className="player-info" style={{ minWidth: '220px' }}>
+            {/* 2. CORE AUDIO BODY */}
+            <div className="player-body">
+                {/* ROW A: TRACK DETAILS + TRANSPORT CONTROLS + UTILITIES */}
+                <div className="player-main-row">
+                    {/* LEFT: Track Info (Thumbnail + Titles + Badges) */}
+                    <div className="player-track-info">
                         {currentTrack?.thumbnail ? (
                             <img src={currentTrack.thumbnail} alt={currentTrack.title} className="player-thumbnail" referrerPolicy="no-referrer" />
                         ) : (
                             <div className="player-thumbnail-placeholder" />
                         )}
 
-                        <div className="player-text" style={{ minWidth: 0, flex: 1 }}>
+                        <div className="player-text">
                             <span className="player-status">
                                 {isSteering ? 'Traversing Graph...' : isBuffering ? 'Buffering Audio...' : isPlaying ? 'Now Playing' : 'Paused'}
                                 {isPlaying && !isSteering && !isBuffering && (
@@ -590,7 +570,7 @@ function Player({ initialTrack, token }) {
                                     currentTrack?.title || 'Loading session...'
                                 )}
                             </h3>
-                            <div className="player-channel" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                            <div className="player-channel">
                                 <span style={{
                                     fontSize: '0.82rem',
                                     color: '#cbd5e1',
@@ -611,74 +591,93 @@ function Player({ initialTrack, token }) {
                                 )}
                             </div>
                         </div>
+
+                        {/* Quick Feedback (Heart & Dislike) */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginLeft: '0.35rem', flexShrink: 0 }}>
+                            <button
+                                className="control-btn"
+                                onClick={handleLike}
+                                title={isCurrentFav ? "Favorited! (Click to remove from favorites)" : "Save to Favorites ❤️"}
+                                style={{
+                                    background: isCurrentFav ? 'rgba(236, 72, 153, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                                    border: isCurrentFav ? '1px solid #ec4899' : '1px solid rgba(255, 255, 255, 0.1)',
+                                    width: '32px',
+                                    height: '32px',
+                                    padding: '0.2rem',
+                                    borderRadius: '8px'
+                                }}
+                            >
+                                {isCurrentFav ? '❤️' : '🤍'}
+                            </button>
+
+                            <button
+                                className="control-btn"
+                                onClick={handleDislike}
+                                disabled={isSteering}
+                                title="Dislike / Not Music (Immediately skips and purges)"
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.05)',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    width: '32px',
+                                    height: '32px',
+                                    padding: '0.2rem',
+                                    borderRadius: '8px'
+                                }}
+                            >
+                                👎
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="player-controls" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        {/* More Like This (Heart / Favorite) */}
-                        <button
-                            className="control-btn"
-                            onClick={handleLike}
-                            title={isCurrentFav ? "Favorited! (Click to remove from favorites)" : "Save to Favorites ❤️ (and subtle affinity nudge)"}
-                            style={{
-                                background: isCurrentFav ? 'rgba(236, 72, 153, 0.35)' : 'rgba(236, 72, 153, 0.12)',
-                                borderColor: isCurrentFav ? '#ec4899' : 'rgba(236, 72, 153, 0.4)',
-                                boxShadow: isCurrentFav ? '0 0 12px rgba(236, 72, 153, 0.4)' : 'none',
-                                transform: isCurrentFav ? 'scale(1.05)' : 'scale(1)',
-                                transition: 'all 0.2s ease'
-                            }}
-                        >
-                            {isCurrentFav ? '❤️' : '🤍'}
-                        </button>
-
-                        {/* Dislike / Not Music (Downvote) */}
-                        <button
-                            className="control-btn"
-                            onClick={handleDislike}
-                            disabled={isSteering}
-                            title="Dislike / Not Music (Immediately skips, blacklists, and removes bad mapping)"
-                            style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444' }}
-                        >
-                            👎
-                        </button>
-
+                    {/* CENTER: Transport Controls */}
+                    <div className="player-transport-controls">
                         {/* Previous Track / Back Button */}
                         <button
                             className="control-btn"
                             onClick={handlePreviousTrack}
                             disabled={isSteering}
-                            title={sessionState.canGoBack ? `Previous Track: Return to last track (${sessionState.historyCount || 1} in history)` : "Restart track (No previous tracks yet)"}
+                            title={sessionState.canGoBack ? `Previous Track (${sessionState.historyCount || 1} in history)` : "Restart track"}
                             style={{
                                 opacity: sessionState.canGoBack ? 1 : 0.45,
                                 cursor: 'pointer',
-                                transition: 'opacity 0.2s ease, transform 0.2s ease'
+                                width: '38px',
+                                height: '38px'
                             }}
                         >
-                            <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '1.4rem', height: '1.4rem' }}>
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
                             </svg>
                         </button>
 
-                        {/* Play / Pause */}
-                        <button className="control-btn" onClick={togglePlay} aria-label={isPlaying ? "Pause" : "Play"}>
+                        {/* Prominent Circular Play / Pause Button */}
+                        <button className="play-btn-prominent" onClick={togglePlay} aria-label={isPlaying ? "Pause" : "Play"}>
                             {isPlaying ? (
-                                <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                <svg className="icon" fill="currentColor" viewBox="0 0 24 24">
+                                    <path fillRule="evenodd" clipRule="evenodd" d="M8 5a2 2 0 00-2 2v10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2H8zm8 0a2 2 0 00-2 2v10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2z" />
                                 </svg>
                             ) : (
-                                <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                <svg className="icon" fill="currentColor" viewBox="0 0 24 24" style={{ marginLeft: '2px' }}>
+                                    <path fillRule="evenodd" clipRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" />
                                 </svg>
                             )}
                         </button>
 
                         {/* Skip / Next */}
-                        <button className="control-btn" onClick={() => loadNextTrack(true)} disabled={isSteering} title="Skip Track & Nudge Graph">
-                            <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <button
+                            className="control-btn"
+                            onClick={() => loadNextTrack(true)}
+                            disabled={isSteering}
+                            title="Skip Track & Nudge Graph"
+                            style={{ width: '38px', height: '38px' }}
+                        >
+                            <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '1.4rem', height: '1.4rem' }}>
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
                             </svg>
                         </button>
+                    </div>
 
+                    {/* RIGHT: Exploration & Utilities */}
+                    <div className="player-utility-controls">
                         {/* Step along Graph Edge */}
                         <button
                             className="btn-text"
@@ -686,13 +685,13 @@ function Player({ initialTrack, token }) {
                             disabled={isSteering}
                             title="Step to an adjacent harmonic subgenre in the graph"
                             style={{
-                                background: 'rgba(168, 85, 247, 0.2)',
-                                border: '1px solid #a855f7',
+                                background: 'rgba(168, 85, 247, 0.15)',
+                                border: '1px solid rgba(168, 85, 247, 0.4)',
                                 borderRadius: '8px',
-                                padding: '0.4rem 0.8rem',
+                                padding: '0.4rem 0.75rem',
                                 color: '#e9d5ff',
-                                fontSize: '0.8rem',
-                                fontWeight: 'bold',
+                                fontSize: '0.78rem',
+                                fontWeight: '600',
                                 cursor: 'pointer'
                             }}
                         >
@@ -707,20 +706,19 @@ function Player({ initialTrack, token }) {
                                 title={copiedLink ? "Link copied to clipboard!" : "Copy YouTube link"}
                                 style={{
                                     background: copiedLink ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                                    border: copiedLink ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.15)',
+                                    border: copiedLink ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.12)',
                                     color: copiedLink ? '#34d399' : '#94a3b8',
-                                    width: '36px',
-                                    height: '36px',
-                                    padding: '0.4rem',
-                                    borderRadius: '10px',
-                                    transition: 'all 0.2s ease',
+                                    width: '34px',
+                                    height: '34px',
+                                    padding: '0.35rem',
+                                    borderRadius: '8px',
                                     cursor: 'pointer'
                                 }}
                             >
                                 {copiedLink ? (
-                                    <span style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>✓</span>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>✓</span>
                                 ) : (
-                                    <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '1.15rem', height: '1.15rem' }}>
+                                    <svg className="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '1.1rem', height: '1.1rem' }}>
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                                     </svg>
                                 )}
@@ -736,22 +734,21 @@ function Player({ initialTrack, token }) {
                                 className="control-btn"
                                 title="Open track on YouTube (New Tab)"
                                 style={{
-                                    background: 'rgba(239, 68, 68, 0.15)',
-                                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                                    background: 'rgba(239, 68, 68, 0.12)',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
                                     color: '#ef4444',
-                                    width: '36px',
-                                    height: '36px',
-                                    padding: '0.4rem',
-                                    borderRadius: '10px',
+                                    width: '34px',
+                                    height: '34px',
+                                    padding: '0.35rem',
+                                    borderRadius: '8px',
                                     textDecoration: 'none',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    transition: 'all 0.2s ease',
                                     cursor: 'pointer'
                                 }}
                             >
-                                <svg className="icon" fill="currentColor" viewBox="0 0 24 24" style={{ width: '1.25rem', height: '1.25rem' }}>
+                                <svg className="icon" fill="currentColor" viewBox="0 0 24 24" style={{ width: '1.15rem', height: '1.15rem' }}>
                                     <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
                                 </svg>
                             </a>
@@ -770,11 +767,11 @@ function Player({ initialTrack, token }) {
                             title="View Up Next & JIT Buffered Queue"
                             style={{
                                 background: showQueue ? 'rgba(52, 211, 153, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                                border: showQueue ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.15)',
+                                border: showQueue ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.12)',
                                 color: showQueue ? '#34d399' : '#94a3b8',
                                 borderRadius: '8px',
-                                padding: '0.4rem 0.75rem',
-                                fontSize: '0.8rem',
+                                padding: '0.4rem 0.65rem',
+                                fontSize: '0.78rem',
                                 fontWeight: '600',
                                 cursor: 'pointer',
                                 display: 'flex',
@@ -786,8 +783,8 @@ function Player({ initialTrack, token }) {
                             <span style={{
                                 background: (sessionState.queue || []).length > 0 ? 'rgba(52, 211, 153, 0.3)' : 'rgba(255, 255, 255, 0.1)',
                                 borderRadius: '9999px',
-                                padding: '0.1rem 0.45rem',
-                                fontSize: '0.72rem',
+                                padding: '0.05rem 0.4rem',
+                                fontSize: '0.7rem',
                                 color: (sessionState.queue || []).length > 0 ? '#34d399' : '#94a3b8'
                             }}>
                                 {(sessionState.queue || []).length}
@@ -796,15 +793,8 @@ function Player({ initialTrack, token }) {
                     </div>
                 </div>
 
-                {/* INTERACTIVE PROGRESS BAR & SCRUBBER */}
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    width: '100%',
-                    paddingTop: '0.25rem',
-                    borderTop: '1px solid rgba(255, 255, 255, 0.05)'
-                }}>
+                {/* ROW B: INTERACTIVE PROGRESS BAR & SCRUBBER */}
+                <div className="player-scrubber-row">
                     <span style={{
                         fontSize: '0.72rem',
                         color: '#94a3b8',
@@ -850,15 +840,13 @@ function Player({ initialTrack, token }) {
                 </div>
             </div>
 
-            {/* UP NEXT & JIT BUFFERED QUEUE TRAY */}
+            {/* 3. UP NEXT & JIT BUFFERED QUEUE TRAY */}
             {showQueue && (
                 <div className="fade-in" style={{
-                    background: 'rgba(15, 23, 42, 0.95)',
-                    border: '1px solid rgba(52, 211, 153, 0.3)',
-                    borderRadius: '12px',
-                    padding: '0.85rem 1.25rem',
-                    marginTop: '0.5rem',
-                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)'
+                    background: 'rgba(0, 0, 0, 0.25)',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                    padding: '0.85rem 1.5rem',
+                    boxShadow: 'inset 0 4px 12px rgba(0, 0, 0, 0.3)'
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
                         <h4 style={{ margin: 0, fontSize: '0.88rem', color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -934,22 +922,10 @@ function Player({ initialTrack, token }) {
                 </div>
             )}
 
-            {/* REAL-TIME SESSION STEERING CONTROLS */}
-            <div style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                background: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '12px',
-                padding: '0.75rem 1.25rem',
-                marginTop: '0.75rem',
-                gap: '1rem',
-                fontSize: '0.85rem'
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: '220px' }}>
-                    <span style={{ color: '#94a3b8' }}>⚡ Energy:</span>
+            {/* 4. REAL-TIME SESSION STEERING CONTROLS */}
+            <div className="player-steering-panel">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: '200px', flex: '1 1 200px' }}>
+                    <span style={{ color: '#94a3b8', whiteSpace: 'nowrap' }}>⚡ Energy:</span>
                     <input
                         type="range"
                         min="0"
@@ -962,7 +938,7 @@ function Player({ initialTrack, token }) {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ color: '#94a3b8' }}>🎤 Vocals:</span>
+                    <span style={{ color: '#94a3b8', whiteSpace: 'nowrap' }}>🎤 Vocals:</span>
                     {['any', 'instrumental', 'vocal'].map(mode => (
                         <button
                             key={mode}
@@ -983,7 +959,7 @@ function Player({ initialTrack, token }) {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ color: '#94a3b8' }}>🧭 Discovery:</span>
+                    <span style={{ color: '#94a3b8', whiteSpace: 'nowrap' }}>🧭 Discovery:</span>
                     <div style={{ display: 'flex', gap: '0.25rem' }}>
                         {[
                             { label: 'Familiar', val: 0.2 },
