@@ -6,25 +6,6 @@ This document tracks the technical specifications, development milestones, and b
 
 ## 🏛️ Development Milestones & Feature History
 
-```mermaid
-flowchart TD
-    M1[M1: OAuth & Legacy Search] --> M2[M2: 44.8k Local Scan]
-    M2 --> M3[M3: Schema v2 & Catalog Split]
-    M3 --> M4[M4: Anti-Drift State Machine]
-    M4 --> M5[M5: 115-Node Taxonomy]
-    M5 --> M6[M6: MusicBrainz Multi-Genre]
-    M6 --> M7[M7: Zero-Quota Scraper]
-    M7 --> M8[M8: Sonic Calibration UI]
-    M8 --> M9[M9: Catalog Expansion & Caps v0.5.3]
-    M9 --> M10[M10: Deduplicated Scanner v0.5.5]
-    M10 --> M11[M11: JIT Organic Discovery v0.5.6]
-    M11 --> M12[M12: Local Favorites Pane v0.5.7]
-    M12 --> M13[M13: Audio Watchdog & Firewall v0.5.8]
-    M13 --> M14[M14: Back History & Scrubber v0.5.9]
-```
-
----
-
 ### Milestone 1: YouTube OAuth & Foundation Discovery (v0.1.0)
 * **OAuth 2.0 User Auth:** Implicit/AuthCode flow targeting Google Identity and YouTube Data API v3 (`auth.js`).
 * **Profile & Playlist Sync:** Fetched user name, avatar, and existing public/private YouTube playlists for quick start.
