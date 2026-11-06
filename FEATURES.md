@@ -147,12 +147,90 @@ This document tracks the technical specifications, development milestones, and b
 
 ---
 
+### Milestone 16: Airy Dashboard Architecture & Anti-Stagnation Engine (v0.6.0)
+* **Airy Headspace Interface:** Removed obsolete and cluttered Active Anchors banner from the main landing view, opening up vertical breathing room and centering user focus purely on playback and mood.
+* **Segmented Floating Vibe Deck:** Replaced rigid 4+2 wrapped buttons and 4 clunky native HTML `<select>` dropdowns with an elegant segmented glassmorphic control (`✨ Core`, `🏃 Activities`, `🎨 Nuances`, `🔮 Aesthetics`, `🎬 Cinematic`).
+* **Symmetrical & Tactile Mood Shelf:** Clean, balanced pill chips (5–7 per category) with smooth hover elevation, soft ambient glow, and an electric indigo-to-purple gradient halo on the active selection.
+* **Reactive Active Vibe Indicator:** Pulsating purple indicator dot on the category tab shows at a glance which category holds the currently playing headspace.
+* **Anti-Loop & De-Duplication Engine:**
+  - Implemented seen-artist deduplication per candidate pool to prevent artist clustering (e.g. Senmuth/Mechina repetition).
+  - Dynamic random offset sampling (`.range(randOffset, randOffset + 50)`) and Fisher-Yates array shuffling on emergency fallbacks.
+  - Satiation fatigue edge escape: 3 consecutive skips in a single genre automatically transition along harmonic graph edges to an adjacent genre cluster.
+  - Guarded reset: resetting or changing moods randomly samples from top compatible anchors and compatible subgenres.
+
+---
+
 ## 🔮 Feature Backlog (Upcoming Roadmap)
 
 ### 1. Artist Finder & Favorites ("Artist Radio")
 * **Search & Autocomplete:** Search for any artist across the 44.8k archive and 4.3k verified catalog.
 * **Artist Profile View:** View an artist's MusicBrainz tags, biography, discography in the library, and primary genres.
 * **Favorite Toggle & Radio Seed:** Star an artist to increase their base affinity weight in the state machine or launch an instant station seeded from their sound.
+
+### 2. Behavioral Specification & Acoustic Engine for Headspace Pills ("The Vibe Engine")
+Establish formal acoustic parameter vectors, steering constraints, and dynamic catalog filtering for each of the 5 categories and 30 mood pills so they actively sculpt playback rather than serving solely as genre labels.
+
+#### A. Architecture & Parameter Dimensions
+Each pill defines a multi-dimensional acoustic steering vector that modifies the Session State Machine:
+1. **Target Energy ($E \in [0.0, 1.0]$):** Governs perceived intensity, tempo (BPM), percussion aggression, and dynamic loudness.
+2. **Target Valence ($V \in [0.0, 1.0]$):** Governs musical positiveness and harmonic mode (minor/dissonant vs major/consonant).
+3. **Vocal Policy:**
+   - `instrumental_strict`: 100% instrumental (essential for deep study, sleep, dark ambient).
+   - `instrumental_preferred`: Relaxes to instrumental if available, allows low-density vocal textures.
+   - `vocal_prominent`: Prioritizes lyrics, singalong hooks, and vocal delivery (pop, rap, soul, indie).
+   - `any`: Balanced distribution.
+4. **Timbre & Texture Bias:**
+   - `acoustic`: Natural acoustic instruments (strings, piano, upright bass, acoustic guitar, brass).
+   - `synthetic`: Synthesizers, modular pads, drum machines, 808s, futuristic sound design.
+   - `electric / distorted`: Overdriven guitars, tube amps, analog fuzz, aggressive edge.
+   - `hybrid`: Seamless fusion of organic and electronic elements.
+5. **Harmonic Hop Constriction ($H \in \{1, 2, \infty\}$):**
+   - $H=1$ (Tight): Restricts transitions strictly to 1-hop direct neighbors in `TASTE_GRAPH_EDGES`.
+   - $H=2$ (Organic): Allows harmonic exploration across 2-hop clusters.
+   - $H=\infty$ (Free): Traverses any node in the category cluster that respects dealbreakers.
+6. **Fatigue & Dwell Multiplier:** Modulates how quickly a user fatigues of a genre node (e.g. *Party* fatigues fast to keep rotation lively; *Ambient* has low fatigue to sustain deep immersion).
+
+#### B. Complete Headspace Behavioral Matrix (30 Pills)
+
+##### 1. ✨ Core Headspaces (Foundational Emotions)
+* **😊 Happy:** $E: 0.65 - 0.85$ | $V: 0.75 - 1.00$ | Vocals: `vocal_prominent` | Timbre: `hybrid` | Genres: *Pop, Funk, Neo-Soul, Disco, Uplifting Indie, Dance-Pop*. High danceability, infectious hooks, major-key harmony.
+* **😢 Sad:** $E: 0.15 - 0.40$ | $V: 0.05 - 0.30$ | Vocals: `any` | Timbre: `acoustic` | Genres: *Indie Folk, Melancholic Ballads, Slow Blues, Emo, Chamber Pop*. Intimate vocals, minor/dorian scales, acoustic guitar, felt piano.
+* **🧘 Chill:** $E: 0.30 - 0.50$ | $V: 0.45 - 0.65$ | Vocals: `any` | Timbre: `hybrid` | Genres: *Lofi Hip-Hop, Downtempo, Smooth Jazz, Chillwave, Dub Reggae*. Mid-tempo groove, warm low-end, relaxed laid-back swing.
+* **⚡ Energetic:** $E: 0.80 - 1.00$ | $V: 0.50 - 0.80$ | Vocals: `any` | Timbre: `electric / synthetic` | Genres: *Electro House, Synthwave, Hard Rock, Drum & Bass, Hype Trap*. High BPM (128–174), punchy transients, driving rhythm sections.
+* **🧠 Focus:** $E: 0.30 - 0.50$ | $V: 0.40 - 0.60$ | Vocals: `instrumental_strict` | Timbre: `hybrid` | Genres: *Neoclassical, Minimalist Ambient, Lofi Beats, IDM*. Zero vocal distractions, steady unvarying tempo, cognitive flow optimization.
+* **🎉 Party:** $E: 0.75 - 0.95$ | $V: 0.70 - 0.90$ | Vocals: `vocal_prominent` | Timbre: `synthetic` | Genres: *Hip-Hop/Rap, Dancehall, Tech House, Latin Pop, Nu-Disco*. Heavy kick drums, call-and-response hooks, crowd-energizing pacing.
+
+##### 2. 🏃 Activities (Functional Contexts)
+* **🌅 Morning Boost:** $E: 0.50 \rightarrow 0.70$ (ascending curve) | $V: 0.65 - 0.85$ | Vocals: `any` | Genres: *Morning Indie, Bossa Nova, Motown Soul, Acoustic Pop*. Awakening tempo, bright acoustic textures, sunrise optimism.
+* **📚 Study:** $E: 0.25 - 0.45$ | $V: 0.40 - 0.60$ | Vocals: `instrumental_strict` | Genres: *Ambient Piano, Chillhop, Modular Synth Drones, Neoclassical*. Low dynamic variance, non-intrusive frequency spectrum.
+* **💪 Workout:** $E: 0.85 - 1.00$ | $V: 0.40 - 0.75$ | Vocals: `any` | Genres: *Metalcore, Industrial, Hardstyle, Trap, Aggressive EDM*. Sustained high BPM (130–165), visceral drops, maximum workout adrenaline.
+* **🚗 Roadtrip:** $E: 0.60 - 0.80$ | $V: 0.60 - 0.85$ | Vocals: `vocal_prominent` | Genres: *Classic Rock, Americana, Heartland Rock, Indie Anthems, Funk*. Open-road motoring tempo (100–120 BPM), singalong choruses, rich dynamic storytelling.
+* **🌧️ Rainy Day:** $E: 0.20 - 0.45$ | $V: 0.25 - 0.45$ | Vocals: `any` | Genres: *Acoustic Blues, Cool Jazz, Coffeehouse Singer-Songwriter, Post-Rock*. Warm room reverb, vinyl crackle, introspective minor chords, comforting gloom.
+* **🌃 Late Night:** $E: 0.30 - 0.55$ | $V: 0.30 - 0.50$ | Vocals: `any` | Genres: *Dark Jazz, Trip-Hop, Vaporwave, Nocturnal R&B, Retrowave*. Sub-bass heavy, nocturnal neon atmosphere, smoking-room textures.
+* **🌙 Wind Down:** $E: 0.05 - 0.25$ | $V: 0.40 - 0.60$ | Vocals: `instrumental_strict` | Genres: *Weightless Ambient, Sleep Drone, Soft Harp, Delta-Wave Neoclassical*. Zero abrupt drums, time-dilated decay, parasympathetic nervous system calming.
+
+##### 3. 🎨 Nuances (Complex Emotional Micro-Climates)
+* **📼 Nostalgic:** $E: 0.40 - 0.65$ | $V: 0.45 - 0.70$ | Genres: *80s Synthpop, 70s Soft Rock, 90s Alt-Rock, Oldies Soul*. Analog tape warmth, chorused guitars, memories of bygone eras.
+* **💖 Romantic:** $E: 0.35 - 0.60$ | $V: 0.60 - 0.80$ | Genres: *Neo-Soul, Slow Jam R&B, Romantic Classical, French Chanson*. Sensual grooves, intimate breathy vocals, lush string arrangements.
+* **🥀 Melancholic:** $E: 0.20 - 0.40$ | $V: 0.10 - 0.35$ | Genres: *Slowcore, Sadcore, Cello Solos, Dark Folk, Post-Rock*. Poetic sorrow, bittersweet beauty, spacious room to feel and reflect.
+* **🌱 Hopeful:** $E: 0.50 - 0.75$ | $V: 0.70 - 0.90$ | Genres: *Cinematic Folk, Post-Rock Crescendos, Uplifting Choral, Gospel*. Gradual build from quiet solitude to soaring triumphant resolutions.
+* **🌑 Dark / Intense:** $E: 0.70 - 0.95$ | $V: 0.10 - 0.30$ | Genres: *Darksynth, Gothic Rock, Doom Metal, Industrial Techno*. High harmonic tension, minor/diminished scales, brooding psychological weight.
+* **☁️ Dreamy:** $E: 0.30 - 0.55$ | $V: 0.50 - 0.70$ | Genres: *Shoegaze, Dream Pop, Ambient Electronic, Ethereal Wave*. Washed-out reverb tails, shimmering tremolos, surreal out-of-body float.
+
+##### 4. 🔮 Aesthetics (Internet Subcultures & Timbral Trope Clusters)
+* **✨ Main Character:** $E: 0.70 - 0.85$ | $V: 0.65 - 0.85$ | Genres: *Indie Pop Anthems, Euphoric Electronic, Dynamic Art Pop*. Swelling anthems that make everyday walking feel like the climax of a movie.
+* **😈 Villain Mode:** $E: 0.70 - 0.90$ | $V: 0.20 - 0.40$ | Genres: *Dark Trap, Phonk, Midtempo Cyber-Bass, Aggressive Rap*. Menacing swagger, distorted 808s, sinister half-time grooves.
+* **🧸 Soft Vibes:** $E: 0.25 - 0.45$ | $V: 0.60 - 0.80$ | Genres: *Bedroom Pop, Cute Lofi, Indie Ukulele, Soft Acoustic*. Gentle acoustic strums, pastel aesthetics, cozy warmth.
+* **🏛️ Dark Academia:** $E: 0.35 - 0.60$ | $V: 0.30 - 0.50$ | Genres: *Baroque, Romantic Era Classical, Solo Violin, Dark Jazz*. Candlelit library atmosphere, literary romance, virtuoso chamber counterpoint.
+* **🍄 Cottagecore:** $E: 0.35 - 0.60$ | $V: 0.65 - 0.85$ | Genres: *Traditional Folk, Celtic Instrumental, Acoustic Bluegrass, Whimsical Indie*. Acoustic mandolins, wooden flutes, earthy pastoral storytelling.
+* **🤖 Cyberpunk:** $E: 0.75 - 0.95$ | $V: 0.25 - 0.50$ | Genres: *Darksynth, EBM, Industrial Cyber, Neo-Tokyo Electro*. Neon-drenched arpeggios, mechanical rhythm precision, dystopian grit.
+
+##### 5. 🎬 Cinematic (Narrative & World-Building Soundscapes)
+* **⚔️ Epic:** $E: 0.80 - 1.00$ | $V: 0.50 - 0.75$ | Genres: *Orchestral Trailer, Hybrid Symphonic, Epic Choral, Film Battle Scores*. Massive brass stabs, taiko thunder, heroic brass fanfares.
+* **🕵️ Mystery / Noir:** $E: 0.25 - 0.50$ | $V: 0.25 - 0.45$ | Genres: *Noir Jazz, Dark Ambient Strings, Suspense Underscore*. Muted trumpet cries, walking double bass in the shadows, unresolved chord tensions.
+* **🧝 Fantasy:** $E: 0.40 - 0.70$ | $V: 0.55 - 0.80$ | Genres: *Celtic Orchestral, Medieval Tavern, Enchanted Forest Ambience*. Magical harp flourishes, bodhrán pulses, mythical escapism.
+* **🛸 Sci-Fi:** $E: 0.40 - 0.70$ | $V: 0.35 - 0.60$ | Genres: *Space Ambient, Modular Electronic, Vangelis-style CS-80 Synth*. Cosmic sub-harmonics, interstellar expanse, futuristic electronic exploration.
+* **🌫️ Ambient:** $E: 0.05 - 0.30$ | $V: 0.40 - 0.60$ | Genres: *Drone, Soundscape, Generative Music, Field Recordings*. Beatless floating textures, infinite decay, pure auditory atmosphere.
 
 ### 3. Experimental: YouTube "MusicMood Favorites" Auto-Sync
 * **One-Click Favorite:** Liking a track with ❤️ can optionally append that video ID directly to a dedicated playlist titled `"MusicMood Favorites"` in the user's authentic YouTube account.
