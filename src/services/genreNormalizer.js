@@ -216,12 +216,23 @@ export const ARTIST_CANONICAL_GENRES = {
     't-bone walker': 'electric_blues',
     'gary b.b. coleman': 'soul_blues',
     'magic sam': 'chicago_blues',
+    'ray charles': 'soul_blues',
+    'albert king': 'electric_blues',
+    'buddy guy': 'electric_blues',
+    'etta james': 'soul_blues',
+    'howlin\' wolf': 'chicago_blues',
+    'john lee hooker': 'delta_blues',
 
     // Soul, Funk & R&B
     'aretha franklin': 'classic_soul',
     'donny hathaway': 'classic_soul',
     'sam cooke': 'classic_soul',
     'otis redding': 'classic_soul',
+    'marvin gaye': 'classic_soul',
+    'stevie wonder': 'classic_soul',
+    'al green': 'classic_soul',
+    'james brown': 'funk',
+    'curtis mayfield': 'classic_soul',
     'michael jackson': 'dance_pop',
     'whitney houston': 'mainstream_pop',
     'prince': 'funk',
@@ -229,7 +240,27 @@ export const ARTIST_CANONICAL_GENRES = {
     'sharon jones & the dap-kings': 'soul_funk',
     'black pumas': 'soul_funk',
     'durand jones & the indications': 'soul_funk',
-    'michael kiwanuka': 'soul_blues'
+    'michael kiwanuka': 'soul_blues',
+
+    // Hip-Hop / Rap Legends
+    'tupac': 'west_coast_rap',
+    '2pac': 'west_coast_rap',
+    'tupac shakur': 'west_coast_rap',
+    'the notorious b.i.g.': 'boom_bap',
+    'notorious b.i.g.': 'boom_bap',
+    'biggie smalls': 'boom_bap',
+    'nas': 'boom_bap',
+    'dr. dre': 'west_coast_rap',
+    'snoop dogg': 'west_coast_rap',
+    'ice cube': 'west_coast_rap',
+    'kendrick lamar': 'conscious_hiphop',
+    'j. cole': 'conscious_hiphop',
+    'a tribe called quest': 'conscious_hiphop',
+    'wu-tang clan': 'boom_bap',
+    'outkast': 'hip_hop',
+    'jay-z': 'hip_hop',
+    'kanye west': 'hip_hop',
+    'eminem': 'hip_hop'
 };
 
 // Common alias map from raw tags to canonical IDs

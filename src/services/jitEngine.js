@@ -144,17 +144,12 @@ class JitEngine {
             const node = GENRE_NODES[genreId];
             const cleanGenre = genreId.replace(/_/g, ' ');
 
-            // Build keyword search terms
+            // Build keyword search terms (preserving coherent phrases, avoiding single weak words like 'hip', 'hop', 'art')
             const searchTerms = [cleanGenre];
-            if (node?.label) searchTerms.push(node.label.toLowerCase());
-            if (cleanGenre.includes(' ')) {
-                searchTerms.push(...cleanGenre.split(' '));
-            }
-            if (node?.group) {
-                searchTerms.push(node.group.toLowerCase());
-            }
+            if (node?.label) searchTerms.push(node.label.toLowerCase().replace(/\s*\(.*\)/, ''));
+            if (node?.group) searchTerms.push(node.group.toLowerCase());
 
-            const uniqueTerms = Array.from(new Set(searchTerms.filter(t => t && t.length > 2)));
+            const uniqueTerms = Array.from(new Set(searchTerms.filter(t => t && t.length >= 4)));
             const orClause = uniqueTerms.map(t => `genre.ilike.%${t}%`).join(',');
 
             // Random offset sampling to explore across the entire 44k archive
@@ -219,6 +214,11 @@ class JitEngine {
                 // Normalize canonical genre
                 const canonicalGenre = normalizeGenre(c.genre, healedArtist, healedTitle, genreId) || genreId;
 
+                // Group Compatibility Guard: prevent mismatched candidates (e.g. Blues tagged Hip-Hop) from polluting active queue
+                const candidateGroup = GENRE_NODES[canonicalGenre]?.group;
+                const targetGroup = GENRE_NODES[genreId]?.group;
+                const isGroupCompatible = (canonicalGenre === genreId) || (candidateGroup && targetGroup && candidateGroup === targetGroup);
+
                 // Check if videoId already exists in tracks
                 const { data: existVid } = await supabase
                     .from('tracks')
@@ -236,6 +236,10 @@ class JitEngine {
                 }
 
                 // Insert into public.tracks (Catalog grows organically!)
+                const secondaryGenres = isGroupCompatible
+                    ? Array.from(new Set([canonicalGenre, genreId]))
+                    : [canonicalGenre];
+
                 const { data: inserted, error: insErr } = await supabase
                     .from('tracks')
                     .insert({
@@ -243,7 +247,7 @@ class JitEngine {
                         title: healedTitle,
                         artist: healedArtist,
                         primary_genre_id: canonicalGenre,
-                        secondary_genre_ids: Array.from(new Set([canonicalGenre, genreId])),
+                        secondary_genre_ids: secondaryGenres,
                         source: 'jit_local_archive'
                     })
                     .select()
@@ -267,6 +271,12 @@ class JitEngine {
                     .eq('id', c.id);
 
                 console.log(`[JIT Organic Discovery ⚡] Added "${healedArtist} - ${healedTitle}" to catalog (${canonicalGenre}) | Source: Local Archive`);
+
+                // If candidate belongs to a completely different group, catalog it but keep searching for active queue
+                if (!isGroupCompatible) {
+                    console.log(`[JIT Guard] Cataloged "${healedArtist} - ${healedTitle}" as ${canonicalGenre}, but skipped for active queue ${genreId} (${candidateGroup} != ${targetGroup}). Continuing search...`);
+                    continue;
+                }
 
                 return {
                     id: zqData.videoId,
@@ -325,6 +335,11 @@ class JitEngine {
                 // Normalize canonical genre
                 const canonicalGenre = normalizeGenre(rec.genre || mbTag, healedArtist, healedTitle, genreId) || genreId;
 
+                // Group Compatibility Guard
+                const candidateGroup = GENRE_NODES[canonicalGenre]?.group;
+                const targetGroup = GENRE_NODES[genreId]?.group;
+                const isGroupCompatible = (canonicalGenre === genreId) || (candidateGroup && targetGroup && candidateGroup === targetGroup);
+
                 // Check if videoId already exists in tracks
                 const { data: existVid } = await supabase
                     .from('tracks')
@@ -335,6 +350,10 @@ class JitEngine {
                 if (existVid && existVid.length > 0) continue;
 
                 // Insert into public.tracks (Catalog grows organically!)
+                const secondaryGenres = isGroupCompatible
+                    ? Array.from(new Set([canonicalGenre, genreId]))
+                    : [canonicalGenre];
+
                 const { data: inserted, error: insErr } = await supabase
                     .from('tracks')
                     .insert({
@@ -342,7 +361,7 @@ class JitEngine {
                         title: healedTitle,
                         artist: healedArtist,
                         primary_genre_id: canonicalGenre,
-                        secondary_genre_ids: Array.from(new Set([canonicalGenre, genreId])),
+                        secondary_genre_ids: secondaryGenres,
                         source: 'jit_musicbrainz'
                     })
                     .select()
@@ -357,6 +376,11 @@ class JitEngine {
                 }
 
                 console.log(`[JIT Organic Discovery ⚡] Added "${healedArtist} - ${healedTitle}" to catalog (${canonicalGenre}) | Source: MusicBrainz`);
+
+                if (!isGroupCompatible) {
+                    console.log(`[JIT Guard] Cataloged "${healedArtist} - ${healedTitle}" as ${canonicalGenre}, but skipped for active queue ${genreId} (${candidateGroup} != ${targetGroup}). Continuing search...`);
+                    continue;
+                }
 
                 return {
                     id: zqData.videoId,

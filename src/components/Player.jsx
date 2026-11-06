@@ -40,7 +40,8 @@ function loadYouTubeIframeApi() {
 
 function Player({ initialTrack, token }) {
     const [currentTrack, setCurrentTrack] = useState(initialTrack);
-    const [isPlaying, setIsPlaying] = useState(true);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [isBuffering, setIsBuffering] = useState(false);
     const [isSteering, setIsSteering] = useState(false);
     const [errorMessage, setErrorMessage] = useState(null);
     const [sessionState, setSessionState] = useState(() => sessionEngine.getState());
@@ -52,6 +53,14 @@ function Player({ initialTrack, token }) {
     const isPlayerReadyRef = useRef(false);
     const isTransitioningRef = useRef(false);
     const currentTrackRef = useRef(initialTrack);
+    const watchdogTimerRef = useRef(null);
+
+    const clearWatchdog = () => {
+        if (watchdogTimerRef.current) {
+            clearTimeout(watchdogTimerRef.current);
+            watchdogTimerRef.current = null;
+        }
+    };
 
     const videoId = currentTrack?.id || currentTrack?.youtube_video_id;
     const youtubeUrl = videoId && videoId.length === 11 ? `https://www.youtube.com/watch?v=${videoId}` : null;
@@ -101,11 +110,11 @@ function Player({ initialTrack, token }) {
         loadYouTubeIframeApi().then((YT) => {
             if (!isMounted || playerRef.current) return;
 
-            console.log('[HardenedPlayer] Initializing persistent player on https://www.youtube-nocookie.com...');
+            console.log('[HardenedPlayer] Initializing persistent player on https://www.youtube.com...');
             playerRef.current = new YT.Player('musicmood-persistent-player', {
-                height: '0',
-                width: '0',
-                host: 'https://www.youtube-nocookie.com', // Bypass tracking & 429 bot filters
+                height: '240',
+                width: '240',
+                host: 'https://www.youtube.com', // Standard YouTube domain guarantees session audio stream negotiation
                 videoId: currentTrackRef.current?.id || '',
                 playerVars: {
                     autoplay: 1,
@@ -119,31 +128,52 @@ function Player({ initialTrack, token }) {
                     onReady: (event) => {
                         console.log('[HardenedPlayer] YouTube Player Ready & Locked.');
                         isPlayerReadyRef.current = true;
-                        event.target.unMute();
-                        event.target.setVolume(100);
+                        try {
+                            event.target.unMute();
+                            event.target.setVolume(100);
+                        } catch (e) {}
                         if (currentTrackRef.current?.id) {
-                            event.target.playVideo();
-                            setIsPlaying(true);
+                            playTrackImmediately(currentTrackRef.current);
                         }
                     },
                     onStateChange: (event) => {
-                        // 0: ENDED, 1: PLAYING, 2: PAUSED, 3: BUFFERING
+                        // 0: ENDED, 1: PLAYING, 2: PAUSED, 3: BUFFERING, 5: CUED, -1: UNSTARTED
                         if (event.data === 1) {
+                            clearWatchdog();
+                            setIsBuffering(false);
                             setIsPlaying(true);
                             setErrorMessage(null);
+                            try {
+                                if (event.target.isMuted()) event.target.unMute();
+                                event.target.setVolume(100);
+                            } catch (e) {}
                         }
                         if (event.data === 2) {
+                            setIsBuffering(false);
                             setIsPlaying(false);
+                        }
+                        if (event.data === 3) {
+                            setIsBuffering(true);
+                        }
+                        if (event.data === 5 || event.data === -1) {
+                            // Aggressively trigger playback if YouTube put track in CUED or UNSTARTED state
+                            try {
+                                event.target.unMute();
+                                event.target.setVolume(100);
+                                event.target.playVideo();
+                            } catch (e) {}
                         }
 
                         // When track naturally ends, trigger state machine transition
                         if (event.data === 0 && !isTransitioningRef.current) {
+                            clearWatchdog();
                             console.log('[HardenedPlayer] Track ended naturally. Auto-transitioning...');
                             sessionEngine.onTrackCompleted(currentTrackRef.current);
                             loadNextTrack(false);
                         }
                     },
                     onError: async (event) => {
+                        clearWatchdog();
                         // Error codes:
                         // 2: Invalid parameter
                         // 5: HTML5 player error
@@ -194,6 +224,7 @@ function Player({ initialTrack, token }) {
 
         return () => {
             isMounted = false;
+            clearWatchdog();
             // NOTE: We deliberately do NOT destroy the player on unmount
             // to maintain instance persistence and prevent 429s across re-renders!
         };
@@ -207,21 +238,68 @@ function Player({ initialTrack, token }) {
     }, [initialTrack]);
 
     const playTrackImmediately = (track) => {
+        if (!track || !track.id) return;
+        clearWatchdog();
         setCurrentTrack(track);
         setErrorMessage(null);
+        setIsBuffering(true);
+        setIsPlaying(false);
 
         if (playerRef.current && isPlayerReadyRef.current && typeof playerRef.current.loadVideoById === 'function') {
             console.log(`[HardenedPlayer] Loading video ID via persistent player: ${track.id} (${track.title})`);
+            try {
+                if (typeof playerRef.current.unMute === 'function') playerRef.current.unMute();
+                if (typeof playerRef.current.setVolume === 'function') playerRef.current.setVolume(100);
+            } catch (e) {
+                console.warn('[HardenedPlayer] Volume/unmute exception:', e);
+            }
+
             playerRef.current.loadVideoById({
                 videoId: track.id,
                 startSeconds: 0
             });
             playerRef.current.playVideo();
-            setIsPlaying(true);
+
+            // 6-Second Silence / Stalled Stream Watchdog
+            watchdogTimerRef.current = setTimeout(async () => {
+                let isAudioMoving = false;
+                try {
+                    const pState = playerRef.current?.getPlayerState?.();
+                    const pTime = playerRef.current?.getCurrentTime?.();
+                    // State 1 is PLAYING and audio progress has moved
+                    if (pState === 1 && pTime > 0) {
+                        isAudioMoving = true;
+                    }
+                } catch (e) {}
+
+                if (!isAudioMoving) {
+                    console.warn(`[Watchdog ⏱️] Track ${track.id} (${track.title}) stalled or silent after 6s. Auto-recovering...`);
+                    // Purge stalled/dead video from catalog so it never plays again
+                    try {
+                        if (track.dbId) {
+                            await supabase.from('tracks').delete().eq('id', track.dbId);
+                        } else if (track.id) {
+                            await supabase.from('tracks').delete().eq('youtube_video_id', track.id);
+                        }
+                    } catch (e) {
+                        console.warn('[Watchdog] Purge warning:', e);
+                    }
+
+                    // Blacklist in recent session tracks
+                    if (track.id) {
+                        sessionEngine.state.recentTracks.push(track.id);
+                        sessionEngine.queue = (sessionEngine.queue || []).filter(t => t.id !== track.id && t.youtube_video_id !== track.id);
+                    }
+
+                    setErrorMessage(`Silent or stalled stream on "${track.title}". Auto-advancing...`);
+                    loadNextTrack(false);
+                }
+            }, 6000);
         }
     };
 
     const loadNextTrack = async (isSkip = false) => {
+        clearWatchdog();
         if (isTransitioningRef.current) return;
         isTransitioningRef.current = true;
         setIsSteering(true);
@@ -381,8 +459,8 @@ function Player({ initialTrack, token }) {
 
                     <div className="player-text">
                         <span className="player-status">
-                            {isSteering ? 'Traversing Graph...' : isPlaying ? 'Now Playing' : 'Paused'}
-                            {isPlaying && !isSteering && (
+                            {isSteering ? 'Traversing Graph...' : isBuffering ? 'Buffering Audio...' : isPlaying ? 'Now Playing' : 'Paused'}
+                            {isPlaying && !isSteering && !isBuffering && (
                                 <span className="visualizer">
                                     <span className="bar" />
                                     <span className="bar" />
@@ -748,8 +826,8 @@ function Player({ initialTrack, token }) {
                 </div>
             </div>
 
-            {/* STRICTLY PERSISTENT INVISIBLE YOUTUBE IFRAME DOM TARGET */}
-            <div style={{ position: 'absolute', width: '1px', height: '1px', opacity: 0.01, pointerEvents: 'none', overflow: 'hidden' }}>
+            {/* STRICTLY PERSISTENT OFF-SCREEN YOUTUBE IFRAME DOM TARGET */}
+            <div style={{ position: 'fixed', bottom: '-9999px', left: '-9999px', width: '240px', height: '240px', opacity: 1, pointerEvents: 'none', zIndex: -100 }}>
                 <div id="musicmood-persistent-player"></div>
             </div>
         </div>
