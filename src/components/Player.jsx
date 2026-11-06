@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
+import { supabase } from '../services/supabaseService';
 import { sessionEngine } from '../services/sessionStateMachine';
 import { GENRE_NODES } from '../services/tasteGraph';
 import { jitEngine } from '../services/jitEngine';
+import { isFavorite, toggleFavorite, subscribeFavorites } from '../services/favoritesService';
 
 /**
  * Loads the YouTube IFrame API script exactly once across the application lifecycle.
@@ -44,6 +46,7 @@ function Player({ initialTrack, token }) {
     const [sessionState, setSessionState] = useState(() => sessionEngine.getState());
     const [copiedLink, setCopiedLink] = useState(false);
     const [showQueue, setShowQueue] = useState(false);
+    const [isCurrentFav, setIsCurrentFav] = useState(() => isFavorite(initialTrack));
 
     const playerRef = useRef(null);
     const isPlayerReadyRef = useRef(false);
@@ -63,10 +66,19 @@ function Player({ initialTrack, token }) {
         });
     };
 
-    // Keep ref in sync
+    // Keep ref and favorite status in sync
     useEffect(() => {
         currentTrackRef.current = currentTrack;
+        setIsCurrentFav(isFavorite(currentTrack));
     }, [currentTrack]);
+
+    // Keep favorite status in sync with external changes
+    useEffect(() => {
+        const unsub = subscribeFavorites(() => {
+            setIsCurrentFav(isFavorite(currentTrackRef.current));
+        });
+        return unsub;
+    }, []);
 
     // Subscribe to state machine updates
     useEffect(() => {
@@ -131,7 +143,7 @@ function Player({ initialTrack, token }) {
                             loadNextTrack(false);
                         }
                     },
-                    onError: (event) => {
+                    onError: async (event) => {
                         // Error codes:
                         // 2: Invalid parameter
                         // 5: HTML5 player error
@@ -140,18 +152,41 @@ function Player({ initialTrack, token }) {
                         const code = event.data;
                         console.warn(`[HardenedPlayer] YouTube playback error code: ${code}`);
 
+                        const failedTrack = currentTrackRef.current;
+                        const failedVideoId = failedTrack?.id || failedTrack?.youtube_video_id;
+
+                        // 1. Blacklist in current session state so it is never re-queued
+                        if (failedVideoId) {
+                            sessionEngine.state.recentTracks.push(failedVideoId);
+                            sessionEngine.queue = (sessionEngine.queue || []).filter(t => t.id !== failedVideoId && t.youtube_video_id !== failedVideoId);
+                        }
+
+                        // 2. Automated Self-Healing: Purge unplayable video from Supabase tracks catalog
+                        if (failedTrack?.dbId || failedVideoId) {
+                            try {
+                                console.warn(`[SelfHealing] Purging unplayable video from catalog: ${failedVideoId} (code ${code})`);
+                                if (failedTrack?.dbId) {
+                                    await supabase.from('tracks').delete().eq('id', failedTrack.dbId);
+                                } else if (failedVideoId) {
+                                    await supabase.from('tracks').delete().eq('youtube_video_id', failedVideoId);
+                                }
+                            } catch (e) {
+                                console.warn('[SelfHealing] Non-fatal purge warning:', e.message);
+                            }
+                        }
+
                         let msg = 'Track playback error.';
                         if (code === 101 || code === 150) {
-                            msg = 'Embedding restricted by owner. Auto-skipping to next track...';
+                            msg = 'Embedding restricted by owner. Auto-healed & skipping to next track...';
                         } else if (code === 100) {
-                            msg = 'Video unavailable. Auto-skipping to next track...';
+                            msg = 'Video unavailable. Auto-healed & skipping to next track...';
                         }
                         setErrorMessage(msg);
 
                         // Seamlessly skip to next track without crashing or destroying the player
                         setTimeout(() => {
                             loadNextTrack(false);
-                        }, 1200);
+                        }, 800);
                     }
                 }
             });
@@ -228,6 +263,10 @@ function Player({ initialTrack, token }) {
 
     const handleLike = () => {
         sessionEngine.onLike(currentTrackRef.current);
+        if (currentTrackRef.current) {
+            const nextFav = toggleFavorite(currentTrackRef.current);
+            setIsCurrentFav(nextFav);
+        }
     };
 
     const handleGenreChange = async (newGenre) => {
@@ -380,14 +419,20 @@ function Player({ initialTrack, token }) {
                 </div>
 
                 <div className="player-controls" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    {/* More Like This (Heart) */}
+                    {/* More Like This (Heart / Favorite) */}
                     <button
                         className="control-btn"
                         onClick={handleLike}
-                        title="More Like This (Subtle affinity nudge, capped to avoid echo chamber)"
-                        style={{ background: 'rgba(236, 72, 153, 0.15)', borderColor: '#ec4899' }}
+                        title={isCurrentFav ? "Favorited! (Click to remove from favorites)" : "Save to Favorites ❤️ (and subtle affinity nudge)"}
+                        style={{
+                            background: isCurrentFav ? 'rgba(236, 72, 153, 0.35)' : 'rgba(236, 72, 153, 0.12)',
+                            borderColor: isCurrentFav ? '#ec4899' : 'rgba(236, 72, 153, 0.4)',
+                            boxShadow: isCurrentFav ? '0 0 12px rgba(236, 72, 153, 0.4)' : 'none',
+                            transform: isCurrentFav ? 'scale(1.05)' : 'scale(1)',
+                            transition: 'all 0.2s ease'
+                        }}
                     >
-                        ❤️
+                        {isCurrentFav ? '❤️' : '🤍'}
                     </button>
 
                     {/* Dislike / Not Music (Downvote) */}

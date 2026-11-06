@@ -287,7 +287,10 @@ async function resolveViaInnertube(cleanArtist, cleanTitle, isNumericArtist) {
           const item = obj.musicResponsiveListItemRenderer;
           const flexCols = item.flexColumns || [];
           const title = flexCols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || '';
-          const author = flexCols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || '';
+          const authorRuns = flexCols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+          const author = authorRuns
+            .map(r => (r.text || '').trim())
+            .filter(t => t && !/^(song|video|album|artist|single|ep|•|·|\s*)$/i.test(t))[0] || '';
           const videoId = item.playlistItemData?.videoId || item.doubleTapCommand?.watchEndpoint?.videoId;
           if (videoId && videoId.length === 11) candidates.push({ videoId, title, author });
         }

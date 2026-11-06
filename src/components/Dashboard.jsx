@@ -10,6 +10,8 @@ import Player from './Player';
 import MoodHistory from './MoodHistory';
 import OnboardingWizard from './OnboardingWizard';
 import JitFeedModal from './JitFeedModal';
+import FavoritesPane from './FavoritesPane';
+import { getFavoritesCount, subscribeFavorites } from '../services/favoritesService';
 
 function Dashboard({ token, onLogout }) {
     const [profile, setProfile] = useState(null);
@@ -19,6 +21,8 @@ function Dashboard({ token, onLogout }) {
 
     const [selectedMood, setSelectedMood] = useState('focus');
     const [showPlaylists, setShowPlaylists] = useState(false);
+    const [showFavorites, setShowFavorites] = useState(false);
+    const [favoritesCount, setFavoritesCount] = useState(() => getFavoritesCount());
     const [showWizard, setShowWizard] = useState(() => !localStorage.getItem('musicMood_user_calibration'));
     const [showVisualGraph, setShowVisualGraph] = useState(false);
     const [showJitFeed, setShowJitFeed] = useState(false);
@@ -90,6 +94,14 @@ function Dashboard({ token, onLogout }) {
             clearInterval(interval);
             window.removeEventListener('focus', fetchStatus);
         };
+    }, []);
+
+    // Subscribe to favorites count
+    useEffect(() => {
+        const unsub = subscribeFavorites((favs) => {
+            setFavoritesCount(favs.length);
+        });
+        return unsub;
     }, []);
 
     // Subscribe to state machine to keep calibration, counts, and history in sync
@@ -243,6 +255,30 @@ function Dashboard({ token, onLogout }) {
                     >
                         📥 Ingest YouTube Playlists
                     </button>
+                    <button
+                        className="btn-text"
+                        onClick={() => setShowFavorites(!showFavorites)}
+                        style={{
+                            color: showFavorites ? '#ec4899' : (favoritesCount > 0 ? '#f472b6' : '#94a3b8'),
+                            fontWeight: showFavorites ? 'bold' : 'normal',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem'
+                        }}
+                    >
+                        ❤️ Favorites {favoritesCount > 0 && (
+                            <span style={{
+                                background: 'rgba(236, 72, 153, 0.2)',
+                                border: '1px solid rgba(236, 72, 153, 0.4)',
+                                borderRadius: '9999px',
+                                padding: '0.05rem 0.45rem',
+                                fontSize: '0.75rem',
+                                color: '#fbcfe8'
+                            }}>
+                                {favoritesCount}
+                            </span>
+                        )}
+                    </button>
                     <button className="btn-text" onClick={onLogout}>Sign Out</button>
                 </div>
             </header>
@@ -264,6 +300,17 @@ function Dashboard({ token, onLogout }) {
                         onSave={(profileData) => {
                             setShowVisualGraph(false);
                         }}
+                    />
+                )}
+
+                {/* FAVORITES PANE */}
+                {showFavorites && (
+                    <FavoritesPane
+                        onPlayTrack={(track) => {
+                            setActiveTrack(track);
+                            sessionEngine.commitTrack(track);
+                        }}
+                        onClose={() => setShowFavorites(false)}
                     />
                 )}
 
@@ -300,12 +347,17 @@ function Dashboard({ token, onLogout }) {
                     </div>
                 )}
 
-                <h1 className="mood-prompt fade-in-up" style={{ marginTop: '2rem' }}>
-                    What headspace do you want right now?
-                </h1>
-                <p className="subtitle" style={{ marginBottom: '1.5rem', fontSize: '0.95rem' }}>
-                    Select a state below. The <strong>Anti-Drift Engine</strong> ensures your music never wanders into generic algorithms.
-                </p>
+                <div className="fade-in" style={{ margin: '1.25rem auto 1rem', textAlign: 'center' }}>
+                    <h3 style={{
+                        fontSize: '1.2rem',
+                        fontWeight: '600',
+                        color: '#e2e8f0',
+                        margin: 0,
+                        letterSpacing: '-0.01em'
+                    }}>
+                        What headspace do you want right now?
+                    </h3>
+                </div>
 
                 <MoodBar selectedMood={selectedMood} onSelectMood={handleMoodSelect} />
 

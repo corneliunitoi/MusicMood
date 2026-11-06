@@ -213,6 +213,9 @@ class JitEngine {
                 const healedArtist = zqData.artist || c.artist;
                 const healedTitle = zqData.title || c.track_name;
 
+                const healedCheck = isSongCandidate({ title: healedTitle, artist: healedArtist });
+                if (!healedCheck.pass) continue;
+
                 // Normalize canonical genre
                 const canonicalGenre = normalizeGenre(c.genre, healedArtist, healedTitle, genreId) || genreId;
 
