@@ -550,12 +550,13 @@ h1 {
 }
 
 .player-channel {
-  font-size: 0.75rem;
-  color: #94a3b8;
-  margin: 0.25rem 0 0 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 0.8rem;
+  color: #cbd5e1;
+  margin: 0.2rem 0 0 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 }
 
 .player-status {

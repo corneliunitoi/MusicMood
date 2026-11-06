@@ -556,14 +556,14 @@ function Player({ initialTrack, token }) {
                     gap: '1rem',
                     flexWrap: 'wrap'
                 }}>
-                    <div className="player-info">
+                    <div className="player-info" style={{ minWidth: '220px' }}>
                         {currentTrack?.thumbnail ? (
                             <img src={currentTrack.thumbnail} alt={currentTrack.title} className="player-thumbnail" referrerPolicy="no-referrer" />
                         ) : (
                             <div className="player-thumbnail-placeholder" />
                         )}
 
-                        <div className="player-text">
+                        <div className="player-text" style={{ minWidth: 0, flex: 1 }}>
                             <span className="player-status">
                                 {isSteering ? 'Traversing Graph...' : isBuffering ? 'Buffering Audio...' : isPlaying ? 'Now Playing' : 'Paused'}
                                 {isPlaying && !isSteering && !isBuffering && (
@@ -574,7 +574,7 @@ function Player({ initialTrack, token }) {
                                     </span>
                                 )}
                             </span>
-                            <h3 className="player-title">
+                            <h3 className="player-title" title={currentTrack?.title || ''}>
                                 {youtubeUrl ? (
                                     <a
                                         href={youtubeUrl}
@@ -590,15 +590,26 @@ function Player({ initialTrack, token }) {
                                     currentTrack?.title || 'Loading session...'
                                 )}
                             </h3>
-                            <p className="player-channel">
-                                {currentTrack?.artist || currentTrack?.channelTitle || 'MusicMood Engine'}
+                            <div className="player-channel" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                                <span style={{
+                                    fontSize: '0.82rem',
+                                    color: '#cbd5e1',
+                                    fontWeight: '500',
+                                    letterSpacing: '0.01em'
+                                }}>
+                                    {currentTrack?.artist || sessionState?.currentTrack?.artist || currentTrack?.channelTitle || 'MusicMood Engine'}
+                                </span>
                                 {currentTrack?.source === 'local_library' && (
-                                    <span style={{ marginLeft: '0.5rem', color: '#60a5fa', fontSize: '0.75rem' }}>📁 From Your Server</span>
+                                    <span style={{ color: '#60a5fa', fontSize: '0.72rem', background: 'rgba(96, 165, 250, 0.12)', padding: '0.05rem 0.35rem', borderRadius: '4px' }}>
+                                        📁 Server
+                                    </span>
                                 )}
                                 {(currentTrack?.source?.startsWith('jit') || currentTrack?.source === 'jit_player_expansion' || currentTrack?.source === 'jit_local_archive' || currentTrack?.source === 'jit_musicbrainz') && (
-                                    <span style={{ marginLeft: '0.5rem', color: '#34d399', fontSize: '0.75rem', fontWeight: '500' }}>⚡ JIT Discovery</span>
+                                    <span style={{ color: '#34d399', fontSize: '0.72rem', fontWeight: '500', background: 'rgba(52, 211, 153, 0.12)', padding: '0.05rem 0.35rem', borderRadius: '4px' }}>
+                                        ⚡ JIT Discovery
+                                    </span>
                                 )}
-                            </p>
+                            </div>
                         </div>
                     </div>
 
