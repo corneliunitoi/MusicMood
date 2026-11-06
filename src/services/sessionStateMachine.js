@@ -259,6 +259,9 @@ class SessionStateMachine {
 
         if (moodId === 'focus' || moodId === 'study' || moodId === 'sleep') {
             this.state.vocalPreference = 'instrumental';
+        } else {
+            // Restore default vocal preference for active mood
+            this.state.vocalPreference = 'any';
         }
 
         const moodCompatible = getMoodCompatibleGenres(moodId);
@@ -278,6 +281,7 @@ class SessionStateMachine {
         }
 
         this.state.consecutiveInNode = 0;
+        this.state.consecutiveSkips = 0;
         this.queue = [];
         this.notify();
         setTimeout(() => {
@@ -390,7 +394,7 @@ class SessionStateMachine {
 
     onSkip(track) {
         if (!track) return;
-        console.log(`[StateMachine] Feedback: SKIPPED "${track.title}" by ${track.artist} (Staying in ${this.state.activeGenre})`);
+        console.log(`[StateMachine] Feedback: SKIPPED "${track.title}" by ${track.artist}`);
         this.state.skippedTracks.push(track.id);
 
         recordListenEvent({
@@ -404,16 +408,23 @@ class SessionStateMachine {
             this.state.recentArtists.push(track.artist.toLowerCase());
         }
 
-        // DO NOT change genre on a normal track skip!
-        // The user just wants a different song in the current vibe.
-        // Genre transitions only occur upon explicit user intent,
-        // negative purge (thumbs down), or natural dwell completion.
+        // Anti-Stagnation on Skip: If user skips 3 times in a row, smoothly step to next harmonic node
+        this.state.consecutiveSkips = (this.state.consecutiveSkips || 0) + 1;
+        if (this.state.consecutiveSkips >= 3) {
+            console.log(`[Anti-Stagnation 🌀] 3 consecutive skips in "${this.state.activeGenre}". Transitioning to harmonic neighbor...`);
+            this.state.consecutiveSkips = 0;
+            this.applyNodeFatigue(this.state.activeGenre);
+            this.stepToNextGenre('skip_fatigue');
+            return;
+        }
+
         this.notify();
     }
 
     onTrackCompleted(track) {
         if (!track) return;
         console.log(`[StateMachine] Feedback: COMPLETED "${track.title}"`);
+        this.state.consecutiveSkips = 0; // Reset consecutive skips on natural listen
 
         recordListenEvent({
             trackId: track.dbId || null,
@@ -449,7 +460,7 @@ class SessionStateMachine {
                 const candidate = this.queue.shift();
                 if (this.passesGuards(candidate)) {
                     this.commitTrack(candidate);
-                    jitEngine.replenishBuffer(this.state.activeGenre, this);
+                    setTimeout(() => jitEngine.replenishBuffer(this.state.activeGenre, this), 100);
                     return candidate;
                 }
             }
@@ -460,7 +471,7 @@ class SessionStateMachine {
                 // If track already has pre-mapped 11-char YouTube ID, play immediately (Zero Quota!)
                 if (libCandidate.id && this.passesGuards(libCandidate)) {
                     this.commitTrack(libCandidate);
-                    jitEngine.replenishBuffer(this.state.activeGenre, this);
+                    setTimeout(() => jitEngine.replenishBuffer(this.state.activeGenre, this), 100);
                     return libCandidate;
                 }
                 
@@ -469,37 +480,43 @@ class SessionStateMachine {
                     const resolved = await this.resolveTrackToYouTube(libCandidate, token);
                     if (resolved && this.passesGuards(resolved)) {
                         this.commitTrack(resolved);
-                        jitEngine.replenishBuffer(this.state.activeGenre, this);
+                        setTimeout(() => jitEngine.replenishBuffer(this.state.activeGenre, this), 100);
                         return resolved;
                     }
                 }
             }
 
-            // 2. JIT Organic Catalog Expansion: Pull a brand new track for this active genre
+            // 2. Fast Fallback: Instant Emergency Track from Catalog (< 200ms)
+            // Never stall the user on external web-scraping waterfalls when thousands of playable catalog tracks exist!
+            const emergencyTrack = await this.sourceEmergencyTrack();
+            if (emergencyTrack && this.passesMetadataGuards(emergencyTrack)) {
+                console.log(`[Fast-Path Sourcing ⚡] Selected catalog track: "${emergencyTrack.artist} - ${emergencyTrack.title}" (${emergencyTrack.genre})`);
+                this.commitTrack(emergencyTrack);
+                // Background asynchronous organic expansion (non-blocking!)
+                setTimeout(() => {
+                    jitEngine.pullTrackForGenre(this.state.activeGenre, this).catch(() => {});
+                    jitEngine.replenishBuffer(this.state.activeGenre, this);
+                }, 300);
+                return emergencyTrack;
+            }
+
+            // 3. JIT Organic Catalog Expansion (Fallback if catalog is truly empty)
             console.log(`[StateMachine ⚡] Catalog exhausted for "${this.state.activeGenre}". Triggering JIT Organic Expansion...`);
             const jitCandidate = await jitEngine.pullTrackForGenre(this.state.activeGenre, this);
             if (jitCandidate && this.passesGuards(jitCandidate)) {
                 this.commitTrack(jitCandidate);
-                jitEngine.replenishBuffer(this.state.activeGenre, this);
+                setTimeout(() => jitEngine.replenishBuffer(this.state.activeGenre, this), 100);
                 return jitCandidate;
             }
 
-            // 3. Targeted Anti-Drift YouTube Sourcing
+            // 4. Targeted Anti-Drift YouTube Sourcing
             if (token) {
                 const ytCandidate = await this.sourceFromYouTube(token);
                 if (ytCandidate) {
                     this.commitTrack(ytCandidate);
-                    jitEngine.replenishBuffer(this.state.activeGenre, this);
+                    setTimeout(() => jitEngine.replenishBuffer(this.state.activeGenre, this), 100);
                     return ytCandidate;
                 }
-            }
-
-            // 4. Resilient Fallback: If YouTube search was blocked/rate-limited, pick a guaranteed safe track!
-            const emergencyTrack = await this.sourceEmergencyTrack();
-            if (emergencyTrack) {
-                console.log(`[Emergency Fallback 🛡️] Played safe track: "${emergencyTrack.artist} - ${emergencyTrack.title}" (${emergencyTrack.genre})`);
-                this.commitTrack(emergencyTrack);
-                return emergencyTrack;
             }
 
             return null;
@@ -646,23 +663,39 @@ class SessionStateMachine {
             const candidateGenreIds = [activeGenreId];
             if (node?.group) {
                 const groupLower = node.group.toLowerCase();
-                const parentId = Object.keys(GENRE_FAMILIES).find(k => GENRE_FAMILIES[k].label.toLowerCase() === groupLower);
+                const parentId = Object.keys(GENRE_FAMILIES).find(k => {
+                    const l = GENRE_FAMILIES[k].label.toLowerCase();
+                    return l.includes(groupLower) || groupLower.includes(l);
+                });
                 if (parentId) candidateGenreIds.push(parentId);
             }
             const neighbors = getConnectedGenres(activeGenreId);
             candidateGenreIds.push(...neighbors);
             const candList = candidateGenreIds.join(',');
 
-            // 1. Try candidate genres first (primary + secondary)
+            // 1. Try candidate genres with randomized offset
+            const randOffset = Math.floor(Math.random() * 60);
             let { data } = await supabase
                 .from('tracks')
                 .select('*')
                 .or(`primary_genre_id.in.(${candList}),secondary_genre_ids.ov.{${candList}}`)
                 .not('youtube_video_id', 'is', null)
                 .neq('youtube_video_id', 'CORRUPT_TAGS')
-                .limit(60);
+                .range(randOffset, randOffset + 50);
 
-            // 2. If empty, fall back to any catalog track sampled with random offset
+            // 2. If empty, retry without offset
+            if (!data || data.length === 0) {
+                const res = await supabase
+                    .from('tracks')
+                    .select('*')
+                    .or(`primary_genre_id.in.(${candList}),secondary_genre_ids.ov.{${candList}}`)
+                    .not('youtube_video_id', 'is', null)
+                    .neq('youtube_video_id', 'CORRUPT_TAGS')
+                    .limit(50);
+                data = res.data;
+            }
+
+            // 3. Fall back to any catalog track sampled with random offset
             if (!data || data.length === 0) {
                 const randomOffset = Math.floor(Math.random() * 200);
                 const res = await supabase
@@ -694,25 +727,43 @@ class SessionStateMachine {
                 }
             }
 
-            // Pass B: Relax artist fatigue (just avoid playing the exact same track ID currently playing)
-            const currentVideoId = this.state.currentTrack?.id;
+            // Pass B: Relax artist fatigue but strictly avoid recent 15 tracks and recent 5 artists
+            const recentTracksSet = new Set((this.state.recentTracks || []).slice(-15));
+            const recentArtistsSet = new Set((this.state.recentArtists || []).slice(-5));
             for (const t of data) {
-                if (t.youtube_video_id && t.youtube_video_id.length === 11 && t.youtube_video_id !== currentVideoId) {
+                const vid = t.youtube_video_id;
+                const a = (t.artist || '').toLowerCase();
+                if (vid && vid.length === 11 && !recentTracksSet.has(vid) && !recentArtistsSet.has(a)) {
                     if (this.passesMetadataGuards(t)) {
                         return {
-                            id: t.youtube_video_id,
+                            id: vid,
                             dbId: t.id,
                             artist: t.artist,
                             title: t.title,
                             genre: t.primary_genre_id || this.state.activeGenre,
-                            thumbnail: `https://i.ytimg.com/vi/${t.youtube_video_id}/hqdefault.jpg`,
-                            source: 'emergency_relaxed'
+                            thumbnail: `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`,
+                            source: 'emergency_diverse'
                         };
                     }
                 }
             }
 
-            // Pass C: Last resort safe return from data[0]
+            // Pass C: Last resort safe return avoiding current video ID
+            const currentVideoId = this.state.currentTrack?.id;
+            for (const t of data) {
+                if (t.youtube_video_id && t.youtube_video_id.length === 11 && t.youtube_video_id !== currentVideoId) {
+                    return {
+                        id: t.youtube_video_id,
+                        dbId: t.id,
+                        artist: t.artist,
+                        title: t.title,
+                        genre: t.primary_genre_id || this.state.activeGenre,
+                        thumbnail: `https://i.ytimg.com/vi/${t.youtube_video_id}/hqdefault.jpg`,
+                        source: 'emergency_safe_fallback'
+                    };
+                }
+            }
+
             const fallback = data[0];
             return {
                 id: fallback.youtube_video_id,
@@ -743,12 +794,17 @@ class SessionStateMachine {
 
             const filterCandidates = (tracks, relaxArtist = false) => {
                 if (!tracks || !Array.isArray(tracks)) return [];
+                const seenArtists = new Set();
                 return tracks.filter(t => {
                     const vid = t.youtube_video_id || t.id;
                     if (!vid || vid.length !== 11) return false;
                     if (excludeSet.has(vid)) return false;
                     const a = (t.artist || '').toLowerCase();
                     if (!relaxArtist && a && recentArtistsSet.has(a)) return false;
+                    // Strict artist diversity: max 1 song per artist per candidate pool
+                    if (a && seenArtists.has(a)) return false;
+                    if (a) seenArtists.add(a);
+
                     if (!this.passesMetadataGuards(t)) return false;
                     if (this.state.vocalPreference === 'instrumental') {
                         const titleLower = (t.title || '').toLowerCase();
@@ -760,14 +816,26 @@ class SessionStateMachine {
                 });
             };
 
-            // Tier 1: Exact active subgenre in tracks table
+            // Tier 1: Exact active subgenre in tracks table (with randomized offset sampling)
+            const randOffset1 = Math.floor(Math.random() * 50);
             let { data: exactMapped } = await supabase
                 .from('tracks')
                 .select('*')
                 .or(`primary_genre_id.eq.${activeGenreId},secondary_genre_ids.cs.{${activeGenreId}}`)
                 .not('youtube_video_id', 'is', null)
                 .neq('youtube_video_id', 'CORRUPT_TAGS')
-                .limit(50);
+                .range(randOffset1, randOffset1 + 50);
+
+            if (!exactMapped || exactMapped.length === 0) {
+                const res = await supabase
+                    .from('tracks')
+                    .select('*')
+                    .or(`primary_genre_id.eq.${activeGenreId},secondary_genre_ids.cs.{${activeGenreId}}`)
+                    .not('youtube_video_id', 'is', null)
+                    .neq('youtube_video_id', 'CORRUPT_TAGS')
+                    .limit(50);
+                exactMapped = res.data;
+            }
 
             let available = filterCandidates(exactMapped);
             if (available.length === 0 && exactMapped && exactMapped.length > 0) {
@@ -777,15 +845,32 @@ class SessionStateMachine {
             // Tier 2: Parent family
             if (available.length === 0 && node?.group) {
                 const groupLower = node.group.toLowerCase();
-                const parentId = Object.keys(GENRE_FAMILIES).find(k => GENRE_FAMILIES[k].label.toLowerCase() === groupLower) || groupLower;
+                const parentId = Object.keys(GENRE_FAMILIES).find(k => {
+                    const l = GENRE_FAMILIES[k].label.toLowerCase();
+                    return l.includes(groupLower) || groupLower.includes(l);
+                }) || groupLower;
+
                 if (parentId && parentId !== activeGenreId) {
-                    const { data: familyMapped } = await supabase
+                    const randOffset2 = Math.floor(Math.random() * 50);
+                    let { data: familyMapped } = await supabase
                         .from('tracks')
                         .select('*')
                         .or(`primary_genre_id.eq.${parentId},secondary_genre_ids.cs.{${parentId}}`)
                         .not('youtube_video_id', 'is', null)
                         .neq('youtube_video_id', 'CORRUPT_TAGS')
-                        .limit(40);
+                        .range(randOffset2, randOffset2 + 50);
+
+                    if (!familyMapped || familyMapped.length === 0) {
+                        const res = await supabase
+                            .from('tracks')
+                            .select('*')
+                            .or(`primary_genre_id.eq.${parentId},secondary_genre_ids.cs.{${parentId}}`)
+                            .not('youtube_video_id', 'is', null)
+                            .neq('youtube_video_id', 'CORRUPT_TAGS')
+                            .limit(50);
+                        familyMapped = res.data;
+                    }
+
                     available = filterCandidates(familyMapped);
                     if (available.length === 0 && familyMapped && familyMapped.length > 0) {
                         available = filterCandidates(familyMapped, true);
@@ -798,13 +883,26 @@ class SessionStateMachine {
                 const neighbors = getConnectedGenres(activeGenreId).filter(g => g !== activeGenreId);
                 if (neighbors.length > 0) {
                     const neighborList = neighbors.join(',');
-                    const { data: neighborMapped } = await supabase
+                    const randOffset3 = Math.floor(Math.random() * 40);
+                    let { data: neighborMapped } = await supabase
                         .from('tracks')
                         .select('*')
                         .or(`primary_genre_id.in.(${neighborList}),secondary_genre_ids.ov.{${neighborList}}`)
                         .not('youtube_video_id', 'is', null)
                         .neq('youtube_video_id', 'CORRUPT_TAGS')
-                        .limit(40);
+                        .range(randOffset3, randOffset3 + 50);
+
+                    if (!neighborMapped || neighborMapped.length === 0) {
+                        const res = await supabase
+                            .from('tracks')
+                            .select('*')
+                            .or(`primary_genre_id.in.(${neighborList}),secondary_genre_ids.ov.{${neighborList}}`)
+                            .not('youtube_video_id', 'is', null)
+                            .neq('youtube_video_id', 'CORRUPT_TAGS')
+                            .limit(50);
+                        neighborMapped = res.data;
+                    }
+
                     available = filterCandidates(neighborMapped);
                     if (available.length === 0 && neighborMapped && neighborMapped.length > 0) {
                         available = filterCandidates(neighborMapped, true);

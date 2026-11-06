@@ -213,8 +213,17 @@ function Player({ initialTrack, token }) {
                         // When track naturally ends, trigger state machine transition
                         if (event.data === 0 && !isTransitioningRef.current) {
                             clearWatchdog();
-                            console.log('[HardenedPlayer] Track ended naturally. Auto-transitioning...');
-                            sessionEngine.onTrackCompleted(currentTrackRef.current);
+                            const curTime = event.target?.getCurrentTime?.() || 0;
+                            const totalDur = event.target?.getDuration?.() || 0;
+
+                            // Only mark completed if the user actually listened for at least 15s or 40% of duration
+                            if (curTime >= 15 || (totalDur > 0 && curTime >= totalDur * 0.4)) {
+                                console.log('[HardenedPlayer] Track ended naturally. Auto-transitioning...');
+                                sessionEngine.onTrackCompleted(currentTrackRef.current);
+                            } else {
+                                console.warn('[HardenedPlayer] Track ended prematurely (< 15s). Treating as skip...');
+                                sessionEngine.onSkip(currentTrackRef.current);
+                            }
                             loadNextTrack(false);
                         }
                     },
