@@ -599,7 +599,7 @@ export function normalizeGenre(rawGenre, artistName = '', trackTitle = '', fallb
 const STEM_PATTERNS = /\b(stem|isolated track|backing track|drum stem|bass stem|guitar stem|vocal stem|playthrough|instrumental stem)\b/i;
 const NON_MUSIC_PATTERNS = /\b(podcast|interview|audiobook|lecture|lesson|tutorial|sound effect|sfx|binaural beats|hypnosis|guided meditation|radio show|unboxing|speech)\b/i;
 const COMPILATION_PATTERNS = /\b(10 hours|1 hour|full album|complete album|entire album|best of mix|mega mix|discography)\b/i;
-const JUNK_ARTIST = /^(cd\s*[0-9]+|disc\s*[0-9]+|track\s*[0-9]+|unknown(\s*artist)?)$/i;
+const JUNK_ARTIST = /^(cd\s*[0-9]+|disc\s*[0-9]+|track\s*[0-9]+|unknown(\s*artist)?|various(\s*artists)?|song|video)$/i;
 const JUNK_TITLE = /^[0-9]+$/;
 
 export function isSongCandidate({ title, artist, durationSec }) {

@@ -2,7 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { GENRE_NODES } from '../src/services/tasteGraph.js';
-import { resolveYouTubeTrack } from './resolveVideoIds.js';
+import { isSongCandidate, normalizeGenre } from '../src/services/genreNormalizer.js';
+import { resolveYouTubeTrack, resolveInnertubeTrack } from './resolveVideoIds.js';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
@@ -12,10 +13,13 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const headers = { 'User-Agent': 'MusicMood/1.0.0 ( contact@musicmood.local )' };
 
+// Configuration
+const MAX_TRACKS_PER_ARTIST = 3; // Strict cap to guarantee artist diversity across the genre
+
 // Command Line Flags
 const args = process.argv.slice(2);
-const targetArg = args.find(a => a.startsWith('--target='));
-const TARGET_TRACKS = targetArg ? parseInt(targetArg.split('=')[1], 10) : 20;
+const batchArg = args.find(a => a.startsWith('--batch='));
+const BATCH_PER_GENRE = batchArg ? parseInt(batchArg.split('=')[1], 10) : 30;
 
 const genreArg = args.find(a => a.startsWith('--genre='));
 const SPECIFIC_GENRE = genreArg ? genreArg.split('=')[1].trim().toLowerCase() : null;
@@ -172,181 +176,185 @@ const GENRE_MB_TAGS = {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-async function fetchTopRecordingsFromMusicBrainz(genreId, tag, count = 20) {
-    const candidates = [];
+/**
+ * Async generator streaming unique MusicBrainz candidates for a genre.
+ * Strictly enforces a max of 3 candidate recordings per artist to ensure wide variety.
+ */
+async function* getMusicBrainzCandidateStream(genreId, tag) {
     const seenKeys = new Set();
     const queryTag = `tag:"${tag}"`;
+    const artistYieldCounts = {};
 
-    // 1. Fetch top canonical artists for this genre tag
-    try {
-        const artistUrl = `https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(queryTag)}&fmt=json&limit=15`;
-        const resA = await fetch(artistUrl, { headers });
-        if (resA.ok) {
-            const dataA = await resA.json();
-            const topArtists = dataA.artists || [];
+    // 1. First stream from top canonical artists (paging through multiple pages for diversity)
+    let artistOffset = 0;
+    while (artistOffset < 200) {
+        let artists = [];
+        try {
+            await sleep(1100); // 1 req/sec rate limit
+            const artistUrl = `https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(queryTag)}&fmt=json&limit=25&offset=${artistOffset}`;
+            const resA = await fetch(artistUrl, { headers });
+            if (resA.ok) {
+                const dataA = await resA.json();
+                artists = dataA.artists || [];
+            }
+        } catch (e) {
+            console.warn(`[MusicBrainz] Artist query error at offset ${artistOffset}:`, e.message);
+        }
 
-            for (const artist of topArtists) {
-                if (candidates.length >= count) break;
-                await sleep(1100); // MusicBrainz rate limit compliance
+        if (artists.length === 0) break;
 
-                const recUrl = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent('arid:' + artist.id + ' AND status:official')}&fmt=json&limit=6`;
+        for (const artist of artists) {
+            if (!artist.name || /^(various artists|unknown|track [0-9]+)$/i.test(artist.name.trim())) continue;
+            const normArtist = artist.name.trim().toLowerCase();
+            if ((artistYieldCounts[normArtist] || 0) >= MAX_TRACKS_PER_ARTIST) continue;
+
+            await sleep(1100);
+            try {
+                const recUrl = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent('arid:' + artist.id + ' AND status:official')}&fmt=json&limit=15`;
                 const resR = await fetch(recUrl, { headers });
                 if (!resR.ok) continue;
 
                 const dataR = await resR.json();
                 const recs = dataR.recordings || [];
 
-                let addedForArtist = 0;
                 for (const rec of recs) {
-                    if (candidates.length >= count || addedForArtist >= 2) break;
+                    if ((artistYieldCounts[normArtist] || 0) >= MAX_TRACKS_PER_ARTIST) break; // Max 3 per artist! Move to next artist!
                     const title = (rec.title || '').trim();
                     const dur = rec.length ? Math.round(rec.length / 1000) : 0;
 
-                    // Filter out non-song outliers
-                    if (dur < 90 || dur > 700) continue;
-                    if (/live|interview|remix|version|demo|tribute|instrumental version/i.test(title)) continue;
+                    if (dur < 75 || dur > 750) continue;
+                    if (/live|interview|remix|version|demo|tribute|karaoke/i.test(title)) continue;
+
+                    const songCheck = isSongCandidate({ title, artist: artist.name });
+                    if (!songCheck.pass) continue;
 
                     const key = `${artist.name} - ${title}`.toLowerCase();
                     if (!seenKeys.has(key)) {
                         seenKeys.add(key);
-                        candidates.push({
+                        artistYieldCounts[normArtist] = (artistYieldCounts[normArtist] || 0) + 1;
+                        yield {
                             artist: artist.name,
                             title,
                             duration: dur,
                             mbid: rec.id
-                        });
-                        addedForArtist++;
+                        };
                     }
                 }
-            }
+            } catch (e) {}
         }
-    } catch (e) {
-        console.warn(`[MusicBrainz] Error fetching artists for ${tag}:`, e.message);
+        artistOffset += 25;
     }
 
-    // 2. Direct recording search by tag if still under count
-    if (candidates.length < count) {
+    // 2. Fallback stream: Direct recording search with offset pagination
+    let recOffset = 0;
+    while (recOffset < 300) {
+        let recs = [];
         try {
             await sleep(1100);
-            const needed = count - candidates.length;
-            const recQuery = `tag:"${tag}" AND status:official`;
-            const recUrl = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(recQuery)}&fmt=json&limit=${Math.min(needed * 2, 35)}`;
+            const recUrl = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(queryTag + ' AND status:official')}&fmt=json&limit=30&offset=${recOffset}`;
             const resR = await fetch(recUrl, { headers });
             if (resR.ok) {
                 const dataR = await resR.json();
-                for (const rec of (dataR.recordings || [])) {
-                    if (candidates.length >= count) break;
-                    const artist = rec['artist-credit']?.[0]?.name;
-                    const title = (rec.title || '').trim();
-                    const dur = rec.length ? Math.round(rec.length / 1000) : 0;
-
-                    if (!artist || !title) continue;
-                    if (dur < 90 || dur > 700) continue;
-                    if (/live|interview|remix|version|demo|tribute/i.test(title)) continue;
-
-                    const key = `${artist} - ${title}`.toLowerCase();
-                    if (!seenKeys.has(key)) {
-                        seenKeys.add(key);
-                        candidates.push({
-                            artist,
-                            title,
-                            duration: dur,
-                            mbid: rec.id
-                        });
-                    }
-                }
+                recs = dataR.recordings || [];
             }
         } catch (e) {
-            console.warn(`[MusicBrainz] Error fetching direct recordings for ${tag}:`, e.message);
+            console.warn(`[MusicBrainz] Recording query error at offset ${recOffset}:`, e.message);
         }
-    }
 
-    return candidates;
+        if (recs.length === 0) break;
+
+        for (const rec of recs) {
+            const artist = rec['artist-credit']?.[0]?.name;
+            const title = (rec.title || '').trim();
+            const dur = rec.length ? Math.round(rec.length / 1000) : 0;
+
+            if (!artist || !title) continue;
+            if (/^(various artists|unknown|track [0-9]+)$/i.test(artist.trim())) continue;
+            const normArtist = artist.trim().toLowerCase();
+            if ((artistYieldCounts[normArtist] || 0) >= MAX_TRACKS_PER_ARTIST) continue; // Max 3 per artist!
+
+            if (dur < 75 || dur > 750) continue;
+            if (/live|interview|remix|version|demo|tribute|karaoke/i.test(title)) continue;
+
+            const songCheck = isSongCandidate({ title, artist });
+            if (!songCheck.pass) continue;
+
+            const key = `${artist} - ${title}`.toLowerCase();
+            if (!seenKeys.has(key)) {
+                seenKeys.add(key);
+                artistYieldCounts[normArtist] = (artistYieldCounts[normArtist] || 0) + 1;
+                yield {
+                    artist,
+                    title,
+                    duration: dur,
+                    mbid: rec.id
+                };
+            }
+        }
+        recOffset += 30;
+    }
 }
 
 async function startSeeder() {
     console.log("=================================================");
     console.log("🌱 MusicMood External Genre Seeder (MusicBrainz -> Catalog)");
     console.log("   • Authority: MetaBrainz Foundation (Popularity & Essential Tracks)");
-    console.log(`   • Target tracks per genre: ${TARGET_TRACKS}`);
+    console.log("   • Resolution: Fast Innertube JSON (~300ms) with HTML Scraper fallback");
+    console.log(`   • Target: Fetch until ${BATCH_PER_GENRE} BRAND NEW tracks added per genre`);
+    console.log(`   • Artist Variety Rule: MAX ${MAX_TRACKS_PER_ARTIST} tracks per artist (strictly enforced)`);
+    console.log("   • Enrichment Rule: If already in library, skip and fetch next (no wasted slots!)");
     if (SPECIFIC_GENRE) console.log(`   • Filter: Specific genre only ("${SPECIFIC_GENRE}")`);
     if (EMPTY_ONLY) console.log(`   • Filter: Empty genres only (0 tracks)`);
     if (LIMIT_GENRES) console.log(`   • Batch limit: ${LIMIT_GENRES} genres`);
     console.log("=================================================\n");
 
-    // 1. Audit current counts in public.tracks
-    console.log("📊 Auditing current catalog track counts across 115 taxonomy genres...");
-    const { data: trackData, error: trackError } = await supabase
-        .from('tracks')
-        .select('primary_genre_id');
-
-    if (trackError) {
-        console.error("❌ Failed to query tracks:", trackError.message);
-        return;
-    }
-
-    const currentCounts = {};
-    (trackData || []).forEach(t => {
-        const g = t.primary_genre_id;
-        if (g) currentCounts[g] = (currentCounts[g] || 0) + 1;
-    });
-
-    // 2. Select genres needing seeding
     const allGenreIds = Object.keys(GENRE_NODES);
     let targetGenres = allGenreIds.map(id => ({
         id,
         label: GENRE_NODES[id].label,
         group: GENRE_NODES[id].group,
-        tag: GENRE_MB_TAGS[id] || id.replace(/_/g, ' '),
-        count: currentCounts[id] || 0
+        tag: GENRE_MB_TAGS[id] || id.replace(/_/g, ' ')
     }));
 
     if (SPECIFIC_GENRE) {
         targetGenres = targetGenres.filter(g => g.id === SPECIFIC_GENRE);
-    } else if (EMPTY_ONLY) {
-        targetGenres = targetGenres.filter(g => g.count === 0);
-    } else {
-        targetGenres = targetGenres.filter(g => g.count < TARGET_TRACKS);
     }
-
-    // Sort by lowest count first (0 tracks get seeded first!)
-    targetGenres.sort((a, b) => a.count - b.count);
 
     if (LIMIT_GENRES) {
         targetGenres = targetGenres.slice(0, LIMIT_GENRES);
     }
 
-    console.log(`\n🎯 Found ${targetGenres.length} genres needing tracks to reach target of ${TARGET_TRACKS}.\n`);
+    console.log(`🎯 Queue contains ${targetGenres.length} genres to enrich.\n`);
 
     let totalTracksInserted = 0;
 
     for (let gIdx = 0; gIdx < targetGenres.length; gIdx++) {
         const genre = targetGenres[gIdx];
-        const needed = Math.max(0, TARGET_TRACKS - genre.count);
+        const targetToInsert = BATCH_PER_GENRE;
 
         console.log(`\n-------------------------------------------------`);
         console.log(`[Genre ${gIdx + 1}/${targetGenres.length}] 🎵 "${genre.label}" (${genre.id})`);
-        console.log(`   • Family: ${genre.group} | Current tracks: ${genre.count} | Target to pull: ${needed}`);
+        console.log(`   • Family: ${genre.group} | Goal: +${targetToInsert} NEW tracks (Max ${MAX_TRACKS_PER_ARTIST}/artist)`);
         console.log(`   • MusicBrainz Tag Query: "${genre.tag}"`);
         console.log(`-------------------------------------------------`);
 
-        if (needed <= 0) {
-            console.log("   ✓ Already satisfied.");
-            continue;
-        }
-
-        // Fetch top candidates from MusicBrainz
-        const candidates = await fetchTopRecordingsFromMusicBrainz(genre.id, genre.tag, needed);
-        console.log(`   Found ${candidates.length} candidate recordings from MusicBrainz. Resolving YouTube streams...`);
-
         let genreInserted = 0;
+        let candidatesExamined = 0;
+        const artistTrackCounts = {}; // Track how many tracks each artist has in this genre batch
+        const candidateStream = getMusicBrainzCandidateStream(genre.id, genre.tag);
 
-        for (let cIdx = 0; cIdx < candidates.length; cIdx++) {
-            if (genreInserted >= needed) break;
+        for await (const cand of candidateStream) {
+            if (genreInserted >= targetToInsert) break;
+            candidatesExamined++;
 
-            const cand = candidates[cIdx];
+            const normArtist = (cand.artist || '').trim().toLowerCase();
 
-            // 1. Check if track already exists in public.tracks
+            // Strict Variety Invariant: Do not pull more than MAX_TRACKS_PER_ARTIST from any single artist
+            if ((artistTrackCounts[normArtist] || 0) >= MAX_TRACKS_PER_ARTIST) {
+                continue;
+            }
+
+            // 1. Check if track already exists in public.tracks by artist + title
             const { data: existing } = await supabase
                 .from('tracks')
                 .select('id')
@@ -355,20 +363,27 @@ async function startSeeder() {
                 .limit(1);
 
             if (existing && existing.length > 0) {
-                console.log(`   [${cIdx + 1}/${candidates.length}] ⏭️ Already in catalog: "${cand.artist} - ${cand.title}"`);
+                console.log(`   [⏭️ Library Hit] Already in catalog: "${cand.artist} - ${cand.title}" (Skipped, fetching next...)`);
                 continue;
             }
 
-            // 2. Resolve YouTube video ID with zero API quota
-            process.stdout.write(`   [${cIdx + 1}/${candidates.length}] Resolving "${cand.artist} - ${cand.title}"... `);
-            const ytResult = await resolveYouTubeTrack(cand.artist, cand.title);
+            // 2. Resolve stream: Fast Tier 1 Innertube (~300ms) with Tier 2 Desktop Scraper fallback
+            process.stdout.write(`   Resolving "${cand.artist} - ${cand.title}"... `);
+
+            let ytResult = await resolveInnertubeTrack(cand.artist, cand.title);
+            if (ytResult.status === 'ZERO_CANDIDATES' || ytResult.status === 'NO_MATCH') {
+                const fallback = await resolveYouTubeTrack(cand.artist, cand.title);
+                if (fallback.status === 'FOUND') {
+                    ytResult = fallback;
+                }
+            }
 
             if (ytResult.status !== 'FOUND' || !ytResult.videoId) {
-                console.log(`⏭️ (${ytResult.reason || 'No stream match'})`);
+                console.log(`⏭️ (${ytResult.reason || 'No stream match'}, skipping)`);
                 continue;
             }
 
-            // Check if this exact YouTube ID is already mapped in tracks
+            // Check if exact video ID is already mapped in tracks
             const { data: existingVid } = await supabase
                 .from('tracks')
                 .select('id')
@@ -376,16 +391,19 @@ async function startSeeder() {
                 .limit(1);
 
             if (existingVid && existingVid.length > 0) {
-                console.log(`⏭️ (Video ID ${ytResult.videoId} already mapped)`);
+                console.log(`⏭️ (Video ID ${ytResult.videoId} already in library, skipping)`);
                 continue;
             }
+
+            const healedArtist = ytResult.healedArtist || cand.artist;
+            const healedTitle = ytResult.healedTitle || cand.title;
 
             // 3. Upsert Artist in public.artists
             let artistId = null;
             const { data: artistRecord } = await supabase
                 .from('artists')
                 .select('id')
-                .ilike('name', cand.artist)
+                .ilike('name', healedArtist)
                 .maybeSingle();
 
             if (artistRecord?.id) {
@@ -394,7 +412,7 @@ async function startSeeder() {
                 const { data: newArtist } = await supabase
                     .from('artists')
                     .insert({
-                        name: cand.artist,
+                        name: healedArtist,
                         primary_genre_id: genre.id,
                         secondary_genre_ids: [genre.id],
                         tags: [genre.tag]
@@ -409,8 +427,8 @@ async function startSeeder() {
                 .from('tracks')
                 .insert({
                     youtube_video_id: ytResult.videoId,
-                    title: ytResult.healedTitle || cand.title,
-                    artist: ytResult.healedArtist || cand.artist,
+                    title: healedTitle,
+                    artist: healedArtist,
                     primary_genre_id: genre.id,
                     secondary_genre_ids: [genre.id],
                     artist_id: artistId,
@@ -422,19 +440,21 @@ async function startSeeder() {
             } else {
                 genreInserted++;
                 totalTracksInserted++;
-                console.log(`✅ Mapped -> ${ytResult.videoId}`);
+                artistTrackCounts[normArtist] = (artistTrackCounts[normArtist] || 0) + 1;
+                const engineTag = ytResult.engine === 'innertube' ? '⚡ Innertube' : '🛡️ Scraper';
+                console.log(`✅ [${engineTag}] Mapped -> ${ytResult.videoId} (${genreInserted}/${targetToInsert} newly added | ${cand.artist}: ${artistTrackCounts[normArtist]}/${MAX_TRACKS_PER_ARTIST})`);
             }
 
             // Polite jittered delay
-            await sleep(1500 + Math.floor(Math.random() * 500));
+            await sleep(650 + Math.floor(Math.random() * 250));
         }
 
-        console.log(`   ✨ Seeded ${genreInserted} verified tracks for "${genre.label}".`);
+        console.log(`   ✨ Successfully added ${genreInserted}/${targetToInsert} BRAND NEW tracks across ${Object.keys(artistTrackCounts).length} distinct artists for "${genre.label}".`);
     }
 
     console.log("\n=================================================");
-    console.log(`🎉 Seeding complete!`);
-    console.log(`   • Total verified tracks inserted: ${totalTracksInserted}`);
+    console.log(`🎉 Ingestion Batch Complete!`);
+    console.log(`   • Total brand new tracks enriched into catalog: ${totalTracksInserted}`);
     console.log("=================================================");
 }
 
