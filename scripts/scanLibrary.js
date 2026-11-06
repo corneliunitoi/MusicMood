@@ -18,16 +18,26 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 const ITUNES_SEARCH_API = 'https://itunes.apple.com/search';
 
-// Allow an explicit target path from CLI, fallback to default music library
 // Parse CLI flags and arguments
 const rawArgs = process.argv.slice(2);
 const isRandom = rawArgs.includes('--random') || process.env.npm_config_random === 'true';
 
 let sampleLimit = null;
-const limitIdx = rawArgs.indexOf('--limit');
-if (limitIdx !== -1 && rawArgs[limitIdx + 1]) {
-    sampleLimit = parseInt(rawArgs[limitIdx + 1], 10);
+const limitArg = rawArgs.find(a => a.startsWith('--limit='));
+if (limitArg) {
+    sampleLimit = parseInt(limitArg.split('=')[1], 10);
+} else {
+    const limitIdx = rawArgs.indexOf('--limit');
+    if (limitIdx !== -1 && rawArgs[limitIdx + 1]) {
+        sampleLimit = parseInt(rawArgs[limitIdx + 1], 10);
+    }
 }
+
+const batchSizeArg = rawArgs.find(a => a.startsWith('--batch='));
+const BATCH_SIZE = batchSizeArg ? parseInt(batchSizeArg.split('=')[1], 10) : 20;
+
+const genreFlag = rawArgs.find(a => a.startsWith('--genre='));
+const TARGET_GENRE_FILTER = genreFlag ? genreFlag.split('=')[1].trim().toLowerCase() : null;
 
 const pathArg = rawArgs.find((arg, idx) => {
     if (arg.startsWith('--')) return false;
@@ -35,30 +45,108 @@ const pathArg = rawArgs.find((arg, idx) => {
     return true;
 });
 
-const LIBRARY_PATH = pathArg || '\\\\192.168.0.2\\e$\\music';
+// Default to user's music share; allow pointing directly to a subfolder
+let LIBRARY_PATH = pathArg || '\\\\192.168.0.2\\e$\\music';
+if (TARGET_GENRE_FILTER && !pathArg) {
+    // Convenience shortcut: --genre=rock points directly to Flac muzic\Rock
+    const candidatePath = path.join(LIBRARY_PATH, 'Flac muzic', TARGET_GENRE_FILTER.charAt(0).toUpperCase() + TARGET_GENRE_FILTER.slice(1));
+    if (fs.existsSync(candidatePath)) {
+        LIBRARY_PATH = candidatePath;
+    }
+}
 
-// Allow isolated JSON stat outputs if scanning custom paths in parallel
-const customSuffix = pathArg ? `_custom_${path.basename(LIBRARY_PATH)}` : '';
+// Output statistics file
+const customSuffix = pathArg ? `_custom_${path.basename(LIBRARY_PATH)}` : (TARGET_GENRE_FILTER ? `_${TARGET_GENRE_FILTER}` : '');
 const OUTPUT_FILE = path.join(process.cwd(), 'public', `local_library_stats${customSuffix}.json`);
+const CACHE_DIR = path.join(process.cwd(), 'scripts', 'cache');
+const CACHE_FILE = path.join(CACHE_DIR, 'artist_genre_cache.json');
 
 const VALID_EXTENSIONS = ['.mp3', '.flac', '.m4a', '.wav', '.ogg'];
 
-// Artist Cache to skip redundant API calls
+// Persistent Disk Cache for Artist -> Genre lookups
 const artistGenreCache = new Map();
+try {
+    if (fs.existsSync(CACHE_FILE)) {
+        const raw = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+        for (const [k, v] of Object.entries(raw)) {
+            artistGenreCache.set(k.toLowerCase(), v);
+        }
+        console.log(`📦 Loaded ${artistGenreCache.size} cached artist genres from disk.`);
+    }
+} catch (e) {
+    console.warn('⚠️ Could not read cache file:', e.message);
+}
+
+function persistCacheToDisk() {
+    try {
+        if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
+        const obj = Object.fromEntries(artistGenreCache);
+        fs.writeFileSync(CACHE_FILE, JSON.stringify(obj, null, 2));
+    } catch (e) {}
+}
+
+// Clean and sanitize strings for PostgreSQL (removes null bytes, lone surrogates, and control chars)
+function sanitizeForPostgres(str) {
+    if (!str) return '';
+    return str
+        .replace(/\0/g, '') // Strip null bytes (\u0000)
+        .replace(/[\uD800-\uDFFF]/g, '') // Strip lone surrogate code points
+        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '') // Strip unprintable control chars
+        .trim();
+}
 
 function cleanString(str) {
     if (!str) return '';
     return str
-        .replace(/\(.*\)|\[.*\]/g, '') // Remove (Official Video) etc
+        .replace(/\(.*\)|\[.*\]/g, '') // Remove (Official Video), [Remastered]
         .replace(/\b(ft|feat|featuring)\.?\b.*/gi, '') // Remove features
         .replace(/[^\w\s-]/gi, ' ') // Remove special chars
         .replace(/\s+/g, ' ') // Collapse spaces
         .trim();
 }
 
+// Directory-to-genre heuristic mapping (matches folder names instantly without iTunes API calls)
+const FOLDER_GENRE_MAP = {
+    'rock': 'Rock',
+    'blues': 'Blues',
+    'classical music': 'Classical/Instrumental',
+    'classical': 'Classical/Instrumental',
+    'jazz': 'Jazz/Blues',
+    'solo singers and composers': 'Pop',
+    'opera stuff': 'Classical/Instrumental',
+    'opera': 'Classical/Instrumental',
+    'folk & country': 'Country/Folk',
+    'folk': 'Country/Folk',
+    'country': 'Country/Folk',
+    'electonic music': 'Electronic/Dance',
+    'electronic music': 'Electronic/Dance',
+    'electronic': 'Electronic/Dance',
+    'dance': 'Electronic/Dance',
+    'spanish guitar': 'Classical/Instrumental',
+    'muzica romaneasca': 'Country/Folk',
+    'hip hop & rap': 'Hip-Hop/Rap',
+    'hip hop': 'Hip-Hop/Rap',
+    'rap': 'Hip-Hop/Rap',
+    'metal': 'Rock',
+    'hard rock': 'Rock',
+    'alternative': 'Rock',
+    'punk': 'Rock',
+    'pop': 'Pop'
+};
+
+function detectGenreFromPath(filePath) {
+    const normalized = filePath.replace(/\\/g, '/').toLowerCase();
+    for (const [folderKey, mappedGenre] of Object.entries(FOLDER_GENRE_MAP)) {
+        if (normalized.includes(`/${folderKey}/`)) {
+            return mappedGenre;
+        }
+    }
+    return null;
+}
+
 /**
  * Heuristic to extract artist/title from directory path if tags are missing
- * Structure: ...\Genre\Artist - Album\Track.ext
+ * Structure: ...\Genre\Artist - Album\Track.ext or ...\Artist\Album\Track.ext
  */
 function extractFromPath(filePath) {
     const parts = filePath.split(path.sep);
@@ -68,25 +156,23 @@ function extractFromPath(filePath) {
 
     let artist = null;
     let title = cleanString(fileName);
-    let potentialGenre = grandparentFolder;
+    let potentialGenre = detectGenreFromPath(filePath) || grandparentFolder;
 
-    // Try to get artist from parent folder "Artist - Album (Year)"
-    if (parentFolder.includes(' - ')) {
-        artist = parentFolder.split(' - ')[0].trim();
+    // Check if filename has "01 - Artist - Title" or "Artist - Title"
+    const cleanFileName = fileName.replace(/^[0-9]+[\s._-]+/, '');
+    if (cleanFileName.includes(' - ')) {
+        const fileParts = cleanFileName.split(' - ');
+        artist = cleanString(fileParts[0]);
+        title = cleanString(fileParts.slice(1).join(' - '));
+    } else if (parentFolder.includes(' - ')) {
+        artist = cleanString(parentFolder.split(' - ')[0]);
     } else {
-        artist = parentFolder;
-    }
-
-    // Sometimes artist is in filename "Artist - Title"
-    if (fileName.includes(' - ')) {
-        const fileParts = fileName.split(' - ');
-        artist = fileParts[0].trim();
-        title = fileParts[1].trim();
+        artist = cleanString(parentFolder);
     }
 
     return {
-        artist: cleanString(artist),
-        title: cleanString(title),
+        artist,
+        title,
         genre: potentialGenre
     };
 }
@@ -97,9 +183,9 @@ async function enrichTrackMetadata(filePath) {
     let genre = null;
     let source = 'file';
 
+    // 1. Try reading ID3/FLAC metadata tags first (Most Accurate)
     try {
-        // 1. Try reading tags first (Most Accurate)
-        const metadata = await musicMetadata.parseFile(filePath);
+        const metadata = await musicMetadata.parseFile(filePath, { skipCovers: true, duration: false });
         artist = metadata.common.artist;
         trackName = metadata.common.title;
         genre = metadata.common.genre?.[0];
@@ -108,10 +194,10 @@ async function enrichTrackMetadata(filePath) {
             source = 'tags';
         }
     } catch (e) {
-        // Tags failed, use path
+        // Tag parsing failed, fallback to path
     }
 
-    // 2. Fallback to path heuristics
+    // 2. Fallback to path heuristics for missing artist / title
     if (!artist || !trackName) {
         const pathData = extractFromPath(filePath);
         artist = artist || pathData.artist;
@@ -120,75 +206,91 @@ async function enrichTrackMetadata(filePath) {
         source = 'path';
     }
 
-    if (!artist || !trackName) return { success: false };
+    if (!artist || !trackName) return { success: false, reason: 'Unparseable artist/title' };
 
-    // 3. Check Cache
+    // Clean names
+    artist = sanitizeForPostgres(artist);
+    trackName = sanitizeForPostgres(trackName);
+
+    // 3. Fast Genre Resolution: check folder structure first (0ms, 100% offline)
+    if (!genre) {
+        genre = detectGenreFromPath(filePath);
+        if (genre) source = 'folder';
+    }
+
+    // 4. Check Persistent Disk Cache
     const cacheKey = artist.toLowerCase();
-    if (artistGenreCache.has(cacheKey) && !genre) {
-        return {
-            success: true,
-            artist,
-            trackName,
-            genre: artistGenreCache.get(cacheKey),
-            source: 'cache'
-        };
+    if (!genre && artistGenreCache.has(cacheKey)) {
+        genre = artistGenreCache.get(cacheKey);
+        source = 'cache';
     }
 
-    // 4. Search External API (iTunes) for Genre enrichment
-    try {
-        const query = `${artist} ${trackName}`;
-        const response = await fetch(`${ITUNES_SEARCH_API}?term=${encodeURIComponent(query)}&entity=song&limit=1`);
+    // 5. Query External API (iTunes) with timeout as last resort
+    if (!genre) {
+        try {
+            const query = `${artist} ${trackName}`;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 2000); // 2s timeout max
+            const response = await fetch(`${ITUNES_SEARCH_API}?term=${encodeURIComponent(query)}&entity=song&limit=1`, {
+                signal: controller.signal
+            });
+            clearTimeout(timeout);
 
-        if (response.ok) {
-            const data = await response.json();
-            if (data.results && data.results.length > 0) {
-                const track = data.results[0];
-                artist = track.artistName || artist;
-                trackName = track.trackName || trackName;
-                genre = track.primaryGenreName || genre;
-
-                if (genre) artistGenreCache.set(artist.toLowerCase(), genre);
-
-                return { success: true, artist, trackName, genre, source: 'itunes' };
+            if (response.ok) {
+                const data = await response.json();
+                if (data.results && data.results.length > 0) {
+                    const track = data.results[0];
+                    genre = track.primaryGenreName || genre;
+                    if (genre) {
+                        artistGenreCache.set(cacheKey, genre);
+                        source = 'itunes';
+                    }
+                }
             }
+        } catch (error) {
+            // API timeout or network error, fallback safely
         }
-    } catch (error) {
-        // API error, fallback to what we have
     }
 
-    // Final fallback: use what we found in tags or path
-    if (artist && trackName) {
-        return { success: true, artist, trackName, genre, source };
+    // 6. Graceful Fallback: Never drop a valid song just because genre tag is blank
+    if (!genre) {
+        genre = detectGenreFromPath(filePath) || 'Rock'; // Safe default
+        source = 'fallback';
     }
 
-    return { success: false };
+    return {
+        success: true,
+        artist,
+        trackName,
+        genre,
+        source
+    };
 }
 
-function getAudioFiles(dirPath, arrayOfFiles) {
-    let files;
+function getAudioFiles(dirPath, arrayOfFiles = []) {
+    let entries;
     try {
-        files = fs.readdirSync(dirPath);
+        entries = fs.readdirSync(dirPath, { withFileTypes: true });
     } catch (e) {
         console.error(`Could not read directory ${dirPath}:`, e.message);
         return arrayOfFiles;
     }
 
-    arrayOfFiles = arrayOfFiles || [];
-
-    files.forEach(function (file) {
+    for (const entry of entries) {
+        const fullPath = path.join(dirPath, entry.name);
         try {
-            const fullPath = path.join(dirPath, file);
-            if (fs.statSync(fullPath).isDirectory()) {
-                arrayOfFiles = getAudioFiles(fullPath, arrayOfFiles);
-            } else {
-                if (VALID_EXTENSIONS.includes(path.extname(fullPath).toLowerCase())) {
+            if (entry.isDirectory()) {
+                getAudioFiles(fullPath, arrayOfFiles);
+            } else if (entry.isFile()) {
+                const ext = path.extname(entry.name).toLowerCase();
+                if (VALID_EXTENSIONS.includes(ext)) {
                     arrayOfFiles.push(fullPath);
                 }
             }
         } catch (e) {
-            // Ignore access errors
+            // Skip unreadable files/folders
         }
-    });
+    }
 
     return arrayOfFiles;
 }
@@ -225,22 +327,80 @@ const itunesToInternalMap = {
     "Christian Pop": "Gospel/Religious", "Children's Music": "Gospel/Religious"
 };
 
-// Patterns that indicate a junk genre (album title leaking in from iTunes)
 const JUNK_GENRE_PATTERN = /complete recordings|album|vinyl|pack|\d{2,}\s*bit|vol\s*\d/i;
 
+/**
+ * Resilient Supabase batch upsert.
+ * If the batch fails, it retries each track individually to isolate bad items,
+ * preventing a single corrupt string from poisoning subsequent batches.
+ */
+async function syncBatchToSupabase(batch) {
+    if (!batch || batch.length === 0) return 0;
+
+    // Deduplicate by artist|track_name
+    const uniqueMap = new Map();
+    for (const item of batch) {
+        const key = `${item.artist?.toLowerCase()}|${item.track_name?.toLowerCase()}`;
+        if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, item);
+        }
+    }
+    const uniqueItems = Array.from(uniqueMap.values());
+
+    const { error: batchErr } = await supabase
+        .from('local_metadata')
+        .upsert(uniqueItems, { onConflict: 'artist,track_name' });
+
+    if (!batchErr) {
+        return uniqueItems.length;
+    }
+
+    // Poison-pill recovery: isolate and upsert valid records individually
+    console.warn(`\n⚠️ Batch upsert issue (${batchErr.message}). Isolating records individually...`);
+    fs.appendFileSync('scan_errors.log', `[${new Date().toISOString()}] Batch Error: ${batchErr.message}\n`);
+
+    let recoveredCount = 0;
+    for (const item of uniqueItems) {
+        try {
+            const { error: singleErr } = await supabase
+                .from('local_metadata')
+                .upsert([item], { onConflict: 'artist,track_name' });
+
+            if (!singleErr) {
+                recoveredCount++;
+            } else {
+                fs.appendFileSync('scan_errors.log', `[${new Date().toISOString()}] Isolated corrupt track "${item.artist} - ${item.track_name}": ${singleErr.message}\n`);
+            }
+        } catch (fatalSingle) {
+            fs.appendFileSync('scan_errors.log', `[${new Date().toISOString()}] Fatal on track "${item.artist} - ${item.track_name}": ${fatalSingle.message}\n`);
+        }
+    }
+
+    return recoveredCount;
+}
+
 async function runStaticScanner() {
-    console.log(`🚀 Starting Advanced Scan of ${LIBRARY_PATH}...`);
+    console.log("=================================================");
+    console.log(`🚀 Starting Resilient Local Library Scanner`);
+    console.log(`   • Target Path: ${LIBRARY_PATH}`);
+    console.log(`   • Batch Size: ${BATCH_SIZE}`);
+    if (sampleLimit) console.log(`   • Sample Limit: ${sampleLimit}`);
+    if (TARGET_GENRE_FILTER) console.log(`   • Genre Filter: ${TARGET_GENRE_FILTER}`);
+    console.log("=================================================\n");
 
     if (!fs.existsSync(LIBRARY_PATH)) {
-        console.error(`ERROR: Path ${LIBRARY_PATH} inaccessible.`);
+        console.error(`ERROR: Path ${LIBRARY_PATH} is inaccessible.`);
         process.exit(1);
     }
 
+    const tScanStart = Date.now();
+    process.stdout.write("🔍 Traversing directory structure... ");
     let audioFiles = getAudioFiles(LIBRARY_PATH);
-    console.log(`Found ${audioFiles.length} audio files.`);
+    const traverseSec = ((Date.now() - tScanStart) / 1000).toFixed(1);
+    console.log(`Done! Found ${audioFiles.length} audio files in ${traverseSec}s.`);
 
     if (isRandom) {
-        console.log(`🎲 Random mode enabled: shuffling all ${audioFiles.length} files to capture a diverse spread of artists...`);
+        console.log(`🎲 Shuffling ${audioFiles.length} files for even artist distribution...`);
         for (let i = audioFiles.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [audioFiles[i], audioFiles[j]] = [audioFiles[j], audioFiles[i]];
@@ -248,7 +408,7 @@ async function runStaticScanner() {
     }
 
     if (sampleLimit && sampleLimit > 0 && sampleLimit < audioFiles.length) {
-        console.log(`🎯 Sample limit applied: processing ${sampleLimit} tracks...`);
+        console.log(`🎯 Applying sample limit: processing first ${sampleLimit} tracks...`);
         audioFiles = audioFiles.slice(0, sampleLimit);
     }
 
@@ -259,67 +419,42 @@ async function runStaticScanner() {
     const rejectedTracks = [];
     const SYNC_THRESHOLD = 100;
 
-    const BATCH_SIZE = 10; // Smaller batch for file metadata overhead
     for (let i = 0; i < audioFiles.length; i += BATCH_SIZE) {
         try {
             const batch = audioFiles.slice(i, i + BATCH_SIZE);
             const results = await Promise.all(batch.map(file => enrichTrackMetadata(file)));
 
             results.forEach(result => {
-                if (result.success && result.artist && result.trackName && result.genre) {
-                    // Normalize genre casing
-                    const genre = result.genre.trim().replace(/\b\w/g, c => c.toUpperCase());
-
-                    // Skip junk genres (album titles leaking in from iTunes)
+                if (result.success && result.artist && result.trackName) {
+                    let genre = (result.genre || 'Rock').trim();
                     if (JUNK_GENRE_PATTERN.test(genre)) {
-                        rejectedTracks.push({ ...result, reason: 'Junk Genre' });
-                        return;
+                        genre = 'Rock';
                     }
 
                     totalHits++;
-                    const mainGenre = itunesToInternalMap[genre] || itunesToInternalMap[result.genre] || genre;
+                    const mainGenre = itunesToInternalMap[genre] || genre;
 
                     if (!genreStats[mainGenre]) genreStats[mainGenre] = { hits: 0, subStats: {} };
                     genreStats[mainGenre].hits++;
                     genreStats[mainGenre].subStats[genre] = (genreStats[mainGenre].subStats[genre] || 0) + 1;
 
-                    // Fix for Supabase "unsupported Unicode escape sequence" 
-                    // Removes null bytes (\u0000) and unprintable control characters.
-                    const sanitizeStr = (s) => s ? s.replace(/[\u0000-\u001F\u007F-\u009F]/g, "") : s;
-
                     syncBuffer.push({
-                        artist: sanitizeStr(result.artist),
-                        track_name: sanitizeStr(result.trackName),
-                        genre: sanitizeStr(genre),
+                        artist: sanitizeForPostgres(result.artist),
+                        track_name: sanitizeForPostgres(result.trackName),
+                        genre: sanitizeForPostgres(mainGenre),
                         source: 'ko-local'
                     });
                 } else {
-                    rejectedTracks.push({ ...result, reason: 'Missing required metadata' });
+                    rejectedTracks.push({ ...result, reason: result.reason || 'Missing artist/title' });
                 }
             });
 
             if (syncBuffer.length >= SYNC_THRESHOLD) {
-                const uniqueBuffer = Array.from(new Map(
-                    syncBuffer.map(item => [`${item.artist?.toLowerCase()}|${item.track_name?.toLowerCase()}`, item])
-                ).values());
-
-                try {
-                    const { error: syncError } = await supabase
-                        .from('local_metadata')
-                        .upsert(uniqueBuffer, { onConflict: 'artist,track_name' });
-
-                    if (!syncError) {
-                        cloudSynced += syncBuffer.length;
-                        console.log(`☁️ Synced: ${cloudSynced}/${audioFiles.length} (Last batch sourced: ${results[0]?.source || 'unknown'})`);
-                        syncBuffer.length = 0;
-                    } else {
-                        console.error("❌ Sync Error:", syncError.message);
-                        fs.appendFileSync('scan_errors.log', `[${new Date().toISOString()}] Supabase Sync Error: ${syncError.message}\n`);
-                    }
-                } catch (supabaseFatal) {
-                    console.error("❌ Fatal Supabase Exception:", supabaseFatal.message);
-                    fs.appendFileSync('scan_errors.log', `[${new Date().toISOString()}] Fatal Supabase Exception: ${supabaseFatal.stack || supabaseFatal.message}\n`);
-                }
+                const synced = await syncBatchToSupabase(syncBuffer);
+                cloudSynced += synced;
+                syncBuffer.length = 0; // ALWAYS CLEAR BUFFER - never leaves poison pill
+                persistCacheToDisk();
+                process.stdout.write(`☁️ [${cloudSynced}/${audioFiles.length}] `);
             }
 
             if ((i + BATCH_SIZE) % 100 === 0) {
@@ -328,20 +463,22 @@ async function runStaticScanner() {
         } catch (fatalBatchError) {
             console.error(`\n❌ Fatal error in batch starting at index ${i}:`, fatalBatchError.message);
             fs.appendFileSync('scan_errors.log', `[${new Date().toISOString()}] Fatal Batch Error at Index ${i}: ${fatalBatchError.stack || fatalBatchError.message}\n`);
+            syncBuffer.length = 0; // Prevent runaway buffer growth
         }
     }
 
     // Final flush
     if (syncBuffer.length > 0) {
-        const uniqueBuffer = Array.from(new Map(
-            syncBuffer.map(item => [`${item.artist?.toLowerCase()}|${item.track_name?.toLowerCase()}`, item])
-        ).values());
-        await supabase.from('local_metadata').upsert(uniqueBuffer, { onConflict: 'artist,track_name' });
-        cloudSynced += syncBuffer.length;
+        const synced = await syncBatchToSupabase(syncBuffer);
+        cloudSynced += synced;
+        syncBuffer.length = 0;
+        persistCacheToDisk();
     }
 
-    console.log(`\n🎧 Rejected ${rejectedTracks.length} tracks.`);
-    fs.writeFileSync(path.join(process.cwd(), 'public', 'rejected_tracks.json'), JSON.stringify(rejectedTracks, null, 2));
+    console.log(`\n🎧 Rejected tracks: ${rejectedTracks.length}`);
+    if (rejectedTracks.length > 0) {
+        fs.writeFileSync(path.join(process.cwd(), 'public', 'rejected_tracks.json'), JSON.stringify(rejectedTracks, null, 2));
+    }
 
     const outputData = {
         totalHits,
@@ -351,7 +488,14 @@ async function runStaticScanner() {
     };
 
     fs.writeFileSync(OUTPUT_FILE, JSON.stringify(outputData, null, 2));
-    console.log(`\n✅ Scan Complete! ${totalHits} tracks identified.`);
+    const totalDurationSec = ((Date.now() - tScanStart) / 1000).toFixed(1);
+    console.log(`\n=================================================`);
+    console.log(`✅ Scan Complete!`);
+    console.log(`   • Tracks Processed: ${totalHits}`);
+    console.log(`   • Cloud Synced: ${cloudSynced}`);
+    console.log(`   • Total Elapsed: ${totalDurationSec}s`);
+    console.log(`   • Output Stats: ${OUTPUT_FILE}`);
+    console.log(`=================================================`);
 }
 
-runStaticScanner();
+runStaticScanner().catch(console.error);
