@@ -7,7 +7,7 @@
 [![React](https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 [![MusicBrainz](https://img.shields.io/badge/Metadata-MusicBrainz-BA478F?logo=musicbrainz&logoColor=white)](https://musicbrainz.org/)
-[![Version](https://img.shields.io/badge/Version-0.6.0b-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/Version-0.6.0c-blue.svg)](package.json)
 
 ---
 

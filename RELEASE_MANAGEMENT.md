@@ -37,6 +37,12 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.6.0c` — 2026-11-07
+* **UI Clean-up & De-bloat:**
+  * Removed the persistent "Your Vibe Journey" history widget from the bottom of the main dashboard to eliminate visual clutter and keep the interface focused on playback and active controls.
+
+---
+
 ### `v0.6.0b` — 2026-11-07
 * **Header & Role Refinement:**
   * Restricted library track stats (`Playable`, `JIT Finds`, `Archive`) strictly to Admin accounts (`isAdmin()`). Non-admin users see a clean, consumer-focused header without database metrics.

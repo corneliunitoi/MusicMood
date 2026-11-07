@@ -555,8 +555,6 @@ function Dashboard({ token, onLogout }) {
                     </div>
                 )}
 
-                {!showWizard && <MoodHistory history={moodHistory} />}
-
                 {/* JIT ORGANIC GROWTH AUDIT MODAL */}
                 <JitFeedModal isOpen={showJitFeed} onClose={() => setShowJitFeed(false)} />
             </main>
