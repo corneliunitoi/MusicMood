@@ -19,7 +19,9 @@
     "enrich-genres:all": "node scripts/enrichArtistsFromMusicBrainz.js --all",
     "seed-genres": "node scripts/seedGenresFromMusicBrainz.js --target=20",
     "seed-genres:empty": "node scripts/seedGenresFromMusicBrainz.js --empty-only --target=20",
-    "audit:jit": "node scripts/auditJitTracks.js"
+    "audit:jit": "node scripts/auditJitTracks.js",
+    "extract-release-notes": "node scripts/extract-release-notes.js",
+    "tag-release": "node scripts/tagWithReleaseNotes.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",

@@ -21,6 +21,20 @@ MusicMood strictly adheres to the following tiering convention:
 
 ---
 
+## 🏷️ How Release Notes Work on Git & GitHub
+
+When you view tags or releases, MusicMood supports both local Git annotations and rich GitHub Releases:
+
+1. **In Git (Annotated Tag Message):**
+   * Running `npm run tag-release vX.Y.Za` extracts the exact markdown release notes from this document and writes them directly into the Git tag's annotation object.
+   * Anyone running `git show vX.Y.Za` in their terminal or Git GUI sees the full release notes directly attached to the tag.
+2. **On GitHub (Rich Markdown Releases):**
+   * A dedicated GitHub Actions workflow (`.github/workflows/release.yml`) automatically triggers whenever a `v*` tag is pushed to `origin`.
+   * The workflow parses `RELEASE_MANAGEMENT.md`, extracts the corresponding section, and automatically publishes an official GitHub Release at `https://github.com/corneliunitoi/MusicMood/releases`.
+   * When users click on the release tag on GitHub, GitHub renders the formatted markdown notes, headers, badges, and download archives.
+
+---
+
 ## 📋 Release Checklist
 
 Whenever a release or milestone patch is prepared:
@@ -30,15 +44,18 @@ Whenever a release or milestone patch is prepared:
 3. [ ] **Update `README.md` Badge:** Update the version badge URL in `README.md`.
 4. [ ] **Log in `RELEASE_MANAGEMENT.md`:** Document the changes under the Changelog section below.
 5. [ ] **Git Commit:** Commit changes with message `chore(release): bump version to vX.Y.Za`.
-6. [ ] **Create Annotated Git Tag:** `git tag -a vX.Y.Za -m "Release vX.Y.Za - <Summary>"`.
-7. [ ] **Push to Remote:** Push commit and tags: `git push origin main && git push origin --tags`.
+6. [ ] **Create Annotated Git Tag with Release Notes:** Run `npm run tag-release vX.Y.Za` (or `git tag -a vX.Y.Za -f -F <notes>`).
+7. [ ] **Push to Remote:** Push commit and tags: `git push origin main` and `git push origin vX.Y.Za --force`. GitHub Actions will automatically publish the GitHub Release.
 
 ---
 
 ## 📜 Release Changelog
 
 ### `v0.7.2a` — 2026-11-07
-* **Welcome Screen Startup Checkbox & Human-Centered Tour Copy:**
+* **Welcome Screen Startup Checkbox, Human-Centered Tour Copy & Tagged Release Notes:**
+  * **Automated Tag Release Notes & GitHub Actions Workflow (`release.yml`):**
+    * Added `.github/workflows/release.yml` to automatically publish official GitHub Releases with formatted Markdown changelogs whenever a `v*` tag is pushed.
+    * Added `scripts/extract-release-notes.js` and `scripts/tagWithReleaseNotes.js` (`npm run tag-release <tag>`), automatically binding the multi-line changelog to Git tag annotations (`git show vX.Y.Za`).
   * **"Don't show on startup" Checkbox (`WelcomeSplash.jsx` / `Dashboard.jsx`):**
     * Added an interactive toggle `[x] Don't show this welcome screen on startup` (checked by default) directly on the welcome hero card.
     * Wired user preference persistence to `localStorage.musicMood_welcome_seen`: unchecking allows the splash to greet the user again on future sessions, while keeping it checked prevents auto-display.
