@@ -435,9 +435,12 @@ function Player({ initialTrack, token }) {
         }
     };
 
-    const handleShiftNode = async () => {
-        sessionEngine.stepToNextGenre('manual_step');
-        await loadNextTrack(false);
+    const handleSurpriseMe = async () => {
+        const result = sessionEngine.surpriseMe();
+        if (result && result.id) {
+            setSessionState(prev => ({ ...prev, activeGenre: result.id }));
+            await loadNextTrack(false);
+        }
     };
 
     const handleLike = () => {
@@ -466,7 +469,6 @@ function Player({ initialTrack, token }) {
     };
 
     const activeNode = GENRE_NODES[sessionState.activeGenre];
-    const dwellCount = (sessionState.consecutiveInNode || 0) + 1;
 
     return (
         <div className="player-card fade-in-up">
@@ -510,18 +512,8 @@ function Player({ initialTrack, token }) {
                     <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>
                         ({sessionState.currentMood.toUpperCase()})
                     </span>
-                    <span style={{
-                        background: 'rgba(255,255,255,0.08)',
-                        padding: '0.15rem 0.5rem',
-                        borderRadius: '6px',
-                        fontSize: '0.75rem',
-                        color: dwellCount >= 2 ? '#f59e0b' : '#94a3b8'
-                    }}>
-                        Dwell: {dwellCount}/2 tracks {dwellCount >= 2 && '→ Auto-shifting next'}
-                    </span>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: '#94a3b8' }}>
-                    <span>Fatigue: <strong>{sessionState.currentFatigue}%</strong></span>
                     <span>Energy: <strong>{Math.round(sessionState.energyLevel * 100)}%</strong></span>
                 </div>
             </div>
@@ -687,24 +679,30 @@ function Player({ initialTrack, token }) {
 
                     {/* RIGHT: Exploration & Utilities */}
                     <div className="player-utility-controls">
-                        {/* Step along Graph Edge */}
+                        {/* Surprise Me: User explicitly requests a fresh compatible genre */}
                         <button
+                            type="button"
                             className="btn-text"
-                            onClick={handleShiftNode}
+                            onClick={handleSurpriseMe}
                             disabled={isSteering}
-                            title="Step to an adjacent harmonic subgenre in the graph"
+                            title="Surprise me with a fresh compatible genre"
                             style={{
-                                background: 'rgba(168, 85, 247, 0.15)',
-                                border: '1px solid rgba(168, 85, 247, 0.4)',
+                                background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(99, 102, 241, 0.2))',
+                                border: '1px solid rgba(168, 85, 247, 0.45)',
                                 borderRadius: '8px',
-                                padding: '0.4rem 0.75rem',
-                                color: '#e9d5ff',
+                                padding: '0.38rem 0.75rem',
+                                color: '#f3e8ff',
                                 fontSize: '0.78rem',
                                 fontWeight: '600',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                                whiteSpace: 'nowrap'
                             }}
                         >
-                            🔀 Step Node
+                            <span>🎲</span>
+                            <span>Surprise Me</span>
                         </button>
 
                         {/* Copy YouTube Link */}

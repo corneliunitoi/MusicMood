@@ -426,9 +426,8 @@ class SessionStateMachine {
             this.state.recentArtists.push(track.artist.toLowerCase());
         }
 
-        // 3. Penalize active node fatigue and step away
-        this.applyNodeFatigue(this.state.activeGenre);
-        this.stepToNextGenre('dislike_purge');
+        // 3. Keep active genre stable; only blacklist artist and notify
+        this.notify();
 
         // 4. JIT Safety Purge: If track was organically discovered by JIT, immediately purge it from catalog!
         if (track.dbId && (track.source?.startsWith('jit') || track.source === 'jit_player_expansion' || track.source === 'jit_local_archive' || track.source === 'jit_musicbrainz')) {
@@ -440,13 +439,7 @@ class SessionStateMachine {
     }
 
     getMaxDwell() {
-        const disc = this.state.discoveryLevel ?? 0.5;
-        // Low discovery (0.0 - 0.25): Lock in to the vibe (10 tracks)
-        // Mid discovery (0.3 - 0.65): Gentle harmonic wandering (5 tracks)
-        // High discovery (0.7+): Adventurous graph hops (3 tracks)
-        if (disc <= 0.25) return 10;
-        if (disc <= 0.65) return 5;
-        return 3;
+        return Infinity; // User stays in selected genre indefinitely until they change mood or click Surprise Me
     }
 
     onSkip(track) {
@@ -465,16 +458,7 @@ class SessionStateMachine {
             this.state.recentArtists.push(track.artist.toLowerCase());
         }
 
-        // Anti-Stagnation on Skip: If user skips 3 times in a row, smoothly step to next harmonic node
-        this.state.consecutiveSkips = (this.state.consecutiveSkips || 0) + 1;
-        if (this.state.consecutiveSkips >= 3) {
-            console.log(`[Anti-Stagnation 🌀] 3 consecutive skips in "${this.state.activeGenre}". Transitioning to harmonic neighbor...`);
-            this.state.consecutiveSkips = 0;
-            this.applyNodeFatigue(this.state.activeGenre);
-            this.stepToNextGenre('skip_fatigue');
-            return;
-        }
-
+        // Stays on current genre (genre changes only via mood change or "Surprise Me")
         this.notify();
     }
 
@@ -493,14 +477,47 @@ class SessionStateMachine {
         this.applyNodeFatigue(this.state.activeGenre);
         this.state.consecutiveInNode = (this.state.consecutiveInNode || 0) + 1;
 
-        // ANTI-STAGNATION CHECK: Only trigger transition if dwell limit for current discovery level is reached
-        const maxDwell = this.getMaxDwell();
-        if (this.state.consecutiveInNode >= maxDwell) {
-            console.log(`[StateMachine] Dwell limit of ${maxDwell} tracks reached in "${this.state.activeGenre}". Triggering gentle harmonic transition.`);
-            this.stepToNextGenre('dwell_limit');
+        // FIXED GENRE POLICY: Player stays in active genre indefinitely.
+        // Genre transitions occur ONLY on explicit user mood change or "Surprise Me".
+        this.notify();
+    }
+
+    /**
+     * Surprise Me: User explicitly requests a fresh, surprising genre compatible with the current mood.
+     * Only two events change genres: (1) user changes mood / selects genre, (2) user clicks "Surprise Me".
+     */
+    surpriseMe() {
+        const current = this.state.activeGenre;
+        const moodCompatible = getMoodCompatibleGenres(this.state.currentMood);
+        const validCandidates = (moodCompatible || []).filter(g => 
+            g !== current && 
+            !violatesDealbreakers(GENRE_NODES[g]?.label, g, this.calibration.dealbreakers)
+        );
+
+        let chosen = current;
+        if (validCandidates.length > 0) {
+            chosen = validCandidates[Math.floor(Math.random() * validCandidates.length)];
         } else {
-            this.notify();
+            const neighbors = getConnectedGenres(current).filter(g => 
+                g !== current && 
+                !violatesDealbreakers(GENRE_NODES[g]?.label, g, this.calibration.dealbreakers)
+            );
+            if (neighbors.length > 0) {
+                chosen = neighbors[Math.floor(Math.random() * neighbors.length)];
+            }
         }
+
+        console.log(`[StateMachine 🎲 Surprise Me] Transitioning from "${current}" -> "${chosen}"`);
+        this.state.activeGenre = chosen;
+        this.state.consecutiveInNode = 0;
+        this.state.consecutiveSkips = 0;
+        this.queue = [];
+        this.notify();
+        setTimeout(() => {
+            jitEngine.replenishBuffer(chosen, this);
+        }, 100);
+
+        return { id: chosen, label: GENRE_NODES[chosen]?.label || chosen };
     }
 
     // ==========================================

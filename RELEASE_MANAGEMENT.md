@@ -37,6 +37,18 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.6.1` — 2026-11-07
+* **User-Controlled Genre Stability (Anti-Random Shifting):**
+  * Eliminated automatic background dwell-limit transitions and skip-fatigue hops. The player now stays locked on the user's active subgenre indefinitely.
+  * Genre transitions are now strictly restricted to 2 events: (1) explicit user mood/genre selection, or (2) clicking the "Surprise Me" button.
+* **`🎲 Surprise Me` Feature:**
+  * Replaced the developer-centric `🔀 Step Node` button with a clean, consumer-facing `🎲 Surprise Me` action in the player utility bar without adding interface bloat.
+  * When clicked, the engine intelligently picks an unexpected, high-affinity compatible genre within the active mood and immediately starts playing fresh tracks.
+* **Player Header Decluttering:**
+  * Removed technical `Dwell: 1/2 tracks Auto-shifting` countdown and `Fatigue: 0%` telemetry from the player header, leaving a clean, distraction-free playback card.
+
+---
+
 ### `v0.6.0c` — 2026-11-07
 * **UI Clean-up & De-bloat:**
   * Removed the persistent "Your Vibe Journey" history widget from the bottom of the main dashboard to eliminate visual clutter and keep the interface focused on playback and active controls.
