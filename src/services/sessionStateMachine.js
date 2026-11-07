@@ -628,7 +628,10 @@ class SessionStateMachine {
 
     /**
      * Surprise Me: User explicitly requests a fresh, surprising genre compatible with the current mood.
-     * Selects an unexpected candidate weighted by the user's 6-point Sonic Radar DNA and leashed by discovery mode.
+     * Jump distance across the taste graph is strictly governed by the active Discovery level:
+     * - Familiar (< 0.35): Strictly 1 hop away (immediate harmonic neighbor or sister subgenre in the same family)
+     * - Balanced (0.35 - 0.70): 1 to 2 hops away (adjacent harmonic bridge, smooth transition)
+     * - Deep Cuts (> 0.70): Unrestricted (3+ hops, rewards unexpected cross-genre intersections)
      */
     surpriseMe() {
         const current = this.state.activeGenre;
@@ -637,8 +640,8 @@ class SessionStateMachine {
         const discovery = this.state.discoveryLevel ?? 0.5;
 
         // Leash bounds based on discovery level:
-        // - Familiar (< 0.35): max 1 hop from Home
-        // - Balanced (0.35 - 0.70): max 2 hops from Home
+        // - Familiar (< 0.35): max 1 hop
+        // - Balanced (0.35 - 0.70): max 2 hops
         // - Deep Cuts (> 0.70): unrestricted
         const maxHops = discovery < 0.35 ? 1 : discovery <= 0.70 ? 2 : 999;
 
@@ -648,55 +651,85 @@ class SessionStateMachine {
             !violatesDealbreakers(GENRE_NODES[g]?.label, g, this.calibration.dealbreakers)
         );
 
-        // Filter candidates within orbital leash from Home
-        const leashedCandidates = validCandidates.filter(g => {
-            const hops = getGraphDistance(homeGenre, g);
-            return hops <= maxHops;
+        if (validCandidates.length === 0) {
+            console.warn('[StateMachine 🎲 Surprise Me] No valid alternative candidates for mood:', this.state.currentMood);
+            return { id: current, label: GENRE_NODES[current]?.label || current };
+        }
+
+        // Measure jump distance strictly relative to CURRENT active playback
+        const candidatesWithDistance = validCandidates.map(g => {
+            const jumpDist = getGraphDistance(current, g);
+            const distFromHome = getGraphDistance(homeGenre, g);
+            return {
+                id: g,
+                jumpDist,
+                distFromHome
+            };
         });
 
-        const poolSource = leashedCandidates.length > 0 ? leashedCandidates : validCandidates;
+        // 1. Filter candidates within strict discovery leash from current playback
+        let leashedCandidates = maxHops === 999 
+            ? candidatesWithDistance 
+            : candidatesWithDistance.filter(c => c.jumpDist <= maxHops);
 
-        let chosen = current;
-        if (poolSource.length > 0) {
-            // Predict fresh candidate weighted by user's Sonic Radar and discoveryLevel
-            const radar = this.calibration.radarValues || {};
-            const scored = poolSource.map(g => {
-                const pole = getPoleForGenre(g);
-                const poleVal = (radar[pole] ?? 50) / 100;
-                const fatigue = this.nodeFatigue[g] || 0.0;
-                const dist = getGraphDistance(homeGenre, g);
-                // Mild gravity back to Home in Balanced mode
-                const homeBonus = (dist === 0 ? 1.3 : dist === 1 ? 1.15 : 1.0);
-                return {
-                    id: g,
-                    score: Math.pow(poleVal, 1.2) * Math.max(0.1, 1.0 - fatigue * 0.9) * homeBonus
-                };
-            }).sort((a, b) => b.score - a.score);
+        // 2. Strict Nearest-Neighbor Fallback: if no candidate within maxHops from current, pick from the closest available tier
+        if (leashedCandidates.length === 0) {
+            const minAvailableDist = Math.min(...candidatesWithDistance.map(c => c.jumpDist));
+            leashedCandidates = candidatesWithDistance.filter(c => c.jumpDist === minAvailableDist);
+            console.log(`[StateMachine 🎲 Surprise Me] No candidate within ${maxHops} hops; fallback to nearest tier: ${minAvailableDist} hops`);
+        }
 
-            const poolSize = Math.min(5, scored.length);
-            const pool = scored.slice(0, poolSize);
-            const total = pool.reduce((acc, c) => acc + c.score, 0);
-            let rand = Math.random() * total;
-            for (const c of pool) {
-                rand -= c.score;
-                if (rand <= 0) {
-                    chosen = c.id;
-                    break;
-                }
+        // 3. Score leashed candidates by Sonic Radar affinity, fatigue, and discovery profile
+        const radar = this.calibration.radarValues || {};
+        const scored = leashedCandidates.map(c => {
+            const g = c.id;
+            const pole = getPoleForGenre(g);
+            const poleVal = (radar[pole] ?? 50) / 100;
+            const fatigue = this.nodeFatigue[g] || 0.0;
+            
+            // Distance affinity based on discovery tier:
+            let distanceAffinity = 1.0;
+            if (discovery < 0.35) {
+                // Familiar: strongly favors immediate 1-hop neighbors
+                distanceAffinity = c.jumpDist <= 1 ? 1.5 : 0.8;
+            } else if (discovery <= 0.70) {
+                // Balanced: sweet spot at 1-2 hops
+                distanceAffinity = c.jumpDist <= 2 ? 1.3 : 0.9;
+            } else {
+                // Deep Cuts: boosts adventurous jumps (2+ hops)
+                distanceAffinity = c.jumpDist >= 2 ? 1.6 : 0.9;
             }
-            if (!chosen) chosen = pool[0]?.id || current;
-        } else {
-            const neighbors = getConnectedGenres(current).filter(g => 
-                g !== current && 
-                !violatesDealbreakers(GENRE_NODES[g]?.label, g, this.calibration.dealbreakers)
-            );
-            if (neighbors.length > 0) {
-                chosen = neighbors[Math.floor(Math.random() * neighbors.length)];
+
+            const weight = this.calibration.weights?.[g] || (poleVal * 0.4);
+            const score = poleVal * weight * Math.max(0.1, 1.0 - fatigue * 0.9) * distanceAffinity;
+
+            return {
+                id: g,
+                jumpDist: c.jumpDist,
+                distFromHome: c.distFromHome,
+                score
+            };
+        }).sort((a, b) => b.score - a.score);
+
+        // Pick probabilistically among top scored candidates (top 3 for Familiar, top 5 for Balanced/Deep Cuts)
+        const poolSize = Math.min(discovery < 0.35 ? 3 : 5, scored.length);
+        const pool = scored.slice(0, poolSize);
+        const totalScore = pool.reduce((acc, c) => acc + c.score, 0);
+        let rand = Math.random() * totalScore;
+        let chosen = pool[0]?.id || current;
+
+        for (const c of pool) {
+            rand -= c.score;
+            if (rand <= 0) {
+                chosen = c.id;
+                break;
             }
         }
 
         const dev = getVectorDeviation(homeGenre, chosen);
-        console.log(`[StateMachine 🎲 Surprise Me] Transitioning "${current}" -> "${chosen}" (${GENRE_NODES[chosen]?.label}) | ${dev.hops} hops from Home "${GENRE_NODES[homeGenre]?.label || homeGenre}"`);
+        const hopFromCurrent = getGraphDistance(current, chosen);
+        console.log(`[StateMachine 🎲 Surprise Me] Transitioning "${current}" -> "${chosen}" (${GENRE_NODES[chosen]?.label}) | ${hopFromCurrent} hops from current, ${dev.hops} hops from Home "${GENRE_NODES[homeGenre]?.label || homeGenre}" | Discovery: ${discovery.toFixed(2)} (maxHops: ${maxHops})`);
+        
         this.state.activeGenre = chosen;
         this.state.consecutiveInNode = 0;
         this.state.consecutiveSkips = 0;
@@ -706,7 +739,7 @@ class SessionStateMachine {
             jitEngine.replenishBuffer(chosen, this);
         }, 100);
 
-        return { id: chosen, label: GENRE_NODES[chosen]?.label || chosen, deviation: dev };
+        return { id: chosen, label: GENRE_NODES[chosen]?.label || chosen, deviation: dev, hopsFromCurrent: hopFromCurrent };
     }
 
     // ==========================================

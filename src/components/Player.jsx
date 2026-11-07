@@ -727,7 +727,7 @@ function Player({ initialTrack, token }) {
                             className="btn-text"
                             onClick={handleSurpriseMe}
                             disabled={isSteering}
-                            title="Surprise me with a fresh compatible genre"
+                            title={`Surprise Me (${sessionState.discoveryLevel < 0.35 ? 'Familiar: 1-hop jump' : sessionState.discoveryLevel <= 0.70 ? 'Balanced: ≤ 2-hop jump' : 'Deep Cuts: wide exploration'})`}
                             style={{
                                 background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(99, 102, 241, 0.2))',
                                 border: '1px solid rgba(168, 85, 247, 0.45)',

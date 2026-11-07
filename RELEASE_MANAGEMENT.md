@@ -37,6 +37,24 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.7.1` — 2026-11-07
+* **Harmonic Graph Bridge Enrichment & Discovery-Governed "Surprise Me" Traversal:**
+  * **Strict Discovery-Governed Jump Bounds (`sessionStateMachine.js`):**
+    * Wired active Discovery level directly to the **🎲 Surprise Me** jump radius, calculated relative to the currently playing active node:
+      * **Familiar (0.2):** Max **1 hop** (immediate harmonic neighbor or sister subgenre in the same family, e.g. *Hard Rock* $\rightarrow$ *Heavy Metal* / *Alt Rock*).
+      * **Balanced (0.5):** Max **2 hops** (adjacent harmonic bridge, smooth transition).
+      * **Deep Cuts (0.85):** **Unrestricted** (3+ hops, actively boosting adventurous cross-genre discoveries).
+    * Replaced the silent fallback bug with **Strict Nearest-Neighbor Fallback**—if no candidate exists at the requested distance, the engine snaps to the closest available tier rather than jumping randomly across the graph.
+  * **Taste Graph Harmonic Bridge Enrichment (`tasteGraph.js`):**
+    * Resolved all isolated genre nodes across the 6 core moods by adding 24 canonical harmonic cross-genre bridges:
+      * *Dance / Party:* Added `dance_pop` $\leftrightarrow$ `house`, `dance_pop` $\leftrightarrow$ `funk`, `dance_pop` $\leftrightarrow$ `synthwave`, `house` $\leftrightarrow$ `funk`, `funk` $\leftrightarrow$ `salsa`, `ska` $\leftrightarrow$ `punk_rock`, `afrobeat` $\leftrightarrow$ `salsa`.
+      * *Focus / Classical:* Added `baroque` $\leftrightarrow$ `chamber_music`, `baroque` $\leftrightarrow$ `neo_classical`, `chamber_music` $\leftrightarrow$ `neo_classical`, `chamber_music` $\leftrightarrow$ `cool_jazz`.
+      * *Rock / Metal:* Added `doom_metal` $\leftrightarrow$ `post_rock`, `doom_metal` $\leftrightarrow$ `shoegaze`, `nu_metal` $\leftrightarrow$ `hard_rock`, `nu_metal` $\leftrightarrow$ `metalcore`, `hard_rock` $\leftrightarrow$ `grunge`.
+      * *Chill / Ambient / Soul:* Added `chillout` $\leftrightarrow$ `house`, `shoegaze` $\leftrightarrow$ `ambient`, `delta_blues` $\leftrightarrow$ `singer_songwriter`.
+    * Cleaned up invalid edge endpoints (`sludge`, `swing`, `honky_tonk`), resulting in 100% reachable graph connectivity.
+  * **Dynamic UI Tooltip (`Player.jsx`):**
+    * The "Surprise Me" button tooltip dynamically reflects the active discovery constraint (e.g. `Surprise Me (Familiar: 1-hop jump)`, `Surprise Me (Balanced: ≤ 2-hop jump)`).
+
 ### `v0.7.0a` — 2026-11-07
 * **Loosen Step 3 Onboarding Genre Selection & Minimal Mood Tooltips:**
   * **Minimal Mood Pill Hover Tooltips (`MoodBar.jsx`):**
