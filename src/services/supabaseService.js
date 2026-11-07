@@ -5,6 +5,17 @@ const supabaseKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_L
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
+function getResolvedUserId() {
+    try {
+        const raw = localStorage.getItem('musicmood_user_profile');
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.id) return parsed.id;
+        }
+    } catch (e) {}
+    return 'f7337681-6f7b-4772-852f-4d66317d2bb9';
+}
+
 /**
  * Signs in anonymously or via guest fallback.
  */
@@ -35,11 +46,23 @@ export async function signInAsGuest() {
  * - user_mood_genre_affinities (anchors across default moods)
  */
 export async function syncCalibrationToSupabase(calibration) {
-    const { data: { user } } = await supabase.auth.getUser();
-    const userId = user ? user.id : 'f7337681-6f7b-4772-852f-4d66317d2bb9';
+    const userId = getResolvedUserId();
 
     try {
-        // 1. Update user_profiles
+        // Primary: use RPC function with SECURITY DEFINER
+        const { error: rpcError } = await supabase.rpc('sync_user_calibration', {
+            p_user_id: userId,
+            p_calibration: calibration
+        });
+
+        if (!rpcError) {
+            console.log(`[Supabase V2 Sync] Synced calibration for user ${userId} via RPC`);
+            return true;
+        }
+
+        console.warn('[Supabase V2 Sync] RPC notice, trying direct upsert:', rpcError.message);
+
+        // Fallback: direct table updates
         await supabase
             .from('user_profiles')
             .upsert({
@@ -48,7 +71,6 @@ export async function syncCalibrationToSupabase(calibration) {
                 updated_at: new Date().toISOString()
             });
 
-        // 2. Sync dealbreakers
         if (calibration.dealbreakers && calibration.dealbreakers.length > 0) {
             const dbRecords = calibration.dealbreakers.map(target => ({
                 user_id: userId,
@@ -61,11 +83,9 @@ export async function syncCalibrationToSupabase(calibration) {
                 .upsert(dbRecords, { onConflict: 'user_id,rule_type,target_value' });
         }
 
-        // 3. Sync anchors into user_mood_genre_affinities across default moods
         if (calibration.anchors && calibration.anchors.length > 0) {
             const moods = ['focus', 'chill', 'energetic', 'late_night', 'melancholic'];
             const affinityRecords = [];
-
             const weightPerAnchor = Math.min(0.25, 1.0 / calibration.anchors.length);
 
             moods.forEach(moodId => {
@@ -101,8 +121,7 @@ export const saveTasteGraphToSupabase = syncCalibrationToSupabase;
  * Records a listening event / scrobble into public.listening_history
  */
 export async function recordListenEvent({ trackId, moodId, genreId, completed = false, skipped = false, liked = false, listenedSeconds = 0 }) {
-    const { data: { user } } = await supabase.auth.getUser();
-    const userId = user ? user.id : 'f7337681-6f7b-4772-852f-4d66317d2bb9';
+    const userId = getResolvedUserId();
 
     try {
         const { error } = await supabase
@@ -121,7 +140,7 @@ export async function recordListenEvent({ trackId, moodId, genreId, completed = 
         if (error) {
             console.warn("[History Record] Insert error:", error.message);
         } else {
-            console.log(`[History Record] ✅ Logged scrobble: track=${trackId}, mood=${moodId}, liked=${liked}`);
+            console.log(`[History Record] ✅ Logged scrobble: track=${trackId}, mood=${moodId}, user=${userId}`);
         }
     } catch (e) {
         console.warn("[History Record] Exception:", e);

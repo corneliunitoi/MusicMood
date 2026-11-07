@@ -1,6 +1,8 @@
+import { clearUserProfile } from './userService';
+
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI;
-const SCOPES = 'https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/userinfo.profile';
+const SCOPES = 'https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
 
 export const getAuthUrl = () => {
     const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
@@ -32,4 +34,5 @@ export const getAccessToken = () => {
 
 export const logout = () => {
     localStorage.removeItem('youtube_access_token');
+    clearUserProfile();
 };

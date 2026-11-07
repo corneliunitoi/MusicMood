@@ -11,6 +11,7 @@ import OnboardingWizard from './OnboardingWizard';
 import JitFeedModal from './JitFeedModal';
 import FavoritesPane from './FavoritesPane';
 import { getFavoritesCount, subscribeFavorites } from '../services/favoritesService';
+import { initUserProfile, getCurrentUser, isAdmin } from '../services/userService';
 
 function Dashboard({ token, onLogout }) {
     const [profile, setProfile] = useState(null);
@@ -56,7 +57,8 @@ function Dashboard({ token, onLogout }) {
                     fetchUserProfile(token),
                     fetchUserPlaylists(token),
                 ]);
-                setProfile(profileData);
+                const resolvedUser = await initUserProfile(profileData);
+                setProfile({ ...profileData, ...resolvedUser });
                 setPlaylists(playlistsData);
             } catch (err) {
                 console.error(err);
@@ -209,9 +211,27 @@ function Dashboard({ token, onLogout }) {
         <div className="dashboard">
             <header className="dashboard-header-simple">
                 {profile && (
-                    <div className="profile-mini">
-                        <img src={profile.picture} alt={profile.name} className="profile-avatar-mini" referrerPolicy="no-referrer" />
-                        <span>{profile.name}</span>
+                    <div className="profile-mini" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <img src={profile.picture || profile.avatar_url} alt={profile.name || profile.username} className="profile-avatar-mini" referrerPolicy="no-referrer" />
+                        <span style={{ fontWeight: '500' }}>{profile.name || profile.username}</span>
+                        {profile.role === 'admin' && (
+                            <span
+                                style={{
+                                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                    color: '#0f172a',
+                                    fontWeight: '800',
+                                    fontSize: '0.65rem',
+                                    padding: '0.12rem 0.45rem',
+                                    borderRadius: '9999px',
+                                    letterSpacing: '0.04em',
+                                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.4)',
+                                    userSelect: 'none'
+                                }}
+                                title="Administrator Account"
+                            >
+                                👑 ADMIN
+                            </span>
+                        )}
                     </div>
                 )}
                 <div className="header-actions">
