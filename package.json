@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "start": "node server.js",
     "scan-library": "node scripts/scanLibrary.js",
     "scan-library:random": "node scripts/scanLibrary.js --random",
     "resolve-library": "node scripts/resolveVideoIds.js",
