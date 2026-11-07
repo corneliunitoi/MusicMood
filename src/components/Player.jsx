@@ -326,7 +326,7 @@ function Player({ initialTrack, token }) {
             });
             playerRef.current.playVideo();
 
-            // 6-Second Silence / Stalled Stream Watchdog
+            // 14-Second Silence / Stalled Stream Watchdog (allows healthy buffer grace period)
             watchdogTimerRef.current = setTimeout(async () => {
                 let isAudioMoving = false;
                 try {
@@ -339,7 +339,16 @@ function Player({ initialTrack, token }) {
                 } catch (e) {}
 
                 if (!isAudioMoving) {
-                    console.warn(`[Watchdog ⏱️] Track ${track.id} (${track.title}) stalled or silent after 6s. Auto-recovering...`);
+                    // If player is still actively buffering (State 3), grant extra grace time rather than prematurely purging
+                    try {
+                        const finalState = playerRef.current?.getPlayerState?.();
+                        if (finalState === 3) {
+                            console.log(`[Watchdog] Track ${track.id} (${track.title}) is actively buffering. Granting extra grace time...`);
+                            return;
+                        }
+                    } catch (e) {}
+
+                    console.warn(`[Watchdog ⏱️] Track ${track.id} (${track.title}) stalled or silent after 14s. Auto-recovering...`);
                     // Purge stalled/dead video from catalog so it never plays again
                     try {
                         if (track.dbId) {
@@ -360,7 +369,7 @@ function Player({ initialTrack, token }) {
                     setErrorMessage(`Silent or stalled stream on "${track.title}". Auto-advancing...`);
                     loadNextTrack(false);
                 }
-            }, 6000);
+            }, 14000);
         }
     };
 
