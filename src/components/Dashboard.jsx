@@ -229,97 +229,112 @@ function Dashboard({ token, onLogout }) {
     return (
         <div className="dashboard">
             <header className="dashboard-header-simple">
-                {profile && (
-                    <div className="profile-mini" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <img src={profile.picture || profile.avatar_url} alt={profile.name || profile.username} className="profile-avatar-mini" referrerPolicy="no-referrer" />
-                        <span style={{ fontWeight: '500' }}>{profile.name || profile.username}</span>
+                <div className="header-top-bar">
+                    {profile ? (
+                        <div className="profile-mini" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <img src={profile.picture || profile.avatar_url} alt={profile.name || profile.username} className="profile-avatar-mini" referrerPolicy="no-referrer" />
+                            <span style={{ fontWeight: '500' }}>{profile.name || profile.username}</span>
 
-                        {/* Role & Class Badges */}
-                        {profile.role === 'admin' ? (
-                            <span
-                                style={{
-                                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                                    color: '#0f172a',
-                                    fontWeight: '800',
-                                    fontSize: '0.65rem',
-                                    padding: '0.12rem 0.45rem',
-                                    borderRadius: '9999px',
-                                    letterSpacing: '0.04em',
-                                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.4)',
-                                    userSelect: 'none'
-                                }}
-                                title="Role: Admin | Class: Poweruser"
-                            >
-                                👑 ADMIN • POWERUSER
-                            </span>
-                        ) : profile.user_class === 'beta' ? (
-                            <span
-                                style={{
-                                    background: 'rgba(56, 189, 248, 0.2)',
-                                    color: '#38bdf8',
-                                    border: '1px solid rgba(56, 189, 248, 0.4)',
-                                    fontWeight: '700',
-                                    fontSize: '0.65rem',
-                                    padding: '0.12rem 0.45rem',
-                                    borderRadius: '9999px',
-                                    letterSpacing: '0.04em',
-                                    userSelect: 'none'
-                                }}
-                                title="Role: User | Class: Beta Tester"
-                            >
-                                🧪 BETA
-                            </span>
-                        ) : profile.user_class === 'regular' ? (
-                            <span
-                                style={{
-                                    background: 'rgba(255, 255, 255, 0.08)',
-                                    color: '#94a3b8',
-                                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                                    fontWeight: '600',
-                                    fontSize: '0.65rem',
-                                    padding: '0.12rem 0.45rem',
-                                    borderRadius: '9999px',
-                                    userSelect: 'none'
-                                }}
-                                title="Role: User | Class: Regular"
-                            >
-                                REGULAR
-                            </span>
-                        ) : null}
-
-                        {/* Test Persona Switcher for Feature Validation */}
-                        {(isAdmin() || isTestUserActive()) && (
-                            <div style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '0.2rem' }}>
-                                <select
-                                    value={isTestUserActive() ? (profile.personaKey || 'test') : 'real'}
-                                    onChange={(e) => switchTestPersona(e.target.value)}
-                                    title="Switch User Persona to validate feature gating and permissions"
+                            {/* Role & Class Badges */}
+                            {profile.role === 'admin' ? (
+                                <span
                                     style={{
-                                        background: isTestUserActive() ? 'rgba(245, 158, 11, 0.18)' : 'rgba(30, 41, 59, 0.85)',
-                                        color: isTestUserActive() ? '#fbbf24' : '#cbd5e1',
-                                        border: isTestUserActive() ? '1px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.15)',
-                                        borderRadius: '6px',
-                                        padding: '0.15rem 0.45rem',
-                                        fontSize: '0.72rem',
-                                        outline: 'none',
-                                        cursor: 'pointer'
+                                        background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                        color: '#0f172a',
+                                        fontWeight: '800',
+                                        fontSize: '0.65rem',
+                                        padding: '0.12rem 0.45rem',
+                                        borderRadius: '9999px',
+                                        letterSpacing: '0.04em',
+                                        boxShadow: '0 2px 8px rgba(245, 158, 11, 0.4)',
+                                        userSelect: 'none'
                                     }}
+                                    title="Role: Admin | Class: Poweruser"
                                 >
-                                    <option value="real">👤 Real Account</option>
-                                    <optgroup label="── Local Test Personas ──">
-                                        {TEST_PERSONAS.map(p => (
-                                            <option key={p.key} value={p.key}>
-                                                {p.badge} ({p.name})
-                                            </option>
-                                        ))}
-                                    </optgroup>
-                                </select>
-                            </div>
-                        )}
+                                    👑 ADMIN • POWERUSER
+                                </span>
+                            ) : profile.user_class === 'beta' ? (
+                                <span
+                                    style={{
+                                        background: 'rgba(56, 189, 248, 0.2)',
+                                        color: '#38bdf8',
+                                        border: '1px solid rgba(56, 189, 248, 0.4)',
+                                        fontWeight: '700',
+                                        fontSize: '0.65rem',
+                                        padding: '0.12rem 0.45rem',
+                                        borderRadius: '9999px',
+                                        letterSpacing: '0.04em',
+                                        userSelect: 'none'
+                                    }}
+                                    title="Role: User | Class: Beta Tester"
+                                >
+                                    🧪 BETA
+                                </span>
+                            ) : profile.user_class === 'regular' ? (
+                                <span
+                                    style={{
+                                        background: 'rgba(255, 255, 255, 0.08)',
+                                        color: '#94a3b8',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        fontWeight: '600',
+                                        fontSize: '0.65rem',
+                                        padding: '0.12rem 0.45rem',
+                                        borderRadius: '9999px',
+                                        userSelect: 'none'
+                                    }}
+                                    title="Role: User | Class: Regular"
+                                >
+                                    REGULAR
+                                </span>
+                            ) : null}
+
+                            {/* Test Persona Switcher for Feature Validation */}
+                            {(isAdmin() || isTestUserActive()) && (
+                                <div style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '0.2rem' }}>
+                                    <select
+                                        value={isTestUserActive() ? (profile.personaKey || 'test') : 'real'}
+                                        onChange={(e) => switchTestPersona(e.target.value)}
+                                        title="Switch User Persona to validate feature gating and permissions"
+                                        style={{
+                                            background: isTestUserActive() ? 'rgba(245, 158, 11, 0.18)' : 'rgba(30, 41, 59, 0.85)',
+                                            color: isTestUserActive() ? '#fbbf24' : '#cbd5e1',
+                                            border: isTestUserActive() ? '1px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.15)',
+                                            borderRadius: '6px',
+                                            padding: '0.15rem 0.45rem',
+                                            fontSize: '0.72rem',
+                                            outline: 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <option value="real">👤 Real Account</option>
+                                        <optgroup label="── Local Test Personas ──">
+                                            {TEST_PERSONAS.map(p => (
+                                                <option key={p.key} value={p.key}>
+                                                    {p.badge} ({p.name})
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+                    ) : <div />}
+
+                    <div className="header-top-right">
+                        <button
+                            type="button"
+                            className="btn-signout"
+                            onClick={onLogout}
+                            title="Sign out of MusicMood"
+                        >
+                            <span className="signout-icon">🚪</span>
+                            <span className="signout-label">Sign Out</span>
+                        </button>
                     </div>
-                )}
+                </div>
+
                 <div className="header-actions">
-                    <div className="cloud-status" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', marginRight: '1rem', fontSize: '0.85rem' }}>
+                    <div className="cloud-status" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem' }}>
                         <span style={{ color: '#34d399', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '9999px', padding: '0.2rem 0.6rem' }}>
                             ⚡ <strong>{playableCount}</strong> Playable
                         </span>
@@ -405,8 +420,6 @@ function Dashboard({ token, onLogout }) {
                             )}
                         </button>
                     </nav>
-
-                    <button className="btn-text" onClick={onLogout}>Sign Out</button>
                 </div>
             </header>
 
