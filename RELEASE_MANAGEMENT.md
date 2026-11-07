@@ -6,13 +6,18 @@ This document defines the release management protocol, versioning standard, and 
 
 ## 🏷️ Versioning Standard
 
-1. **Format:** Semantic Versioning (`vMAJOR.MINOR.PATCH[suffix]`)
-   * **Major (`X.0.0`):** Architectural paradigm shifts or breaking database migrations.
-   * **Minor (`0.X.0`):** Significant feature releases (e.g., cloud deployments, state machine upgrades).
-   * **Patch / Iteration (`0.6.0`, `0.6.0a`, `0.6.0b`):** Fast incremental hotfixes, UI refinements, and security/API adaptations.
-2. **Tag Naming Convention:**
-   * All git tags **must** be prefixed with a lowercase `v` (e.g. `v0.6.0`, `v0.6.0a`, `v0.6.0b`).
-   * Never create bare numeric tags (e.g., `0.60a`) to avoid ambiguous git tag resolution.
+MusicMood strictly adheres to the following tiering convention:
+
+| Tier | Format | Purpose | Examples |
+|---|---|---|---|
+| **Bugfixes & Hotfixes** | `0.6.0a`, `0.6.0b`, `0.6.0c`... | Fast bugfixes, emergency hotfixes, OAuth adjustments, and minor styling patches. | `v0.6.0b` (admin stats gating, playlist scope authorization). |
+| **Small Feature Additions** | `0.6.1`, `0.6.2`, `0.6.3`... | Incremental small features, UI enhancements, and configuration options. | `v0.6.1` (custom default subgenres for the Core 6 moods, 1-click pin). |
+| **Big Feature Additions** | `0.7.0`, `0.8.0`, `0.9.0`... | Major functional systems, substantial new capabilities, and deep service integrations. | `v0.7.0` (On-Demand Artist Library & Lookup, "Add Your Own Artist" with 10-track discography harvest). |
+| **Major Releases** | `1.0.0`, `2.0.0`... | Complete platform milestones, production general availability, and multi-user scaling. | `v1.0.0` (Public GA Launch). |
+
+### Git Tag Rules:
+* All git tags **must** be prefixed with a lowercase `v` in 3-segment format (e.g., `v0.6.0b`, `v0.6.1`, `v0.7.0`).
+* Never create bare numeric tags (e.g., `0.60a`) or mixed casing (`V0.6.0`).
 
 ---
 
