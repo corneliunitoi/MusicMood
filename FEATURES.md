@@ -240,6 +240,15 @@ Each pill defines a multi-dimensional acoustic steering vector that modifies the
 * **Optional Language Filter:** Allow users to request music in specific languages (e.g., French, Romanian, Japanese, Spanish) on demand.
 * **Non-Invasive:** Kept strictly outside the core engine defaults so regional music never plays unless explicitly chosen by the user.
 
+### 5. "Ask AI What You Want" (Conversational Sonic Intent Parser)
+* **Natural Language Vibe Prompting:** Allow users to describe their desired musical headspace in everyday human language (e.g., *"I'm coding late at night in the rain, give me something instrumental with deep bass and melancholic piano but no harsh drops"*, *"Something that feels like Blade Runner meets Pink Floyd"*, or *"High-energy 80s synth running music with female vocals"*).
+* **Intent-to-Vector Translation:** Translates arbitrary natural language prompts into MusicMood's exact mathematical parameters:
+  - Acoustic vector: Target Energy ($E$), Target Valence ($V$), Vocal Policy (`instrumental_strict`, `vocal_prominent`, etc.), and Timbral Texture.
+  - Taxonomy anchor: Automatically maps the prompt to the closest node(s) across our 115-node canonical genre graph.
+  - Ad-hoc dealbreakers: Dynamically infers and applies negative acoustic constraints (e.g., *"no screaming"*, *"no high-pitched synths"*).
+* **Authentic Human Music Curation (Strict Anti-AI Audio Integrity):** The AI operates strictly as an intelligent acoustic curator and semantic router—**never** generating synthetic AI audio. Every selected song is verified authentic human music drawn from the user's 44.8k archive and verified MusicBrainz/YouTube catalog.
+* **Seamless State Machine Steering:** Injects the synthesized intent directly into `sessionEngine.setMood()`, allowing immediate harmonic playback and auto-steering without manual slider configuration.
+
 ---
 
 ## 📐 Key Specifications & Invariant Rules
