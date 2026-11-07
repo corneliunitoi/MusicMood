@@ -11,6 +11,8 @@ import MoodHistory from './MoodHistory';
 import OnboardingWizard from './OnboardingWizard';
 import JitFeedModal from './JitFeedModal';
 import FavoritesPane from './FavoritesPane';
+import WelcomeSplash from './WelcomeSplash';
+import GuidedTour from './GuidedTour';
 import { getFavoritesCount, subscribeFavorites } from '../services/favoritesService';
 import {
     initUserProfile,
@@ -57,6 +59,26 @@ function Dashboard({ token, onLogout }) {
     const [favoritesCount, setFavoritesCount] = useState(() => getFavoritesCount());
     const [showJitFeed, setShowJitFeed] = useState(false);
 
+    // Welcome Splash & Guided Spotlight Tour state
+    const [showWelcomeSplash, setShowWelcomeSplash] = useState(() => !localStorage.getItem('musicMood_welcome_seen'));
+    const [isTourActive, setIsTourActive] = useState(false);
+
+    const startTour = () => {
+        setShowWelcomeSplash(false);
+        setIsTourActive(true);
+    };
+
+    const closeWelcomeSplash = () => {
+        localStorage.setItem('musicMood_welcome_seen', 'true');
+        setShowWelcomeSplash(false);
+    };
+
+    const finishTour = () => {
+        localStorage.setItem('musicMood_welcome_seen', 'true');
+        localStorage.setItem('musicMood_tour_seen', 'true');
+        setIsTourActive(false);
+    };
+
     // Mutual exclusivity: selecting one panel unselects all others
     const toggleTopPanel = (panelName) => {
         setActiveTopPanel(prev => prev === panelName ? null : panelName);
@@ -94,7 +116,9 @@ function Dashboard({ token, onLogout }) {
                     sessionEngine.saveCalibration(resolvedUser.calibration);
                 } else if (!localStorage.getItem('musicMood_user_calibration')) {
                     // First time listener with zero local or cloud calibration
-                    setActiveTopPanel('calibrate');
+                    if (localStorage.getItem('musicMood_welcome_seen')) {
+                        setActiveTopPanel('calibrate');
+                    }
                 }
 
                 // 2. Fetch user playlists gracefully (optional / non-fatal)
@@ -404,10 +428,23 @@ function Dashboard({ token, onLogout }) {
                         </div>
                     )}
 
-                    {/* 4 SINGLE-SELECT EXCLUSIVE PANELS */}
+                    {/* 4 SINGLE-SELECT EXCLUSIVE PANELS + TOUR PILL */}
                     <nav className="header-nav-pills" role="tablist" aria-label="Dashboard views" style={{ marginLeft: isAdmin() ? undefined : 'auto' }}>
                         <button
                             type="button"
+                            className="header-pill-btn"
+                            onClick={() => setShowWelcomeSplash(true)}
+                            title="How MusicMood works & interactive tour"
+                            style={{ border: '1px dashed rgba(168, 85, 247, 0.45)', color: '#d8b4fe' }}
+                        >
+                            <span className="pill-icon">✨</span>
+                            <span className="pill-label">How It Works</span>
+                            <span className="pill-label-short">Tour</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            data-tour="calibrate"
                             className={`header-pill-btn ${showWizard ? 'active' : ''}`}
                             onClick={() => toggleTopPanel('calibrate')}
                             aria-selected={showWizard}
@@ -432,6 +469,7 @@ function Dashboard({ token, onLogout }) {
 
                         <button
                             type="button"
+                            data-tour="playlists"
                             className={`header-pill-btn ${showPlaylists ? 'active' : ''}`}
                             onClick={() => toggleTopPanel('playlists')}
                             aria-selected={showPlaylists}
@@ -503,7 +541,9 @@ function Dashboard({ token, onLogout }) {
                     <p className="headspace-subtitle">Choose an emotion, situation, or vibe to dynamically steer playback</p>
                 </div>
 
-                <MoodBar selectedMood={selectedMood} onSelectMood={handleMoodSelect} />
+                <div data-tour="mood-bar">
+                    <MoodBar selectedMood={selectedMood} onSelectMood={handleMoodSelect} />
+                </div>
 
                 {/* PLAYBACK & STEERING SECTION */}
                 {selectedMood && !showWizard && (
@@ -563,6 +603,25 @@ function Dashboard({ token, onLogout }) {
 
                 {/* JIT ORGANIC GROWTH AUDIT MODAL */}
                 <JitFeedModal isOpen={showJitFeed} onClose={() => setShowJitFeed(false)} />
+
+                {/* WELCOME SPLASH MANIFESTO */}
+                {showWelcomeSplash && (
+                    <WelcomeSplash
+                        onStartTour={startTour}
+                        onClose={closeWelcomeSplash}
+                    />
+                )}
+
+                {/* GUIDED SPOTLIGHT TOUR ACROSS LIVE INTERFACE */}
+                {isTourActive && (
+                    <GuidedTour
+                        onFinish={finishTour}
+                        onOpenCalibrate={() => {
+                            finishTour();
+                            setActiveTopPanel('calibrate');
+                        }}
+                    />
+                )}
             </main>
         </div>
     );

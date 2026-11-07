@@ -37,6 +37,25 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.7.2` — 2026-11-07
+* **Welcome Screen Manifesto & Interactive 6-Stop Guided Spotlight Tour:**
+  * **Option 1 Glassmorphic Welcome Splash (`WelcomeSplash.jsx`):**
+    * Added an atmospheric glassmorphism welcome modal highlighting user intent and anti-drift architecture:
+      * *Headline:* *"Are you tired of AI algorithms telling you what you should listen to?"*
+      * *3 Value Pillars:* You Steer (2-track dwell cap & 15-artist cooldown), Calibrated Mood Homes (Focus, Chill, Energetic, Sad, Party), and Leashed Discovery (Familiar, Balanced, Deep Cuts).
+      * *Action:* 1-click launcher for the 60-second interactive guided tour.
+  * **Interactive Guided Spotlight Tour (`GuidedTour.jsx`):**
+    * Built a live 6-stop spotlight tour that dims the screen, illuminates each real interface widget, and positions floating guidance cards:
+      1. `🎛️ Calibrate Taste`: 6-point sound polygon & dealbreaker exclusions.
+      2. `📥 Ingest Playlists`: Zero-quota YouTube library synchronization.
+      3. `🧠 Steer by Headspace`: 6 core moods anchored to personal home genres.
+      4. `🎧 Anti-Drift Player`: Guarded playback with 2-track node cap.
+      5. `🎲 Surprise Me`: Context-aware harmonic leaps on demand.
+      6. `🧭 Discovery Tiers`: Governing exploration horizon (1-hop, 2-hop, unrestricted).
+  * **Header Access & Landing Page Alignment:**
+    * Added a permanent `✨ How It Works` pill to the dashboard header nav so listeners can revisit the tour anytime.
+    * Aligned pre-login landing page copy in `App.jsx` with the anti-drift manifesto.
+
 ### `v0.7.1` — 2026-11-07
 * **Harmonic Graph Bridge Enrichment & Discovery-Governed "Surprise Me" Traversal:**
   * **Strict Discovery-Governed Jump Bounds (`sessionStateMachine.js`):**

@@ -471,7 +471,7 @@ function Player({ initialTrack, token }) {
     const activeNode = GENRE_NODES[sessionState.activeGenre];
 
     return (
-        <div className="player-card fade-in-up">
+        <div className="player-card fade-in-up" data-tour="player">
             {/* 1. SESSION & ACTIVE NODE CONTEXT HEADER */}
             <div className="player-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#10b981', fontWeight: 'bold', flexWrap: 'wrap' }}>
@@ -725,6 +725,7 @@ function Player({ initialTrack, token }) {
                         <button
                             type="button"
                             className="btn-text"
+                            data-tour="surprise-me"
                             onClick={handleSurpriseMe}
                             disabled={isSteering}
                             title={`Surprise Me (${sessionState.discoveryLevel < 0.35 ? 'Familiar: 1-hop jump' : sessionState.discoveryLevel <= 0.70 ? 'Balanced: ≤ 2-hop jump' : 'Deep Cuts: wide exploration'})`}
@@ -1007,7 +1008,7 @@ function Player({ initialTrack, token }) {
                     ))}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div data-tour="discovery" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <span style={{ color: '#94a3b8', whiteSpace: 'nowrap' }}>🧭 Discovery:</span>
                     <div style={{ display: 'flex', gap: '0.25rem' }}>
                         {[
