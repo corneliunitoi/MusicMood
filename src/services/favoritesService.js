@@ -1,17 +1,71 @@
 /**
  * favoritesService.js
- * Browser-local profile favorites management for MusicMood.
- * Fast, 0-latency, offline-first with reactive subscriptions and Supabase cloud persistence.
+ * Browser-local & cloud-synced profile favorites management for MusicMood.
+ * Strictly scoped per user ID to guarantee zero bleed-over between users/guests.
  */
 
 import { supabase } from './supabaseService';
 
-const STORAGE_KEY = 'musicmood_favorites';
+const LEGACY_STORAGE_KEY = 'musicmood_favorites';
 const EVENT_NAME = 'musicmood:favorites_updated';
 
-function getStoredFavorites() {
+function getActiveUser() {
     try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = localStorage.getItem('musicmood_user_profile');
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.id) {
+                const isGuest = parsed.role === 'guest' || parsed.user_class === 'guest' || Boolean(parsed.isGuest);
+                return { id: parsed.id, isGuest };
+            }
+        }
+    } catch (e) {}
+    return { id: null, isGuest: true };
+}
+
+function getActiveUserId() {
+    const user = getActiveUser();
+    return (!user.isGuest && user.id) ? user.id : null;
+}
+
+function getStorageKey(userId) {
+    if (userId && userId !== 'guest') {
+        return `musicmood_favorites_${userId}`;
+    }
+    return 'musicmood_favorites_guest';
+}
+
+function getStoredFavorites(targetUserId = null) {
+    try {
+        const userId = targetUserId !== null ? targetUserId : getActiveUserId();
+        
+        // If this is a guest session, ensure zero contaminated legacy favorites are ever returned
+        if (!userId || userId === 'guest') {
+            const raw = localStorage.getItem('musicmood_favorites_guest');
+            const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+            // If the guest key still holds old copied data or legacy key is present, purge both immediately
+            if (legacy || (raw && raw.length > 500)) {
+                localStorage.removeItem('musicmood_favorites_guest');
+                localStorage.removeItem(LEGACY_STORAGE_KEY);
+                return [];
+            }
+            return raw ? JSON.parse(raw) : [];
+        }
+
+        const key = getStorageKey(userId);
+        let raw = localStorage.getItem(key);
+
+        // One-time migration: if this is a real user and user-specific key is empty,
+        // but legacy unscoped key exists, migrate legacy favorites to this user
+        if (!raw && userId && userId !== 'guest') {
+            const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+            if (legacy) {
+                raw = legacy;
+                localStorage.setItem(key, legacy);
+                localStorage.removeItem(LEGACY_STORAGE_KEY);
+            }
+        }
+
         return raw ? JSON.parse(raw) : [];
     } catch (e) {
         console.warn('[FavoritesService] Error reading favorites:', e);
@@ -19,25 +73,51 @@ function getStoredFavorites() {
     }
 }
 
-function saveFavorites(list) {
+function saveFavorites(list, targetUserId = null) {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-        window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { favorites: list } }));
+        const userId = targetUserId !== null ? targetUserId : getActiveUserId();
+        const key = getStorageKey(userId);
+        localStorage.setItem(key, JSON.stringify(list));
+        window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { favorites: list, userId } }));
     } catch (e) {
         console.warn('[FavoritesService] Error saving favorites:', e);
     }
 }
 
-function getActiveUserId() {
-    try {
-        const raw = localStorage.getItem('musicmood_user_profile');
-        if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed && parsed.id && !parsed.isGuest) return parsed.id;
-        }
-    } catch (e) {}
-    return null;
+/**
+ * Switches the active favorites context when a user logs in, out, or changes persona.
+ * Immediately notifies all UI components with the new user's isolated favorites.
+ */
+export function switchUserFavorites(newUserId = null) {
+    if (!newUserId || newUserId === 'guest') {
+        localStorage.removeItem('musicmood_favorites_guest');
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+        window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { favorites: [], userId: 'guest' } }));
+        return [];
+    }
+    const list = getStoredFavorites(newUserId);
+    window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { favorites: list, userId: newUserId } }));
+    return list;
 }
+
+// Self-healing migration on module load:
+// Guarantees existing browsers immediately purge contaminated guest favorites
+try {
+    const active = getActiveUser();
+    if (active.isGuest) {
+        localStorage.removeItem('musicmood_favorites_guest');
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } else if (active.id) {
+        const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (legacy) {
+            const userKey = getStorageKey(active.id);
+            if (!localStorage.getItem(userKey)) {
+                localStorage.setItem(userKey, legacy);
+            }
+            localStorage.removeItem(LEGACY_STORAGE_KEY);
+        }
+    }
+} catch (e) {}
 
 export function getFavorites() {
     return getStoredFavorites();
@@ -135,29 +215,34 @@ export function subscribeFavorites(callback) {
 
 /**
  * Loads favorites from Supabase public.user_favorites for a given user ID,
- * merging them with any existing local favorites without duplicates.
+ * isolated strictly to that user's partition.
  */
 export async function loadCloudFavorites(userId) {
-    if (!userId) return getStoredFavorites();
+    if (!userId || userId === 'guest') {
+        const guestFavs = getStoredFavorites('guest');
+        saveFavorites(guestFavs, 'guest');
+        return guestFavs;
+    }
 
     try {
         const { data, error } = await supabase.rpc('get_user_favorites', { p_user_id: userId });
         if (error) {
             console.warn('[FavoritesService] Failed to load cloud favorites:', error.message);
-            return getStoredFavorites();
+            return getStoredFavorites(userId);
         }
 
         const cloudFavs = Array.isArray(data) ? data : [];
-        const local = getStoredFavorites();
+        const local = getStoredFavorites(userId);
 
         if (cloudFavs.length === 0) {
             if (local.length > 0) {
                 syncCloudFavorites(userId, local);
             }
+            saveFavorites(local, userId);
             return local;
         }
 
-        // Merge: combine cloud items with local items
+        // Merge: combine cloud items with local items for this specific user
         const map = new Map();
 
         // Add cloud first
@@ -166,14 +251,14 @@ export async function loadCloudFavorites(userId) {
             if (vid) map.set(vid, { ...c, id: vid, youtube_video_id: vid });
         });
 
-        // Overlay local items
+        // Overlay local items belonging to this specific user
         local.forEach(l => {
             const vid = l.youtube_video_id || l.id;
             if (vid && !map.has(vid)) map.set(vid, l);
         });
 
         const merged = Array.from(map.values());
-        saveFavorites(merged);
+        saveFavorites(merged, userId);
 
         // Push any local items not yet in cloud
         if (merged.length > cloudFavs.length) {
@@ -183,7 +268,7 @@ export async function loadCloudFavorites(userId) {
         return merged;
     } catch (e) {
         console.warn('[FavoritesService] Error during cloud favorites hydration:', e);
-        return getStoredFavorites();
+        return getStoredFavorites(userId);
     }
 }
 

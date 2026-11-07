@@ -1,5 +1,5 @@
 import { supabase, fetchUserCalibration, syncCalibrationToSupabase } from './supabaseService.js';
-import { syncCloudFavorites, loadCloudFavorites } from './favoritesService.js';
+import { syncCloudFavorites, loadCloudFavorites, switchUserFavorites } from './favoritesService.js';
 import { sessionEngine } from './sessionStateMachine.js';
 
 const USER_STORAGE_KEY = 'musicmood_user_profile';
@@ -153,6 +153,7 @@ export async function initUserProfile(googlePayload) {
         cachedProfile = guestProfile;
         localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(guestProfile));
         window.dispatchEvent(new CustomEvent(USER_EVENT_NAME, { detail: { user: guestProfile } }));
+        switchUserFavorites('guest');
         return guestProfile;
     }
 
@@ -253,6 +254,7 @@ export async function switchTestPersona(personaKey) {
             cachedProfile = realProfile;
             localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(realProfile));
             window.dispatchEvent(new CustomEvent(USER_EVENT_NAME, { detail: { user: realProfile } }));
+            switchUserFavorites(realProfile.id);
             loadCloudFavorites(realProfile.id).catch(console.warn);
             return realProfile;
         }
@@ -293,8 +295,12 @@ export async function switchTestPersona(personaKey) {
         localStorage.setItem(PERSONA_OVERRIDE_KEY, persona.key);
         window.dispatchEvent(new CustomEvent(USER_EVENT_NAME, { detail: { user: testProfile } }));
 
-        // Hydrate favorites for this persona
-        loadCloudFavorites(testProfile.id).catch(console.warn);
+        // Hydrate favorites strictly for this persona
+        const isGuestPersona = persona.role === 'guest' || persona.user_class === 'guest';
+        switchUserFavorites(isGuestPersona ? 'guest' : testProfile.id);
+        if (!isGuestPersona) {
+            loadCloudFavorites(testProfile.id).catch(console.warn);
+        }
 
         return testProfile;
     } catch (e) {
@@ -315,6 +321,7 @@ export async function switchTestPersona(personaKey) {
         localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(testProfile));
         localStorage.setItem(PERSONA_OVERRIDE_KEY, persona.key);
         window.dispatchEvent(new CustomEvent(USER_EVENT_NAME, { detail: { user: testProfile } }));
+        switchUserFavorites(persona.role === 'guest' ? 'guest' : testProfile.id);
         return testProfile;
     }
 }
@@ -335,6 +342,7 @@ export function clearUserProfile() {
     localStorage.removeItem(REAL_USER_BACKUP_KEY);
     localStorage.removeItem(PERSONA_OVERRIDE_KEY);
     window.dispatchEvent(new CustomEvent(USER_EVENT_NAME, { detail: { user: null } }));
+    switchUserFavorites('guest');
 }
 
 /**

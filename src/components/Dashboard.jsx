@@ -5,7 +5,6 @@ import { supabase } from '../services/supabaseService';
 import { sessionEngine } from '../services/sessionStateMachine';
 import MoodBar, { allMoods } from './MoodBar';
 import PlaylistView from './PlaylistView';
-import TasteGraphSetup from './TasteGraphSetup';
 import Player from './Player';
 import MoodHistory from './MoodHistory';
 import OnboardingWizard from './OnboardingWizard';
@@ -93,7 +92,6 @@ function Dashboard({ token, onLogout }) {
     };
 
     const showWizard = activeTopPanel === 'calibrate';
-    const showVisualGraph = activeTopPanel === 'graph';
     const showPlaylists = activeTopPanel === 'playlists';
     const showFavorites = activeTopPanel === 'favorites';
 
@@ -465,18 +463,6 @@ function Dashboard({ token, onLogout }) {
 
                         <button
                             type="button"
-                            className={`header-pill-btn ${showVisualGraph ? 'active' : ''}`}
-                            onClick={() => toggleTopPanel('graph')}
-                            aria-selected={showVisualGraph}
-                            title="Explore the harmonic soundscape graph"
-                        >
-                            <span className="pill-icon">❄️</span>
-                            <span className="pill-label">Visual Graph</span>
-                            <span className="pill-label-short">Graph</span>
-                        </button>
-
-                        <button
-                            type="button"
                             data-tour="playlists"
                             className={`header-pill-btn ${showPlaylists ? 'active' : ''}`}
                             onClick={() => toggleTopPanel('playlists')}
@@ -520,15 +506,6 @@ function Dashboard({ token, onLogout }) {
                             }
                         }}
                         onClose={() => setActiveTopPanel(null)}
-                    />
-                )}
-
-                {/* VISUAL TASTE GRAPH MODAL/PANEL */}
-                {showVisualGraph && (
-                    <TasteGraphSetup
-                        onSave={(profileData) => {
-                            setActiveTopPanel(null);
-                        }}
                     />
                 )}
 

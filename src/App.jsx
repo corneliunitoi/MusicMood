@@ -2,6 +2,7 @@ import { useState } from 'react';
 import './App.css';
 import { requestGoogleLogin, getAccessToken, logout } from './services/auth';
 import { signInAsGuest, supabase } from './services/supabaseService';
+import { switchUserFavorites } from './services/favoritesService';
 
 import Dashboard from './components/Dashboard';
 
@@ -89,6 +90,7 @@ function App() {
               try {
                 await signInAsGuest();
                 localStorage.setItem('youtube_access_token', 'guest');
+                switchUserFavorites('guest');
                 setToken('guest');
               } catch (e) {
                 console.error("Guest login failed:", e);

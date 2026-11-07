@@ -1,7 +1,7 @@
 {
   "name": "musicmood",
   "private": true,
-  "version": "0.7.2a",
+  "version": "0.7.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -20,6 +20,8 @@
     "seed-genres": "node scripts/seedGenresFromMusicBrainz.js --target=20",
     "seed-genres:empty": "node scripts/seedGenresFromMusicBrainz.js --empty-only --target=20",
     "audit:jit": "node scripts/auditJitTracks.js",
+    "pull-genres": "node scripts/fastPullGenreTracks.js",
+    "pull-genres:lowest": "node scripts/fastPullGenreTracks.js --lowest-first",
     "extract-release-notes": "node scripts/extract-release-notes.js",
     "tag-release": "node scripts/tagWithReleaseNotes.js"
   },

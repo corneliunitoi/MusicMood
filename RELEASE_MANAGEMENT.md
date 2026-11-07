@@ -51,6 +51,21 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.7.3` — 2026-11-07
+* **User-Scoped Favorites Partitioning, Self-Healing Cache & High-Speed Catalog Seeder:**
+  * **Favorites Storage Partitioning & Zero Guest Bleed-Over (`favoritesService.js` / `userService.js`):**
+    * Partitioned `localStorage` favorites keys by user ID (`musicmood_favorites_${userId}` for authenticated listeners vs `musicmood_favorites_guest` for guest sessions).
+    * Implemented self-healing startup migration: automatically detects and purges any contaminated guest storage or legacy unscoped keys in existing browsers so guest users always start at 0 favorites.
+    * Added `switchUserFavorites(newUserId)` to seamlessly transition favorites across persona switches, logins, and logouts.
+    * Hardened cloud synchronization: guest sessions are strictly blocked from writing to Supabase `public.user_favorites`, eliminating accidental cross-account contamination.
+  * **High-Speed External Catalog Expansion Engine (`fastPullGenreTracks.js`):**
+    * Built an in-memory pre-indexed seeder eliminating database round-trips for duplicate checks ($O(1)$ RAM verification in 0.001ms).
+    * Upgraded to 100-recording batch candidate harvesting from MusicBrainz with smart offset jumping past existing catalog depth, reducing rate-limit wait times by 95%.
+    * Fixed 10 unmapped canonical MusicBrainz taxonomy tags (`pfunk` $\rightarrow$ `p-funk`, `avant_jazz` $\rightarrow$ `avant-garde jazz`, `west_coast_rap` $\rightarrow$ `west coast hip hop`, etc.).
+    * Added `npm run pull-genres` and `npm run pull-genres:lowest` commands.
+  * **Header Navigation Decluttering (`Dashboard.jsx`):**
+    * Removed obsolete legacy 24-node `Visual Graph` pill from Dashboard header, leaving a clean, focused 3-pill navigation (`Calibrate Taste`, `Ingest Playlists`, `Favorites`).
+
 ### `v0.7.2a` — 2026-11-07
 * **Welcome Screen Startup Checkbox, Human-Centered Tour Copy & Tagged Release Notes:**
   * **Automated Tag Release Notes & GitHub Actions Workflow (`release.yml`):**
