@@ -503,9 +503,53 @@ export const MOOD_GENRE_MAP = {
     morning: ['bossa_nova', 'indie_folk', 'classic_soul', 'neo_classical', 'chamber_music'],
     cyberpunk: ['darksynth', 'synthwave', 'techno', 'industrial', 'idm'],
     cinematic_epic: ['cinematic_orchestral', 'prog_metal', 'symphonic_metal', 'post_rock', 'opera'],
+    cinematic_mystery: ['cool_jazz', 'soul_blues', 'ambient_electronic', 'chamber_music'],
+    cinematic_fantasy: ['celtic_folk', 'chamber_music', 'neo_classical', 'acoustic_guitar'],
+    cinematic_scifi: ['darksynth', 'synthwave', 'ambient_electronic', 'idm', 'space_rock'],
+    cinematic_ambient: ['ambient', 'nature_soundscape', 'new_age', 'ambient_electronic'],
     dark_intense: ['black_metal', 'death_metal', 'darksynth', 'industrial', 'noise'],
-    nostalgic: ['classic_rock', 'classic_soul', 'motown', '90s_alt', 'classic_country', 'traditional_pop']
+    nostalgic: ['classic_rock', 'classic_soul', 'motown', '90s_alt', 'classic_country', 'traditional_pop'],
+    romantic: ['classic_soul', 'neo_soul', 'bossa_nova', 'smooth_jazz', 'rnb_contemporary'],
+    hopeful: ['indie_pop', 'indie_folk', 'chamber_music', 'classic_soul'],
+    dreamy: ['shoegaze', 'dream_pop', 'ambient_electronic', 'lofi_hiphop', 'post_rock'],
+    main_character: ['synthwave', 'indie_rock', 'dance_pop', 'alt_rock'],
+    villain_mode: ['industrial', 'darksynth', 'trap_modern', 'thrash_metal'],
+    soft_vibes: ['lofi_hiphop', 'indie_folk', 'bossa_nova', 'ambient'],
+    dark_academia: ['baroque', 'chamber_music', 'neo_classical', 'cool_jazz'],
+    cottagecore: ['indie_folk', 'celtic_folk', 'bluegrass', 'fingerstyle']
 };
+
+/**
+ * Maps any genre node ID to one of the 6 canonical Sonic Radar poles:
+ * 'rock_metal' | 'electronic' | 'hiphop_soul' | 'jazz_blues' | 'folk_acoustic' | 'classical_ambient'
+ */
+export function getPoleForGenre(genreId) {
+    if (!genreId) return 'rock_metal';
+    const node = GENRE_NODES[genreId];
+    const groupLower = (node?.group || '').toLowerCase();
+    const idLower = genreId.toLowerCase();
+
+    if (groupLower.includes('rock') || groupLower.includes('metal') || idLower.includes('rock') || idLower.includes('metal') || idLower.includes('punk') || idLower.includes('grunge')) {
+        return 'rock_metal';
+    }
+    if (groupLower.includes('electronic') || groupLower.includes('dance') || idLower.includes('synth') || idLower.includes('techno') || idLower.includes('house') || idLower.includes('edm') || idLower.includes('idm') || idLower.includes('darksynth')) {
+        return 'electronic';
+    }
+    if (groupLower.includes('hip_hop') || groupLower.includes('rnb_soul') || idLower.includes('hiphop') || idLower.includes('soul') || idLower.includes('rap') || idLower.includes('funk') || idLower.includes('boom_bap') || idLower.includes('trap')) {
+        return 'hiphop_soul';
+    }
+    if (groupLower.includes('jazz') || groupLower.includes('blues') || idLower.includes('jazz') || idLower.includes('blues') || idLower.includes('bossa')) {
+        return 'jazz_blues';
+    }
+    if (groupLower.includes('folk') || groupLower.includes('acoustic') || groupLower.includes('country') || idLower.includes('folk') || idLower.includes('acoustic') || idLower.includes('bluegrass') || idLower.includes('americana')) {
+        return 'folk_acoustic';
+    }
+    if (groupLower.includes('classical') || groupLower.includes('ambient') || groupLower.includes('orchestral') || groupLower.includes('avant') || idLower.includes('classical') || idLower.includes('ambient') || idLower.includes('baroque') || idLower.includes('chamber') || idLower.includes('drone') || idLower.includes('soundscape')) {
+        return 'classical_ambient';
+    }
+
+    return 'rock_metal';
+}
 
 export function getMoodCompatibleGenres(moodId) {
     if (moodId && MOOD_GENRE_MAP[moodId]) {

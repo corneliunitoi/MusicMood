@@ -67,6 +67,7 @@ export async function syncCalibrationToSupabase(calibration) {
             .from('user_profiles')
             .upsert({
                 id: userId,
+                calibration: calibration,
                 discovery_level: calibration.discoveryLevel || 0.50,
                 updated_at: new Date().toISOString()
             });
@@ -116,6 +117,40 @@ export async function syncCalibrationToSupabase(calibration) {
 
 // Backward-compatibility alias
 export const saveTasteGraphToSupabase = syncCalibrationToSupabase;
+
+/**
+ * Fetches user calibration (including 6-point Sonic Radar values) from Supabase
+ */
+export async function fetchUserCalibration(userId) {
+    const targetUserId = userId || getResolvedUserId();
+    if (!targetUserId) return null;
+
+    try {
+        const { data, error } = await supabase.rpc('get_user_calibration', {
+            p_user_id: targetUserId
+        });
+
+        if (!error && data && Object.keys(data).length > 0 && data.radarValues) {
+            console.log(`[Supabase Calibration] Hydrated calibration for user ${targetUserId} via RPC`);
+            return data;
+        }
+
+        // Direct select fallback
+        const { data: profileData, error: profileErr } = await supabase
+            .from('user_profiles')
+            .select('calibration')
+            .eq('id', targetUserId)
+            .single();
+
+        if (!profileErr && profileData?.calibration && Object.keys(profileData.calibration).length > 0) {
+            console.log(`[Supabase Calibration] Hydrated calibration for user ${targetUserId} via direct query`);
+            return profileData.calibration;
+        }
+    } catch (e) {
+        console.warn('[Supabase Calibration] Error fetching user calibration:', e);
+    }
+    return null;
+}
 
 /**
  * Records a listening event / scrobble into public.listening_history

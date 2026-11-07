@@ -53,9 +53,7 @@ function Dashboard({ token, onLogout }) {
     };
 
     const [selectedMood, setSelectedMood] = useState('focus');
-    const [activeTopPanel, setActiveTopPanel] = useState(() => 
-        !localStorage.getItem('musicMood_user_calibration') ? 'calibrate' : null
-    );
+    const [activeTopPanel, setActiveTopPanel] = useState(null);
     const [favoritesCount, setFavoritesCount] = useState(() => getFavoritesCount());
     const [showJitFeed, setShowJitFeed] = useState(false);
 
@@ -90,6 +88,14 @@ function Dashboard({ token, onLogout }) {
                 const profileData = await fetchUserProfile(token);
                 const resolvedUser = await initUserProfile(profileData);
                 setProfile({ ...profileData, ...resolvedUser });
+
+                if (resolvedUser.calibration && resolvedUser.calibration.radarValues) {
+                    setCalibration(resolvedUser.calibration);
+                    sessionEngine.saveCalibration(resolvedUser.calibration);
+                } else if (!localStorage.getItem('musicMood_user_calibration')) {
+                    // First time listener with zero local or cloud calibration
+                    setActiveTopPanel('calibrate');
+                }
 
                 // 2. Fetch user playlists gracefully (optional / non-fatal)
                 try {

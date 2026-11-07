@@ -37,6 +37,22 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.6.2` — 2026-11-07
+* **Seamless Google OAuth Login (No Redundant Scope Dialogs):**
+  * Eliminated the mandatory `prompt: 'consent'` on regular user logins in `src/services/auth.js`.
+  * Returning users logging in from mobile phones or desktop browsers authenticate instantly with 1-click account selection; scope consent is requested only on the first login or when manually clicking the "Grant YouTube Permission" re-auth button.
+* **Sonic Radar Cloud Persistence Across Devices & Sessions:**
+  * Added `calibration` JSONB column to `public.user_profiles` in Supabase with updated SECURITY DEFINER RPCs (`sync_user_calibration`, `get_user_calibration`, `resolve_or_create_user`).
+  * The 6-point Sonic Radar star values (`rock_metal`, `electronic`, `hiphop_soul`, `jazz_blues`, `folk_acoustic`, `classical_ambient`), anchors, and dealbreakers are now fully stored in Supabase and synchronized on load to phones, tablets, and desktop browsers.
+  * Added a direct "💾 Save & Apply" button on Step 1 of `OnboardingWizard.jsx` so users can sculpt their 6-point star and immediately apply it without paging through all steps.
+  * Fixed initial panel state in `Dashboard.jsx` so mobile logins do not prematurely flash an uncalibrated wizard modal.
+* **Predictive Listening Engine Tied to Mood & Sonic Radar DNA:**
+  * Implemented `predictBestGenreForMood(moodId)` in `sessionStateMachine.js`: dynamically computes multi-dimensional affinity scores combining the user's 6-point Sonic Radar values, normalized node weights, anchor bonuses, and mood energy alignment.
+  * When a user selects a mood, the playback engine intelligently predicts and routes to the genre matching their unique Sonic DNA (e.g. classical lovers get neoclassical/baroque on Focus; electronic heads get synthwave/IDM; rock fans get hard rock/grunge on Energetic).
+  * Upgraded `🎲 Surprise Me` to traverse harmonic nodes weighted by the user's Sonic Radar profile.
+
+---
+
 ### `v0.6.1` — 2026-11-07
 * **User-Controlled Genre Stability (Anti-Random Shifting):**
   * Eliminated automatic background dwell-limit transitions and skip-fatigue hops. The player now stays locked on the user's active subgenre indefinitely.

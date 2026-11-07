@@ -379,8 +379,7 @@ function OnboardingWizard({ onComplete, onClose }) {
     // -------------------------------------------------------------
     // GENERATE FULL CALIBRATION PAYLOAD & COMPLETE
     // -------------------------------------------------------------
-    const handleFinish = async () => {
-        // Resolve chosen 3 tie breakers
+    const buildCalibrationPayload = (customPoles = poleValues) => {
         const chosenItems = NINE_TIE_BREAKERS.filter(item => selectedTieBreakers.includes(item.id));
         const finalAnchors = chosenItems.map(item => item.anchorGenre);
         const resolvedSeedArtists = [
@@ -396,7 +395,7 @@ function OnboardingWizard({ onComplete, onClose }) {
             if (!matchedPole) {
                 matchedPole = POLES[0]; // fallback
             }
-            const baseValue = (poleValues[matchedPole.id] || 50) / 100;
+            const baseValue = (customPoles[matchedPole.id] || 50) / 100;
             let weight = baseValue;
 
             // Apply tie-breaker boost: the chosen 3 anchors get a high weight boost!
@@ -415,7 +414,7 @@ function OnboardingWizard({ onComplete, onClose }) {
             weights[nodeId] = Number(weight.toFixed(2));
         });
 
-        const calibration = {
+        return {
             anchors: finalAnchors.length > 0 ? finalAnchors : activeAnchors,
             dealbreakers: selectedDealbreakers,
             discoveryLevel,
@@ -427,10 +426,14 @@ function OnboardingWizard({ onComplete, onClose }) {
             },
             seedArtists: uniqueArtists,
             tieBreakers: selectedTieBreakers,
-            radarValues: poleValues
+            radarValues: customPoles
         };
+    };
 
-        // Save into session state machine
+    const handleFinish = async () => {
+        const calibration = buildCalibrationPayload(poleValues);
+
+        // Save into session state machine and local storage
         sessionEngine.saveCalibration(calibration);
 
         // Background sync to Supabase if authenticated
@@ -443,6 +446,21 @@ function OnboardingWizard({ onComplete, onClose }) {
         if (onComplete) {
             onComplete(calibration);
         }
+    };
+
+    const handleQuickSave = async () => {
+        await handleFinish();
+    };
+
+    const handleDismiss = async () => {
+        // Auto-save changes if user edited any pole
+        try {
+            const calibration = buildCalibrationPayload(poleValues);
+            sessionEngine.saveCalibration(calibration);
+            syncCalibrationToSupabase(calibration).catch(() => {});
+        } catch (e) {}
+
+        if (onClose) onClose();
     };
 
     // -------------------------------------------------------------
@@ -522,7 +540,7 @@ function OnboardingWizard({ onComplete, onClose }) {
                     {onClose && (
                         <button
                             type="button"
-                            onClick={onClose}
+                            onClick={handleDismiss}
                             style={{
                                 background: 'transparent',
                                 border: 'none',
@@ -532,7 +550,7 @@ function OnboardingWizard({ onComplete, onClose }) {
                                 marginLeft: '0.5rem',
                                 padding: '0.2rem 0.5rem'
                             }}
-                            title="Close Wizard"
+                            title="Close & Save"
                         >
                             ✕
                         </button>
@@ -770,14 +788,35 @@ function OnboardingWizard({ onComplete, onClose }) {
                             )}
                         </div>
 
-                        <button
-                            type="button"
-                            className="btn-primary"
-                            onClick={() => setStep(2)}
-                            style={{ width: 'auto', padding: '0.65rem 1.75rem', fontSize: '0.9rem' }}
-                        >
-                            Next: Emotional Reflexes →
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                            <button
+                                type="button"
+                                onClick={handleQuickSave}
+                                style={{
+                                    width: 'auto',
+                                    padding: '0.65rem 1.25rem',
+                                    fontSize: '0.88rem',
+                                    background: 'rgba(255, 255, 255, 0.08)',
+                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                    borderRadius: '999px',
+                                    color: '#f8fafc',
+                                    cursor: 'pointer',
+                                    fontWeight: '600',
+                                    transition: 'all 0.2s ease'
+                                }}
+                                title="Apply this sculpted shape directly to your profile"
+                            >
+                                💾 Save & Apply
+                            </button>
+                            <button
+                                type="button"
+                                className="btn-primary"
+                                onClick={() => setStep(2)}
+                                style={{ width: 'auto', padding: '0.65rem 1.5rem', fontSize: '0.88rem' }}
+                            >
+                                Next: Reflexes →
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

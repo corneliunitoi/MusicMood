@@ -11,7 +11,7 @@
  */
 
 import { supabase, recordListenEvent } from './supabaseService.js';
-import { GENRE_FAMILIES, GENRE_NODES, getConnectedGenres, getMoodCompatibleGenres, violatesDealbreakers, normalizeWeights } from './tasteGraph.js';
+import { GENRE_FAMILIES, GENRE_NODES, getConnectedGenres, getMoodCompatibleGenres, getPoleForGenre, violatesDealbreakers, normalizeWeights } from './tasteGraph.js';
 import { isSongCandidate, isAiGenerated } from './genreNormalizer.js';
 import { allMoods } from './moods.js';
 import { jitEngine } from './jitEngine.js';
@@ -295,6 +295,99 @@ class SessionStateMachine {
     // STATE TRANSITIONS & STEERING CONTROLS
     // ==========================================
 
+    /**
+     * Predictive Listening Engine:
+     * Predicts what the user wants to hear for a given mood by calculating composite affinity
+     * across their 6-point Sonic Radar star, normalized node weights, anchors, energy delta, and fatigue.
+     */
+    predictBestGenreForMood(moodId) {
+        const moodObj = allMoods.find(m => m.id === moodId);
+        const moodCompatible = getMoodCompatibleGenres(moodId) || [];
+        
+        // Filter out dealbreakers
+        const validCandidates = moodCompatible.filter(g => 
+            GENRE_NODES[g] && !violatesDealbreakers(GENRE_NODES[g]?.label, g, this.calibration.dealbreakers)
+        );
+
+        if (validCandidates.length === 0) {
+            return this.state.activeGenre || 'lofi_hiphop';
+        }
+
+        const radar = this.calibration.radarValues || {
+            rock_metal: 75,
+            electronic: 65,
+            hiphop_soul: 55,
+            jazz_blues: 60,
+            folk_acoustic: 50,
+            classical_ambient: 70
+        };
+
+        const targetEnergy = moodObj?.defaultEnergy ?? 0.5;
+
+        // Score each compatible candidate genre
+        const scoredCandidates = validCandidates.map(genreId => {
+            const node = GENRE_NODES[genreId];
+            const pole = getPoleForGenre(genreId);
+            
+            // 1. Radar Pole Affinity (normalized from 20-100 to 0.2-1.0)
+            const rawPoleValue = radar[pole] ?? 50;
+            const poleAffinity = rawPoleValue / 100;
+
+            // 2. Calibrated Fine-Grain Weight (0.1 to 1.0)
+            const nodeWeight = this.calibration.weights?.[genreId] || 0.15;
+
+            // 3. User Anchors Boost (if this was explicitly chosen as an anchor)
+            const isAnchor = (this.calibration.anchors || []).includes(genreId);
+            const anchorBonus = isAnchor ? 1.4 : 1.0;
+
+            // 4. Energy Delta Alignment (higher score for closer energy fit to mood)
+            const genreEnergy = node.energy ?? 0.5;
+            const energyDelta = Math.abs(genreEnergy - targetEnergy);
+            const energyFit = Math.max(0.6, 1.0 - (energyDelta * 0.45));
+
+            // 5. Anti-Fatigue Dampener
+            const fatigue = this.nodeFatigue[genreId] || 0.0;
+            const fatigueMultiplier = Math.max(0.15, 1.0 - (fatigue * 0.85));
+
+            // 6. User Feedback Affinity (liked genres get a boost)
+            const isLikedGenre = this.state.likedTracks.some(tid => tid.genre === genreId);
+            const feedbackBonus = isLikedGenre ? 1.25 : 1.0;
+
+            // Composite Score with radar affinity as the primary driver (exponent 1.4)
+            const score = Math.pow(poleAffinity, 1.4) * nodeWeight * anchorBonus * energyFit * fatigueMultiplier * feedbackBonus;
+
+            return {
+                genreId,
+                pole,
+                poleValue: rawPoleValue,
+                score,
+                label: node.label
+            };
+        });
+
+        // Sort descending by predictive score
+        scoredCandidates.sort((a, b) => b.score - a.score);
+
+        const topCandidate = scoredCandidates[0];
+        console.log(`[Predictive Engine 🔮] Top predicted genre for "${moodObj?.label || moodId}": "${topCandidate.label}" (${topCandidate.pole}: ${topCandidate.poleValue}%, Score: ${topCandidate.score.toFixed(3)})`);
+
+        // Probabilistic sampling among the top candidates (within 25% of top score) to prevent monotone repetition
+        const topThreshold = topCandidate.score * 0.75;
+        const topPool = scoredCandidates.filter(c => c.score >= topThreshold).slice(0, 3);
+
+        const totalPoolScore = topPool.reduce((acc, c) => acc + c.score, 0);
+        let randomVal = Math.random() * totalPoolScore;
+
+        for (const candidate of topPool) {
+            randomVal -= candidate.score;
+            if (randomVal <= 0) {
+                return candidate.genreId;
+            }
+        }
+
+        return topCandidate.genreId;
+    }
+
     setMood(moodId) {
         const moodObj = allMoods.find(m => m.id === moodId);
         if (!moodObj) return;
@@ -310,31 +403,22 @@ class SessionStateMachine {
         }
 
         const moodCompatible = getMoodCompatibleGenres(moodId);
-
-        // If the current genre does not fit the new mood (or violates dealbreakers),
-        // route immediately to the best matching genre for this mood:
         const currentFitsMood = moodCompatible.includes(this.state.activeGenre);
         const currentAllowed = !violatesDealbreakers(GENRE_NODES[this.state.activeGenre]?.label, this.state.activeGenre, this.calibration.dealbreakers);
 
-        if (!currentFitsMood || !currentAllowed) {
-            // Find all matching anchors that fit this mood without dealbreakers
-            const matchingAnchors = (this.calibration.anchors || []).filter(a => moodCompatible.includes(a) && !violatesDealbreakers(GENRE_NODES[a]?.label || a, a, this.calibration.dealbreakers));
-            const validMoodGenres = moodCompatible.filter(g => !violatesDealbreakers(GENRE_NODES[g]?.label, g, this.calibration.dealbreakers));
+        // Predict optimal genre for this mood based on 6-point Sonic Radar DNA
+        const predictedGenre = this.predictBestGenreForMood(moodId);
 
-            let newGenre;
-            if (matchingAnchors.length > 0) {
-                // Randomly select among user's matching anchors so it doesn't always start on anchor #1
-                newGenre = matchingAnchors[Math.floor(Math.random() * matchingAnchors.length)];
-            } else if (validMoodGenres.length > 0) {
-                // Randomly select among top 4 compatible genres for this mood to ensure fresh variety on reset
-                const poolSize = Math.min(4, validMoodGenres.length);
-                newGenre = validMoodGenres[Math.floor(Math.random() * poolSize)];
-            } else {
-                newGenre = 'lofi_hiphop';
-            }
+        const currentPole = getPoleForGenre(this.state.activeGenre);
+        const currentPoleVal = (this.calibration.radarValues?.[currentPole] ?? 50);
+        const predictedPole = getPoleForGenre(predictedGenre);
+        const predictedPoleVal = (this.calibration.radarValues?.[predictedPole] ?? 50);
 
-            console.log(`[StateMachine] Switched active genre to align with mood "${moodObj.label}": ${newGenre}`);
-            this.state.activeGenre = newGenre;
+        // Transition to predicted genre if current genre is incompatible with mood, violates dealbreakers,
+        // or if user's Sonic Radar heavily prefers the predicted genre over the current pole (> 20 points higher)
+        if (!currentFitsMood || !currentAllowed || (predictedPoleVal > currentPoleVal + 20)) {
+            console.log(`[StateMachine 🔮] Switched active genre to align with predicted mood taste "${moodObj.label}": ${GENRE_NODES[predictedGenre]?.label || predictedGenre}`);
+            this.state.activeGenre = predictedGenre;
         }
 
         this.state.consecutiveInNode = 0;
@@ -484,19 +568,43 @@ class SessionStateMachine {
 
     /**
      * Surprise Me: User explicitly requests a fresh, surprising genre compatible with the current mood.
-     * Only two events change genres: (1) user changes mood / selects genre, (2) user clicks "Surprise Me".
+     * Selects an unexpected candidate weighted by the user's 6-point Sonic Radar DNA.
      */
     surpriseMe() {
         const current = this.state.activeGenre;
         const moodCompatible = getMoodCompatibleGenres(this.state.currentMood);
         const validCandidates = (moodCompatible || []).filter(g => 
             g !== current && 
+            GENRE_NODES[g] &&
             !violatesDealbreakers(GENRE_NODES[g]?.label, g, this.calibration.dealbreakers)
         );
 
         let chosen = current;
         if (validCandidates.length > 0) {
-            chosen = validCandidates[Math.floor(Math.random() * validCandidates.length)];
+            // Predict fresh candidate weighted by user's Sonic Radar and discoveryLevel
+            const radar = this.calibration.radarValues || {};
+            const scored = validCandidates.map(g => {
+                const pole = getPoleForGenre(g);
+                const poleVal = (radar[pole] ?? 50) / 100;
+                const fatigue = this.nodeFatigue[g] || 0.0;
+                return {
+                    id: g,
+                    score: Math.pow(poleVal, 1.2) * Math.max(0.1, 1.0 - fatigue * 0.9)
+                };
+            }).sort((a, b) => b.score - a.score);
+
+            const poolSize = Math.min(5, scored.length);
+            const pool = scored.slice(0, poolSize);
+            const total = pool.reduce((acc, c) => acc + c.score, 0);
+            let rand = Math.random() * total;
+            for (const c of pool) {
+                rand -= c.score;
+                if (rand <= 0) {
+                    chosen = c.id;
+                    break;
+                }
+            }
+            if (!chosen) chosen = pool[0]?.id || current;
         } else {
             const neighbors = getConnectedGenres(current).filter(g => 
                 g !== current && 
@@ -507,7 +615,7 @@ class SessionStateMachine {
             }
         }
 
-        console.log(`[StateMachine 🎲 Surprise Me] Transitioning from "${current}" -> "${chosen}"`);
+        console.log(`[StateMachine 🎲 Surprise Me] Transitioning from "${current}" -> "${chosen}" (${GENRE_NODES[chosen]?.label})`);
         this.state.activeGenre = chosen;
         this.state.consecutiveInNode = 0;
         this.state.consecutiveSkips = 0;

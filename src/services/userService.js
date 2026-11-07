@@ -1,5 +1,6 @@
-import { supabase } from './supabaseService.js';
+import { supabase, fetchUserCalibration, syncCalibrationToSupabase } from './supabaseService.js';
 import { syncCloudFavorites, loadCloudFavorites } from './favoritesService.js';
+import { sessionEngine } from './sessionStateMachine.js';
 
 const USER_STORAGE_KEY = 'musicmood_user_profile';
 const REAL_USER_BACKUP_KEY = 'musicmood_real_user_profile';
@@ -172,6 +173,13 @@ export async function initUserProfile(googlePayload) {
             throw error;
         }
 
+        let calibration = data.calibration;
+        if (!calibration || Object.keys(calibration).length === 0 || !calibration.radarValues) {
+            // Check fallback from fetchUserCalibration
+            const fetched = await fetchUserCalibration(data.id);
+            if (fetched) calibration = fetched;
+        }
+
         const profile = {
             id: data.id,
             googleId: googlePayload.sub,
@@ -181,9 +189,25 @@ export async function initUserProfile(googlePayload) {
             role: data.role || (isTargetAdmin ? 'admin' : 'user'),
             user_class: data.user_class || defaultClass,
             discovery_level: data.discovery_level ?? 0.50,
+            calibration: calibration || null,
             isAdmin: (data.role === 'admin' || isTargetAdmin),
             isPowerUser: (data.user_class === 'poweruser' || isTargetAdmin)
         };
+
+        // Cross-device synchronization of Sonic Radar calibration
+        if (calibration && Object.keys(calibration).length > 0 && calibration.radarValues) {
+            localStorage.setItem('musicMood_user_calibration', JSON.stringify(calibration));
+            sessionEngine.saveCalibration(calibration);
+            console.log(`[UserService 🎯] Hydrated Sonic Radar & calibration from Supabase for ${profile.username}`);
+        } else {
+            // If cloud profile has no calibration, push existing local calibration up to cloud
+            const localCalib = sessionEngine.getCalibration();
+            if (localCalib && localCalib.radarValues) {
+                syncCalibrationToSupabase(localCalib).then(() => {
+                    console.log(`[UserService ☁️] Migrated local Sonic Radar calibration to Supabase`);
+                }).catch(() => {});
+            }
+        }
 
         cachedProfile = profile;
         localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(profile));
