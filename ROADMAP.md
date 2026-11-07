@@ -48,6 +48,15 @@ This document outlines prioritized enhancements, user experience improvements, a
 ### 5. ❤️ YouTube "MusicMood Favorites" Auto-Sync
 * Optional two-way or append-only sync from in-app Favorites into a dedicated playlist titled `"MusicMood Favorites"` on the user's authentic YouTube account.
 
+### 6. 📑 Dynamic Playlist Creation & Smart Favorites Curation (Concept Backlog)
+* **Idea & Purpose:** Provide the ability to create, assemble, and manage playlists without cluttering the airy player interface.
+* **Smart Auto-Pick from Favorites:**
+  * Automatically analyze and cluster the listener's favorited / liked tracks by headspace, energy profile, or genre adjacency.
+  * 1-click generation of thematic playlists (e.g., *Late Night Introspection*, *High-Velocity Workout*, *Deep Focus Instrumental*).
+* **Flow & Integration Exploration (To Determine Later):**
+  * Devise a clean, decluttered flow (e.g., initiated from a dedicated Favorites view, post-session recap, or minimal popup rather than overcrowding the playback bar).
+  * Flexible export: option to keep as a virtual MusicMood session or sync directly to YouTube.
+
 ---
 
 ## 📈 Completed Milestones
@@ -61,3 +70,6 @@ This document outlines prioritized enhancements, user experience improvements, a
 * [x] **v0.5.0:** Zero-Quota YouTube Playlist Ingestion & 1-Click Sonic Calibration Wizard.
 * [x] **v0.5.5:** Deduplicated SMB Scanner, NAS Ingestion & CP1252 Cyrillic Healing.
 * [x] **v0.6.0:** Production Cloud Architecture on Render, Supabase Cloud Sync, Google Identity Services (GIS) Popup Auth, Role/Class RBAC, Single-Select Exclusive Paneling, and Responsive 2-Tier Header.
+* [x] **v0.6.1:** User Mood Steering Lock (genre changes restricted strictly to user mood switches or Surprise Me button).
+* [x] **v0.6.2:** Cloud Radar Persistence & Predictive Engine sync to Supabase.
+* [x] **v0.7.0 / v0.7.0a:** 6 Core Mood Homes & Orbital Deviation Engine with unconstrained full-spectrum genre picker and clean tooltips.
