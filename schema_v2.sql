@@ -299,3 +299,65 @@ BEGIN
         FOR SELECT TO authenticated USING (true);
     END IF;
 END $$;
+
+-- ---------------------------------------------------------------------
+-- 9. ARCHIVE METADATA & USER FAVORITES SECURITY (RLS)
+-- ---------------------------------------------------------------------
+
+-- Enable Row Level Security
+ALTER TABLE public.user_favorites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.local_metadata ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+    -- user_favorites: Authenticated users can only read, insert, update, delete their own records
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'user_favorites' AND policyname = 'Users can view own favorites'
+    ) THEN
+        CREATE POLICY "Users can view own favorites" ON public.user_favorites
+        FOR SELECT TO authenticated USING ((select auth.uid()) = user_id);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'user_favorites' AND policyname = 'Users can insert own favorites'
+    ) THEN
+        CREATE POLICY "Users can insert own favorites" ON public.user_favorites
+        FOR INSERT TO authenticated WITH CHECK ((select auth.uid()) = user_id);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'user_favorites' AND policyname = 'Users can update own favorites'
+    ) THEN
+        CREATE POLICY "Users can update own favorites" ON public.user_favorites
+        FOR UPDATE TO authenticated USING ((select auth.uid()) = user_id) WITH CHECK ((select auth.uid()) = user_id);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'user_favorites' AND policyname = 'Users can delete own favorites'
+    ) THEN
+        CREATE POLICY "Users can delete own favorites" ON public.user_favorites
+        FOR DELETE TO authenticated USING ((select auth.uid()) = user_id);
+    END IF;
+
+    -- local_metadata: Public read, insert, update for catalog/JIT resolution; deletion restricted
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'local_metadata' AND policyname = 'Allow public read access on local_metadata'
+    ) THEN
+        CREATE POLICY "Allow public read access on local_metadata" ON public.local_metadata
+        FOR SELECT TO anon, authenticated USING (true);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'local_metadata' AND policyname = 'Allow public insert on local_metadata'
+    ) THEN
+        CREATE POLICY "Allow public insert on local_metadata" ON public.local_metadata
+        FOR INSERT TO anon, authenticated WITH CHECK (true);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'local_metadata' AND policyname = 'Allow public update on local_metadata'
+    ) THEN
+        CREATE POLICY "Allow public update on local_metadata" ON public.local_metadata
+        FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
+    END IF;
+END $$;
