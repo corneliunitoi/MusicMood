@@ -48,8 +48,16 @@ const CURATED_PRESETS = [
     }
 ];
 
-function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) {
-    const [activeTab, setActiveTab] = useState(playlists && playlists.length > 0 ? 'my_playlists' : 'paste_url');
+function PlaylistView({
+    playlists = [],
+    playlistError = null,
+    isLoadingPlaylists = false,
+    onRefreshPlaylists,
+    token,
+    onPlayTrack,
+    onIngestComplete
+}) {
+    const [activeTab, setActiveTab] = useState('my_playlists');
     const [playlistInput, setPlaylistInput] = useState('');
     const [selectedPlaylist, setSelectedPlaylist] = useState(null);
     const [tracks, setTracks] = useState([]);
@@ -309,21 +317,19 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
             {!selectedPlaylist && (
                 <div>
                     <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-                        {playlists && playlists.length > 0 && (
-                            <button
-                                className="btn-text"
-                                onClick={() => setActiveTab('my_playlists')}
-                                style={{
-                                    background: activeTab === 'my_playlists' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(255,255,255,0.05)',
-                                    color: activeTab === 'my_playlists' ? '#c084fc' : '#94a3b8',
-                                    padding: '0.5rem 1.25rem',
-                                    borderRadius: '9999px',
-                                    border: activeTab === 'my_playlists' ? '1px solid #a855f7' : '1px solid rgba(255,255,255,0.1)'
-                                }}
-                            >
-                                👤 My Playlists ({playlists.length})
-                            </button>
-                        )}
+                        <button
+                            className="btn-text"
+                            onClick={() => setActiveTab('my_playlists')}
+                            style={{
+                                background: activeTab === 'my_playlists' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(255,255,255,0.05)',
+                                color: activeTab === 'my_playlists' ? '#c084fc' : '#94a3b8',
+                                padding: '0.5rem 1.25rem',
+                                borderRadius: '9999px',
+                                border: activeTab === 'my_playlists' ? '1px solid #a855f7' : '1px solid rgba(255,255,255,0.1)'
+                            }}
+                        >
+                            👤 My Playlists ({playlists.length})
+                        </button>
                         <button
                             className="btn-text"
                             onClick={() => setActiveTab('paste_url')}
@@ -360,28 +366,105 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
 
                     {/* TAB 1: MY PLAYLISTS */}
                     {activeTab === 'my_playlists' && (
-                        <div className="playlist-grid fade-in">
-                            {playlists.map((playlist) => (
-                                <div
-                                    key={playlist.id}
-                                    className="glass-card playlist-card"
-                                    onClick={() => handleSelectPlaylist(playlist.id, playlist.title)}
-                                    style={{ cursor: 'pointer', transition: 'all 0.2s', padding: '1rem', border: '1px solid rgba(255,255,255,0.08)' }}
-                                >
-                                    <img
-                                        src={playlist.thumbnail}
-                                        alt={playlist.title}
-                                        className="playlist-thumb"
-                                        style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', borderRadius: '12px', marginBottom: '0.75rem' }}
-                                    />
-                                    <div className="playlist-info">
-                                        <h3 style={{ fontSize: '1.05rem', margin: '0 0 0.3rem 0', color: '#f8fafc' }}>{playlist.title}</h3>
-                                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>
-                                            {playlist.videoCount} videos • <span style={{ color: '#a855f7' }}>Click to Ingest</span>
-                                        </p>
+                        <div>
+                            {isLoadingPlaylists ? (
+                                <div className="glass-card fade-in" style={{ maxWidth: '600px', margin: '2rem auto', padding: '3rem 1.5rem', textAlign: 'center' }}>
+                                    <div className="spinner" style={{ margin: '0 auto 1.25rem', width: '2.5rem', height: '2.5rem', borderWidth: '3px' }} />
+                                    <h3 style={{ color: '#f8fafc', fontSize: '1.15rem', marginBottom: '0.4rem' }}>Syncing with YouTube...</h3>
+                                    <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: 0 }}>Fetching your playlists via secure Google Identity</p>
+                                </div>
+                            ) : playlists && playlists.length > 0 ? (
+                                <div className="fade-in">
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                        <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+                                            Found <strong>{playlists.length}</strong> playlists in your YouTube library
+                                        </span>
+                                        <button
+                                            type="button"
+                                            className="btn-text"
+                                            onClick={() => onRefreshPlaylists && onRefreshPlaylists(false)}
+                                            style={{ fontSize: '0.8rem', color: '#38bdf8', padding: '0.2rem 0.5rem', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '6px' }}
+                                        >
+                                            🔄 Refresh Playlists
+                                        </button>
+                                    </div>
+                                    <div className="playlist-grid">
+                                        {playlists.map((playlist) => (
+                                            <div
+                                                key={playlist.id}
+                                                className="glass-card playlist-card"
+                                                onClick={() => handleSelectPlaylist(playlist.id, playlist.title)}
+                                                style={{ cursor: 'pointer', transition: 'all 0.2s', padding: '1rem', border: '1px solid rgba(255,255,255,0.08)' }}
+                                            >
+                                                <img
+                                                    src={playlist.thumbnail}
+                                                    alt={playlist.title}
+                                                    className="playlist-thumb"
+                                                    style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', borderRadius: '12px', marginBottom: '0.75rem' }}
+                                                />
+                                                <div className="playlist-info">
+                                                    <h3 style={{ fontSize: '1.05rem', margin: '0 0 0.3rem 0', color: '#f8fafc' }}>{playlist.title}</h3>
+                                                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>
+                                                        {playlist.videoCount} videos • <span style={{ color: '#a855f7' }}>Click to Ingest</span>
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
-                            ))}
+                            ) : playlistError ? (
+                                <div className="glass-card fade-in" style={{ maxWidth: '650px', margin: '1rem auto', padding: '2rem', textAlign: 'center', border: '1px solid rgba(245, 158, 11, 0.35)', background: 'rgba(245, 158, 11, 0.08)' }}>
+                                    <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🔐</div>
+                                    <h3 style={{ color: '#fbbf24', fontSize: '1.25rem', marginBottom: '0.5rem' }}>YouTube Playlist Permission Needed</h3>
+                                    <p style={{ color: '#e2e8f0', fontSize: '0.9rem', marginBottom: '1.25rem', lineHeight: '1.5' }}>
+                                        Google requires explicit permission to view your YouTube playlists. If your current session was authenticated before adding the scope, click below to authorize and immediately load your playlists.
+                                    </p>
+                                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                        <button
+                                            type="button"
+                                            className="btn-primary"
+                                            onClick={() => onRefreshPlaylists && onRefreshPlaylists(true)}
+                                            style={{ padding: '0.65rem 1.4rem', borderRadius: '9999px', fontSize: '0.92rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 18px rgba(99, 102, 241, 0.4)' }}
+                                        >
+                                            <span>🔑 Grant YouTube Permission & Load</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn-secondary"
+                                            onClick={() => setActiveTab('paste_url')}
+                                            style={{ padding: '0.65rem 1.25rem', borderRadius: '9999px', fontSize: '0.88rem' }}
+                                        >
+                                            <span>🔗 Or Paste a Playlist URL</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="glass-card fade-in" style={{ maxWidth: '650px', margin: '1rem auto', padding: '2rem', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📂</div>
+                                    <h3 style={{ color: '#f8fafc', fontSize: '1.2rem', marginBottom: '0.5rem' }}>No Playlists Found in YouTube Library</h3>
+                                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+                                        Your connected Google account does not currently have any playlists created on YouTube.
+                                    </p>
+                                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                        <button
+                                            type="button"
+                                            className="btn-secondary"
+                                            onClick={() => onRefreshPlaylists && onRefreshPlaylists(false)}
+                                            style={{ padding: '0.5rem 1.2rem', borderRadius: '9999px', fontSize: '0.85rem' }}
+                                        >
+                                            🔄 Check Again
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn-primary"
+                                            onClick={() => setActiveTab('paste_url')}
+                                            style={{ padding: '0.5rem 1.2rem', borderRadius: '9999px', fontSize: '0.85rem' }}
+                                        >
+                                            🔗 Paste Any Playlist URL
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 

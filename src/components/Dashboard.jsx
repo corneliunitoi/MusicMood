@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { fetchUserProfile, fetchUserPlaylists } from '../services/youtube';
+import { requestGoogleLogin } from '../services/auth';
 import { supabase } from '../services/supabaseService';
 import { sessionEngine } from '../services/sessionStateMachine';
 import MoodBar, { allMoods } from './MoodBar';
@@ -27,8 +28,29 @@ import {
 function Dashboard({ token, onLogout }) {
     const [profile, setProfile] = useState(null);
     const [playlists, setPlaylists] = useState([]);
+    const [playlistError, setPlaylistError] = useState(null);
+    const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    const refreshPlaylists = async (forceConsent = false) => {
+        setIsLoadingPlaylists(true);
+        setPlaylistError(null);
+        try {
+            let activeToken = token;
+            if (forceConsent) {
+                activeToken = await requestGoogleLogin({ prompt: 'consent' });
+            }
+            const data = await fetchUserPlaylists(activeToken);
+            setPlaylists(data || []);
+            setPlaylistError(null);
+        } catch (err) {
+            console.warn('[Dashboard] Could not fetch private YouTube playlists:', err.message);
+            setPlaylistError(err.message);
+        } finally {
+            setIsLoadingPlaylists(false);
+        }
+    };
 
     const [selectedMood, setSelectedMood] = useState('focus');
     const [activeTopPanel, setActiveTopPanel] = useState(() => 
@@ -73,8 +95,10 @@ function Dashboard({ token, onLogout }) {
                 try {
                     const playlistsData = await fetchUserPlaylists(token);
                     setPlaylists(playlistsData || []);
+                    setPlaylistError(null);
                 } catch (playlistErr) {
                     console.warn('[Dashboard] Could not fetch private YouTube playlists (non-fatal):', playlistErr.message);
+                    setPlaylistError(playlistErr.message);
                     setPlaylists([]);
                 }
             } catch (err) {
@@ -340,39 +364,42 @@ function Dashboard({ token, onLogout }) {
                 </div>
 
                 <div className="header-actions">
-                    <div className="cloud-status" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem' }}>
-                        <span style={{ color: '#34d399', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '9999px', padding: '0.2rem 0.6rem' }}>
-                            ⚡ <strong>{playableCount}</strong> Playable
-                        </span>
-                        {/* JIT Monitor is internal: visible only to Poweruser / Admin */}
-                        {canAccess('jit_monitor') && (
-                            <button
-                                onClick={() => setShowJitFeed(true)}
-                                style={{
-                                    background: showJitFeed ? 'rgba(52, 211, 153, 0.25)' : 'rgba(52, 211, 153, 0.12)',
-                                    border: '1px solid rgba(52, 211, 153, 0.35)',
-                                    borderRadius: '9999px',
-                                    padding: '0.2rem 0.65rem',
-                                    color: '#34d399',
-                                    fontSize: '0.8rem',
-                                    fontWeight: '600',
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.35rem'
-                                }}
-                                title="Open JIT Organic Ingestion Monitor (Inspect & Purge)"
-                            >
-                                🌱 <strong>{jitCount}</strong> JIT Finds
-                            </button>
-                        )}
-                        <span className="text-secondary" style={{ opacity: 0.8 }}>
-                            📁 <strong>{archiveCount.toLocaleString()}</strong> Archive
-                        </span>
-                    </div>
+                    {/* Track stats (Playable, JIT, Archive) strictly visible ONLY to Admin */}
+                    {isAdmin() && (
+                        <div className="cloud-status" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem' }}>
+                            <span style={{ color: '#34d399', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '9999px', padding: '0.2rem 0.6rem' }}>
+                                ⚡ <strong>{playableCount}</strong> Playable
+                            </span>
+                            {/* JIT Monitor is internal: visible only to Poweruser / Admin */}
+                            {canAccess('jit_monitor') && (
+                                <button
+                                    onClick={() => setShowJitFeed(true)}
+                                    style={{
+                                        background: showJitFeed ? 'rgba(52, 211, 153, 0.25)' : 'rgba(52, 211, 153, 0.12)',
+                                        border: '1px solid rgba(52, 211, 153, 0.35)',
+                                        borderRadius: '9999px',
+                                        padding: '0.2rem 0.65rem',
+                                        color: '#34d399',
+                                        fontSize: '0.8rem',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.35rem'
+                                    }}
+                                    title="Open JIT Organic Ingestion Monitor (Inspect & Purge)"
+                                >
+                                    🌱 <strong>{jitCount}</strong> JIT Finds
+                                </button>
+                            )}
+                            <span className="text-secondary" style={{ opacity: 0.8 }}>
+                                📁 <strong>{archiveCount.toLocaleString()}</strong> Archive
+                            </span>
+                        </div>
+                    )}
 
                     {/* 4 SINGLE-SELECT EXCLUSIVE PANELS */}
-                    <nav className="header-nav-pills" role="tablist" aria-label="Dashboard views">
+                    <nav className="header-nav-pills" role="tablist" aria-label="Dashboard views" style={{ marginLeft: isAdmin() ? undefined : 'auto' }}>
                         <button
                             type="button"
                             className={`header-pill-btn ${showWizard ? 'active' : ''}`}
@@ -505,6 +532,9 @@ function Dashboard({ token, onLogout }) {
                         </p>
                         <PlaylistView
                             playlists={playlists}
+                            playlistError={playlistError}
+                            isLoadingPlaylists={isLoadingPlaylists}
+                            onRefreshPlaylists={refreshPlaylists}
                             token={token}
                             onPlayTrack={(track) => {
                                 setActiveTrack(track);

@@ -32,8 +32,9 @@ function waitForGoogleScript(timeoutMs = 6000) {
  * Initiates Google OAuth popup login via Google Identity Services (GIS).
  * Complies 100% with Google's modern "Secure Response Handling" policy.
  * Does NOT require full-page redirects or redirect URIs.
+ * @param {Object} options Options like { prompt: 'consent' } to force scope consent
  */
-export async function requestGoogleLogin() {
+export async function requestGoogleLogin(options = { prompt: 'consent' }) {
     const oauth2 = await waitForGoogleScript();
 
     return new Promise((resolve, reject) => {
@@ -61,8 +62,8 @@ export async function requestGoogleLogin() {
                 }
             });
 
-            // Trigger the Google OAuth popup
-            tokenClient.requestAccessToken({ prompt: '' });
+            // Trigger the Google OAuth popup with explicit consent if requested
+            tokenClient.requestAccessToken({ prompt: options.prompt || 'consent' });
         } catch (e) {
             reject(e);
         }
