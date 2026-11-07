@@ -19,12 +19,21 @@ function Dashboard({ token, onLogout }) {
     const [error, setError] = useState(null);
 
     const [selectedMood, setSelectedMood] = useState('focus');
-    const [showPlaylists, setShowPlaylists] = useState(false);
-    const [showFavorites, setShowFavorites] = useState(false);
+    const [activeTopPanel, setActiveTopPanel] = useState(() => 
+        !localStorage.getItem('musicMood_user_calibration') ? 'calibrate' : null
+    );
     const [favoritesCount, setFavoritesCount] = useState(() => getFavoritesCount());
-    const [showWizard, setShowWizard] = useState(() => !localStorage.getItem('musicMood_user_calibration'));
-    const [showVisualGraph, setShowVisualGraph] = useState(false);
     const [showJitFeed, setShowJitFeed] = useState(false);
+
+    // Mutual exclusivity: selecting one panel unselects all others
+    const toggleTopPanel = (panelName) => {
+        setActiveTopPanel(prev => prev === panelName ? null : panelName);
+    };
+
+    const showWizard = activeTopPanel === 'calibrate';
+    const showVisualGraph = activeTopPanel === 'graph';
+    const showPlaylists = activeTopPanel === 'playlists';
+    const showFavorites = activeTopPanel === 'favorites';
 
     const [activeTrack, setActiveTrack] = useState(null);
     const [isDiscovering, setIsDiscovering] = useState(false);
@@ -233,51 +242,63 @@ function Dashboard({ token, onLogout }) {
                             📁 <strong>{archiveCount.toLocaleString()}</strong> Archive
                         </span>
                     </div>
-                    <button
-                        className="btn-text"
-                        onClick={() => setShowWizard(!showWizard)}
-                        style={{ color: showWizard ? '#a855f7' : '#94a3b8', fontWeight: showWizard ? 'bold' : 'normal' }}
-                    >
-                        ⚙️ Calibrate Taste
-                    </button>
-                    <button
-                        className="btn-text"
-                        onClick={() => setShowVisualGraph(!showVisualGraph)}
-                        style={{ color: showVisualGraph ? '#a855f7' : '#94a3b8' }}
-                    >
-                        🕸️ Visual Graph
-                    </button>
-                    <button
-                        className="btn-text"
-                        onClick={() => setShowPlaylists(!showPlaylists)}
-                        style={{ color: showPlaylists ? '#a855f7' : '#94a3b8', fontWeight: showPlaylists ? 'bold' : 'normal' }}
-                    >
-                        📥 Ingest YouTube Playlists
-                    </button>
-                    <button
-                        className="btn-text"
-                        onClick={() => setShowFavorites(!showFavorites)}
-                        style={{
-                            color: showFavorites ? '#ec4899' : (favoritesCount > 0 ? '#f472b6' : '#94a3b8'),
-                            fontWeight: showFavorites ? 'bold' : 'normal',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.35rem'
-                        }}
-                    >
-                        ❤️ Favorites {favoritesCount > 0 && (
-                            <span style={{
-                                background: 'rgba(236, 72, 153, 0.2)',
-                                border: '1px solid rgba(236, 72, 153, 0.4)',
-                                borderRadius: '9999px',
-                                padding: '0.05rem 0.45rem',
-                                fontSize: '0.75rem',
-                                color: '#fbcfe8'
-                            }}>
-                                {favoritesCount}
-                            </span>
-                        )}
-                    </button>
+
+                    {/* 4 SINGLE-SELECT EXCLUSIVE PANELS */}
+                    <nav className="header-nav-pills" role="tablist" aria-label="Dashboard views">
+                        <button
+                            type="button"
+                            className={`header-pill-btn ${showWizard ? 'active' : ''}`}
+                            onClick={() => toggleTopPanel('calibrate')}
+                            aria-selected={showWizard}
+                            title="Calibrate your musical Taste DNA"
+                        >
+                            <span className="pill-icon">⚙️</span>
+                            <span className="pill-label">Calibrate Taste</span>
+                            <span className="pill-label-short">Calibrate</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            className={`header-pill-btn ${showVisualGraph ? 'active' : ''}`}
+                            onClick={() => toggleTopPanel('graph')}
+                            aria-selected={showVisualGraph}
+                            title="Explore the harmonic soundscape graph"
+                        >
+                            <span className="pill-icon">🕸️</span>
+                            <span className="pill-label">Visual Graph</span>
+                            <span className="pill-label-short">Graph</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            className={`header-pill-btn ${showPlaylists ? 'active' : ''}`}
+                            onClick={() => toggleTopPanel('playlists')}
+                            aria-selected={showPlaylists}
+                            title="Ingest public or private YouTube playlists"
+                        >
+                            <span className="pill-icon">📥</span>
+                            <span className="pill-label">Ingest Playlists</span>
+                            <span className="pill-label-short">Playlists</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            className={`header-pill-btn ${showFavorites ? 'active favorites' : ''}`}
+                            onClick={() => toggleTopPanel('favorites')}
+                            aria-selected={showFavorites}
+                            title="View your favorite tracks"
+                        >
+                            <span className="pill-icon">❤️</span>
+                            <span className="pill-label">Favorites</span>
+                            <span className="pill-label-short">Favs</span>
+                            {favoritesCount > 0 && (
+                                <span className="pill-count-badge">
+                                    {favoritesCount}
+                                </span>
+                            )}
+                        </button>
+                    </nav>
+
                     <button className="btn-text" onClick={onLogout}>Sign Out</button>
                 </div>
             </header>
@@ -288,20 +309,20 @@ function Dashboard({ token, onLogout }) {
                     <OnboardingWizard
                         onComplete={(saved) => {
                             setCalibration(saved);
-                            setShowWizard(false);
+                            setActiveTopPanel(null);
                             if (!activeTrack) {
                                 handleMoodSelect(selectedMood);
                             }
                         }}
-                        onClose={() => setShowWizard(false)}
+                        onClose={() => setActiveTopPanel(null)}
                     />
                 )}
 
                 {/* VISUAL TASTE GRAPH MODAL/PANEL */}
-                {showVisualGraph && !showWizard && (
+                {showVisualGraph && (
                     <TasteGraphSetup
                         onSave={(profileData) => {
-                            setShowVisualGraph(false);
+                            setActiveTopPanel(null);
                         }}
                     />
                 )}
@@ -313,7 +334,7 @@ function Dashboard({ token, onLogout }) {
                             setActiveTrack(track);
                             sessionEngine.commitTrack(track);
                         }}
-                        onClose={() => setShowFavorites(false)}
+                        onClose={() => setActiveTopPanel(null)}
                     />
                 )}
 
