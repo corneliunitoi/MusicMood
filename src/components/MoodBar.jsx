@@ -67,18 +67,8 @@ function MoodBar({ selectedMood, onSelectMood }) {
                 {currentCategory.list.map((mood) => {
                     const isSelected = selectedMood === mood.id;
                     const homeGenreId = sessionEngine.getHomeGenreForMood ? sessionEngine.getHomeGenreForMood(mood.id) : null;
-                    const homeGenreName = homeGenreId && GENRE_NODES[homeGenreId] ? GENRE_NODES[homeGenreId].label : (homeGenreId || 'Auto-Steered');
-
-                    let tooltip = `${mood.label} • Home: ${homeGenreName}`;
-                    if (isSelected && sessionEngine.state) {
-                        const activeId = sessionEngine.state.activeGenre;
-                        if (activeId && activeId !== homeGenreId) {
-                            const activeName = GENRE_NODES[activeId]?.label || activeId;
-                            const dev = sessionEngine.getCurrentDeviation ? sessionEngine.getCurrentDeviation() : null;
-                            const hopsText = dev && dev.hops < 999 ? ` (${dev.hops} hops from Home)` : '';
-                            tooltip = `${mood.label} • Active: ${activeName}${hopsText} • Home: ${homeGenreName}`;
-                        }
-                    }
+                    const activeGenreId = (isSelected && sessionEngine.state?.activeGenre) ? sessionEngine.state.activeGenre : homeGenreId;
+                    const tooltip = GENRE_NODES[activeGenreId]?.label || GENRE_NODES[homeGenreId]?.label || homeGenreId || '';
 
                     return (
                         <button

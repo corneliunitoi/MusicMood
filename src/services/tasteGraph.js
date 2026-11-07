@@ -546,16 +546,16 @@ export function normalizeWeights(weights = {}, anchors = [], dealbreakers = []) 
  * Connects emotional state to aesthetic clusters in the taste graph.
  */
 export const MOOD_GENRE_MAP = {
-    focus: ['baroque', 'neo_classical', 'ambient_electronic', 'lofi_hiphop', 'post_rock', 'ambient', 'chamber_music', 'idm', 'cool_jazz'],
+    focus: ['baroque', 'neo_classical', 'ambient_electronic', 'lofi_hiphop', 'post_rock', 'ambient', 'chamber_music', 'idm', 'cool_jazz', 'math_rock', 'chillout', 'contemporary_classical'],
     study: ['lofi_hiphop', 'neo_classical', 'ambient_electronic', 'ambient', 'chamber_music', 'contemporary_classical'],
-    chill: ['lofi_hiphop', 'bossa_nova_jazz', 'neo_soul', 'ambient', 'indie_folk', 'house', 'chillout', 'smooth_jazz', 'roots_reggae'],
+    chill: ['lofi_hiphop', 'bossa_nova_jazz', 'neo_soul', 'ambient', 'indie_folk', 'house', 'chillout', 'smooth_jazz', 'roots_reggae', 'shoegaze', 'quiet_storm'],
     late_night: ['cool_jazz', 'darksynth', 'ambient_electronic', 'quiet_storm', 'shoegaze', 'techno', 'ambient', 'soul_blues'],
-    energetic: ['hard_rock', 'punk_rock', 'thrash_metal', 'synthwave', 'techno', 'drum_and_bass', 'boom_bap', 'prog_metal', 'afrobeat'],
-    workout: ['thrash_metal', 'drum_and_bass', 'darksynth', 'prog_metal', 'industrial', 'hard_rock', 'trap_modern', 'edm_mainstream'],
-    happy: ['classic_soul', 'funk', 'indie_pop', 'ska', 'dance_pop', 'bossa_nova', 'afrobeat', 'bluegrass'],
-    party: ['funk', 'house', 'dance_pop', 'salsa', 'boom_bap', 'edm_mainstream', 'ska', 'afrobeat'],
+    energetic: ['heavy_metal', 'thrash_metal', 'metal', 'hard_rock', 'prog_metal', 'nu_metal', 'metalcore', 'symphonic_metal', 'garage_rock', 'punk_rock', 'grunge', 'synthwave', 'techno', 'drum_and_bass', 'boom_bap', 'trap_modern', 'afrobeat', 'edm_mainstream', 'darksynth'],
+    workout: ['heavy_metal', 'thrash_metal', 'prog_metal', 'nu_metal', 'metalcore', 'drum_and_bass', 'darksynth', 'industrial', 'hard_rock', 'trap_modern', 'edm_mainstream', 'techno'],
+    happy: ['classic_soul', 'funk', 'indie_pop', 'ska', 'dance_pop', 'bossa_nova', 'afrobeat', 'bluegrass', 'classic_rock', 'soul_funk'],
+    party: ['funk', 'house', 'dance_pop', 'salsa', 'boom_bap', 'edm_mainstream', 'ska', 'afrobeat', 'trap_modern', 'hard_rock', 'synthwave', 'nu_metal'],
     melancholic: ['romantic', 'post_rock', 'delta_blues', 'singer_songwriter', 'ambient', 'indie_folk', 'shoegaze'],
-    sad: ['delta_blues', 'singer_songwriter', 'romantic', 'ambient', 'chicago_blues'],
+    sad: ['delta_blues', 'chicago_blues', 'doom_metal', 'singer_songwriter', 'romantic', 'ambient', 'post_rock', 'shoegaze', 'acoustic_folk', 'chamber_music'],
     sleep: ['ambient', 'nature_soundscape', 'new_age', 'neo_classical'],
     rainy: ['indie_folk', 'lofi_hiphop', 'chicago_blues', 'delta_blues', 'post_rock', 'celtic_folk'],
     driving: ['classic_rock', 'blues_rock', 'americana', 'outlaw_country', 'synthwave', 'alt_rock', 'hard_rock'],

@@ -37,6 +37,19 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.7.0a` — 2026-11-07
+* **Loosen Step 3 Onboarding Genre Selection & Minimal Mood Tooltips:**
+  * **Minimal Mood Pill Hover Tooltips (`MoodBar.jsx`):**
+    * Stripped verbose status prefixes (`Sad • Home: Chicago Blues`); hover tooltips now output solely the clean, human-readable genre name (`Chicago Blues`, `Baroque (Bach, Vivaldi)`).
+  * **Unrestricted Full-Spectrum Step 3 Genre Picker (`OnboardingWizard.jsx`):**
+    * The "More..." dropdown now provides all 115 ontology genres organized into 14 distinct `<optgroup>` families (`Metal`, `Rock`, `Electronic`, `Hip-Hop`, `Jazz`, `Classical`, etc.) preceded by a curated `⭐ Recommended for {Mood}` group. Users are never restricted from choosing any subgenre as their Home Anchor.
+    * Expanded quick chips for core moods: `Energetic` now features dedicated 1-click Metal anchors (`Heavy Metal`, `Thrash Metal`) alongside Hard Rock, Punk, Synthwave, Drum & Bass, Boom-Bap, and Afrobeat.
+  * **Ontology & Mood-Mapping Expansion (`tasteGraph.js`):**
+    * Broadened `MOOD_GENRE_MAP` across all core moods: `energetic` now maps 19 genres including the complete spectrum of Metal (`heavy_metal`, `thrash_metal`, `metal`, `prog_metal`, `nu_metal`, `metalcore`, `symphonic_metal`); `sad` includes `doom_metal` and `ambient`; `party` and `focus` now feature comprehensive style coverage.
+  * **Softer Predictive Engine Balancing (`sessionStateMachine.js`):**
+    * Softened radar pole weighting from aggressive winner-take-all exponent `1.4` down to linear `1.0` so high radar values provide a natural bias without locking out adjacent or cross-genre styles.
+    * Added calibrated target energies per mood (`energetic`: 0.85, `workout`: 0.90, `focus`: 0.45, etc.) and enabled dynamic prediction during onboarding via `poleValues`.
+
 ### `v0.7.0` — 2026-11-07
 * **Complete Headspace Behavioral Matrix (6 Core Mood Homes & Orbital Deviation Engine):**
   * **Step 3 Onboarding Redesign (6 Core Mood Homes Matrix):**

@@ -14,7 +14,7 @@ const CORE_6_MOODS = [
         emoji: '🧠',
         subtitle: 'Flow state, concentration, deep work',
         defaultHome: 'baroque',
-        chips: ['baroque', 'lofi_hiphop', 'neo_classical', 'ambient_electronic', 'post_rock']
+        chips: ['baroque', 'neo_classical', 'ambient', 'lofi_hiphop', 'idm', 'post_rock', 'cool_jazz']
     },
     {
         id: 'chill',
@@ -22,15 +22,15 @@ const CORE_6_MOODS = [
         emoji: '🧘',
         subtitle: 'Unwinding, smooth lounge, relaxed rhythm',
         defaultHome: 'lofi_hiphop',
-        chips: ['lofi_hiphop', 'bossa_nova_jazz', 'neo_soul', 'ambient', 'indie_folk']
+        chips: ['lofi_hiphop', 'bossa_nova_jazz', 'neo_soul', 'ambient', 'indie_folk', 'shoegaze']
     },
     {
         id: 'energetic',
         label: 'Energetic',
         emoji: '⚡',
         subtitle: 'High drive, workout pump, kinetic tempo',
-        defaultHome: 'hard_rock',
-        chips: ['hard_rock', 'synthwave', 'drum_and_bass', 'punk_rock', 'afrobeat']
+        defaultHome: 'heavy_metal',
+        chips: ['heavy_metal', 'thrash_metal', 'hard_rock', 'punk_rock', 'synthwave', 'drum_and_bass', 'boom_bap', 'afrobeat']
     },
     {
         id: 'happy',
@@ -38,7 +38,7 @@ const CORE_6_MOODS = [
         emoji: '😊',
         subtitle: 'Upbeat optimism, warm groove, joyful release',
         defaultHome: 'funk',
-        chips: ['funk', 'indie_pop', 'classic_soul', 'dance_pop', 'bossa_nova']
+        chips: ['funk', 'indie_pop', 'classic_soul', 'classic_rock', 'roots_reggae', 'dance_pop']
     },
     {
         id: 'sad',
@@ -46,7 +46,7 @@ const CORE_6_MOODS = [
         emoji: '😢',
         subtitle: 'Melancholic beauty, emotional catharsis, introspective',
         defaultHome: 'delta_blues',
-        chips: ['delta_blues', 'romantic', 'singer_songwriter', 'post_rock', 'ambient']
+        chips: ['delta_blues', 'doom_metal', 'romantic', 'singer_songwriter', 'post_rock', 'ambient']
     },
     {
         id: 'party',
@@ -54,9 +54,21 @@ const CORE_6_MOODS = [
         emoji: '🎉',
         subtitle: 'Social celebration, dancefloor momentum, hype',
         defaultHome: 'dance_pop',
-        chips: ['dance_pop', 'funk', 'house', 'afrobeat', 'salsa']
+        chips: ['dance_pop', 'house', 'trap_modern', 'funk', 'salsa', 'hard_rock']
     }
 ];
+
+// Pre-group all 115 ontology genres by family group for the unrestricted Step 3 picker
+const ALL_GENRES_BY_GROUP = (() => {
+    const groups = {};
+    Object.entries(GENRE_NODES).forEach(([id, node]) => {
+        const groupName = node.group || 'Other';
+        if (!groups[groupName]) groups[groupName] = [];
+        groups[groupName].push({ id, label: node.label });
+    });
+    Object.values(groups).forEach(list => list.sort((a, b) => a.label.localeCompare(b.label)));
+    return groups;
+})();
 
 // -------------------------------------------------------------
 // 6 CANONICAL RADAR POLES
@@ -243,20 +255,37 @@ function OnboardingWizard({ onComplete, onClose }) {
     const [blockAiGenerated, setBlockAiGenerated] = useState(() => existingCalib.blockAiGenerated !== false);
 
     // 3. Core 6 Mood Homes
+    const [userCustomizedMoods, setUserCustomizedMoods] = useState({});
     const [moodHomes, setMoodHomes] = useState(() => {
         const initial = {};
         CORE_6_MOODS.forEach(m => {
             if (existingCalib.homeGenres && existingCalib.homeGenres[m.id]) {
                 initial[m.id] = existingCalib.homeGenres[m.id];
             } else {
-                initial[m.id] = sessionEngine.predictBestGenreForMood(m.id) || m.defaultHome;
+                initial[m.id] = sessionEngine.predictBestGenreForMood(m.id, poleValues) || m.defaultHome;
             }
         });
         return initial;
     });
 
     const setMoodHome = (moodId, genreId) => {
+        setUserCustomizedMoods(prev => ({ ...prev, [moodId]: true }));
         setMoodHomes(prev => ({ ...prev, [moodId]: genreId }));
+    };
+
+    const goToStep = (targetStep) => {
+        if (targetStep === 3) {
+            setMoodHomes(prev => {
+                const next = { ...prev };
+                CORE_6_MOODS.forEach(m => {
+                    if (!userCustomizedMoods[m.id] && !existingCalib.homeGenres?.[m.id]) {
+                        next[m.id] = sessionEngine.predictBestGenreForMood(m.id, poleValues) || m.defaultHome;
+                    }
+                });
+                return next;
+            });
+        }
+        setStep(targetStep);
     };
 
     const [seedArtists, setSeedArtists] = useState(() => existingCalib.seedArtists || ['Pink Floyd', 'Tycho', 'Miles Davis']);
@@ -561,7 +590,7 @@ function OnboardingWizard({ onComplete, onClose }) {
                         <button
                             key={s}
                             type="button"
-                            onClick={() => setStep(s)}
+                            onClick={() => goToStep(s)}
                             style={{
                                 width: '30px',
                                 height: '30px',
@@ -854,7 +883,7 @@ function OnboardingWizard({ onComplete, onClose }) {
                             <button
                                 type="button"
                                 className="btn-primary"
-                                onClick={() => setStep(2)}
+                                onClick={() => goToStep(2)}
                                 style={{ width: 'auto', padding: '0.65rem 1.5rem', fontSize: '0.88rem' }}
                             >
                                 Next: Reflexes →
@@ -1032,7 +1061,7 @@ function OnboardingWizard({ onComplete, onClose }) {
                         <button
                             type="button"
                             className="btn-text"
-                            onClick={() => setStep(1)}
+                            onClick={() => goToStep(1)}
                             style={{ color: '#94a3b8' }}
                         >
                             ← Back to Radar
@@ -1040,7 +1069,7 @@ function OnboardingWizard({ onComplete, onClose }) {
                         <button
                             type="button"
                             className="btn-primary"
-                            onClick={() => setStep(3)}
+                            onClick={() => goToStep(3)}
                             style={{ width: 'auto', padding: '0.65rem 1.75rem', fontSize: '0.9rem' }}
                         >
                             Next: 6 Core Mood Homes →
@@ -1149,28 +1178,39 @@ function OnboardingWizard({ onComplete, onClose }) {
                                         </div>
                                     </div>
 
-                                    {/* More Dropdown Picker */}
+                                    {/* More Dropdown Picker (All 115 Genres in Category Groups) */}
                                     <div style={{ marginTop: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                         <span style={{ fontSize: '0.68rem', color: '#64748b' }}>More:</span>
                                         <select
                                             value={currentHome}
                                             onChange={(e) => setMoodHome(m.id, e.target.value)}
                                             style={{
-                                                background: 'rgba(0,0,0,0.4)',
-                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                background: 'rgba(0,0,0,0.5)',
+                                                border: '1px solid rgba(255,255,255,0.12)',
                                                 borderRadius: '6px',
-                                                padding: '0.2rem 0.4rem',
+                                                padding: '0.22rem 0.45rem',
                                                 color: '#cbd5e1',
-                                                fontSize: '0.7rem',
+                                                fontSize: '0.72rem',
                                                 cursor: 'pointer',
                                                 outline: 'none',
                                                 width: '100%'
                                             }}
                                         >
-                                            {getMoodCompatibleGenres(m.id).map(g => (
-                                                <option key={g} value={g} style={{ background: '#1e1b4b', color: 'white' }}>
-                                                    {GENRE_NODES[g]?.label || g}
-                                                </option>
+                                            <optgroup label={`⭐ Recommended for ${m.label}`}>
+                                                {getMoodCompatibleGenres(m.id).map(g => (
+                                                    <option key={`rec-${g}`} value={g} style={{ background: '#1e1b4b', color: 'white' }}>
+                                                        {GENRE_NODES[g]?.label || g}
+                                                    </option>
+                                                ))}
+                                            </optgroup>
+                                            {Object.entries(ALL_GENRES_BY_GROUP).map(([groupName, genres]) => (
+                                                <optgroup key={groupName} label={`📁 ${groupName}`}>
+                                                    {genres.map(g => (
+                                                        <option key={g.id} value={g.id} style={{ background: '#1e1b4b', color: 'white' }}>
+                                                            {g.label}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
                                             ))}
                                         </select>
                                     </div>
@@ -1202,7 +1242,7 @@ function OnboardingWizard({ onComplete, onClose }) {
                         <button
                             type="button"
                             className="btn-text"
-                            onClick={() => setStep(2)}
+                            onClick={() => goToStep(2)}
                             style={{ color: '#94a3b8' }}
                         >
                             ← Back

@@ -302,7 +302,7 @@ class SessionStateMachine {
      * Predicts what the user wants to hear for a given mood by calculating composite affinity
      * across their 6-point Sonic Radar star, normalized node weights, anchors, energy delta, and fatigue.
      */
-    predictBestGenreForMood(moodId) {
+    predictBestGenreForMood(moodId, customRadar = null, customWeights = null) {
         const moodObj = allMoods.find(m => m.id === moodId);
         const moodCompatible = getMoodCompatibleGenres(moodId) || [];
         
@@ -315,7 +315,7 @@ class SessionStateMachine {
             return this.state.activeGenre || 'lofi_hiphop';
         }
 
-        const radar = this.calibration.radarValues || {
+        const radar = customRadar || this.calibration.radarValues || {
             rock_metal: 75,
             electronic: 65,
             hiphop_soul: 55,
@@ -324,7 +324,25 @@ class SessionStateMachine {
             classical_ambient: 70
         };
 
-        const targetEnergy = moodObj?.defaultEnergy ?? 0.5;
+        const MOOD_TARGET_ENERGY = {
+            energetic: 0.85,
+            workout: 0.90,
+            party: 0.85,
+            happy: 0.70,
+            focus: 0.45,
+            chill: 0.35,
+            sad: 0.30,
+            sleep: 0.15,
+            late_night: 0.40,
+            study: 0.40,
+            rainy: 0.35,
+            driving: 0.75,
+            morning: 0.50,
+            cyberpunk: 0.80,
+            villain_mode: 0.85,
+            dark_intense: 0.90
+        };
+        const targetEnergy = moodObj?.defaultEnergy ?? (MOOD_TARGET_ENERGY[moodId] ?? 0.5);
 
         // Score each compatible candidate genre
         const scoredCandidates = validCandidates.map(genreId => {
@@ -336,7 +354,8 @@ class SessionStateMachine {
             const poleAffinity = rawPoleValue / 100;
 
             // 2. Calibrated Fine-Grain Weight (0.1 to 1.0)
-            const nodeWeight = this.calibration.weights?.[genreId] || 0.15;
+            const nodeWeight = customWeights?.[genreId] 
+                || (customRadar ? (poleAffinity * 0.5) : (this.calibration.weights?.[genreId] || (poleAffinity * 0.5)));
 
             // 3. User Anchors Boost (if this was explicitly chosen as an anchor)
             const isAnchor = (this.calibration.anchors || []).includes(genreId);
@@ -355,8 +374,8 @@ class SessionStateMachine {
             const isLikedGenre = this.state.likedTracks.some(tid => tid.genre === genreId);
             const feedbackBonus = isLikedGenre ? 1.25 : 1.0;
 
-            // Composite Score with radar affinity as the primary driver (exponent 1.4)
-            const score = Math.pow(poleAffinity, 1.4) * nodeWeight * anchorBonus * energyFit * fatigueMultiplier * feedbackBonus;
+            // Composite Score with radar affinity as a natural bias (linear 1.0 exponent rather than aggressive winner-take-all)
+            const score = poleAffinity * nodeWeight * anchorBonus * energyFit * fatigueMultiplier * feedbackBonus;
 
             return {
                 genreId,
