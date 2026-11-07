@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { GENRE_FAMILIES, GENRE_NODES } from '../services/tasteGraph';
 import { fetchPlaylistTracks, ingestPlaylistTracks, inferGenreFromTitle } from '../services/youtubePlaylistIngester';
 import { fetchPlaylistItems } from '../services/youtube';
+import { inspectPlaylistCandidate } from '../services/genreNormalizer';
 import { sessionEngine } from '../services/sessionStateMachine';
 
 const CURATED_PRESETS = [
@@ -52,6 +53,9 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
     const [playlistInput, setPlaylistInput] = useState('');
     const [selectedPlaylist, setSelectedPlaylist] = useState(null);
     const [tracks, setTracks] = useState([]);
+    const [filteredTracks, setFilteredTracks] = useState([]);
+    const [selectedTrackIds, setSelectedTrackIds] = useState(new Set());
+    const [showFilteredList, setShowFilteredList] = useState(false);
     const [isLoadingTracks, setIsLoadingTracks] = useState(false);
     const [targetGenre, setTargetGenre] = useState('rock');
     const [error, setError] = useState(null);
@@ -66,6 +70,9 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
         setIsLoadingTracks(true);
         setError(null);
         setTracks([]);
+        setFilteredTracks([]);
+        setSelectedTrackIds(new Set());
+        setShowFilteredList(false);
         setIngestResult(null);
         setIngestProgress(null);
 
@@ -79,7 +86,7 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
             let loadedTracks = [];
             let resolvedTitle = titleFallback || 'YouTube Playlist';
 
-            // 1. If user is signed in with Google OAuth, try official API with Bearer token (gives access to user's private & unlisted playlists!)
+            // 1. If user is signed in with Google OAuth, try official API with Bearer token
             if (token && token !== 'guest') {
                 try {
                     const apiItems = await fetchPlaylistItems(cleanId, token);
@@ -111,12 +118,35 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
                 );
             }
 
+            // 3. Inspect each track: disqualify non-music items (podcasts/talks) and flag AI music
+            const inspectedTracks = loadedTracks.map(item => {
+                const inspection = inspectPlaylistCandidate({
+                    title: item.title,
+                    artist: item.artist,
+                    durationSec: item.durationSec,
+                    channelTitle: item.channelTitle || ''
+                });
+                return {
+                    ...item,
+                    isMusic: inspection.isMusic,
+                    filterReason: inspection.filterReason,
+                    isAi: inspection.isAi
+                };
+            });
+
+            const musicItems = inspectedTracks.filter(t => t.isMusic);
+            const nonMusicItems = inspectedTracks.filter(t => !t.isMusic);
+
             setSelectedPlaylist({
                 id: cleanId,
                 title: resolvedTitle,
-                total: loadedTracks.length
+                rawTotal: loadedTracks.length
             });
-            setTracks(loadedTracks);
+
+            // Keep all music items selected by default (including AI, but clearly flagged)
+            setTracks(musicItems);
+            setFilteredTracks(nonMusicItems);
+            setSelectedTrackIds(new Set(musicItems.map(t => t.videoId)));
 
             const detected = genreHint || inferGenreFromTitle(resolvedTitle);
             setTargetGenre(detected);
@@ -134,14 +164,59 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
         handleSelectPlaylist(playlistInput.trim(), 'Custom YouTube Playlist');
     };
 
+    // Track selection toggles
+    const toggleTrackSelection = (videoId) => {
+        setSelectedTrackIds(prev => {
+            const next = new Set(prev);
+            if (next.has(videoId)) {
+                next.delete(videoId);
+            } else {
+                next.add(videoId);
+            }
+            return next;
+        });
+    };
+
+    const handleToggleSelectAll = () => {
+        if (selectedTrackIds.size === tracks.length) {
+            setSelectedTrackIds(new Set());
+        } else {
+            setSelectedTrackIds(new Set(tracks.map(t => t.videoId)));
+        }
+    };
+
+    const handleToggleAllAi = (select) => {
+        setSelectedTrackIds(prev => {
+            const next = new Set(prev);
+            tracks.forEach(t => {
+                if (t.isAi) {
+                    if (select) {
+                        next.add(t.videoId);
+                    } else {
+                        next.delete(t.videoId);
+                    }
+                }
+            });
+            return next;
+        });
+    };
+
+    const handleForceInclude = (track) => {
+        setFilteredTracks(prev => prev.filter(t => t.videoId !== track.videoId));
+        const restored = { ...track, isMusic: true, forceIncluded: true };
+        setTracks(prev => [restored, ...prev]);
+        setSelectedTrackIds(prev => new Set([...prev, track.videoId]));
+    };
+
     const handleStartIngest = async () => {
-        if (!tracks || tracks.length === 0) return;
+        const tracksToIngest = tracks.filter(t => selectedTrackIds.has(t.videoId));
+        if (tracksToIngest.length === 0) return;
         setIsIngesting(true);
         setIngestResult(null);
 
         try {
             const result = await ingestPlaylistTracks({
-                tracks,
+                tracks: tracksToIngest,
                 primaryGenreId: targetGenre,
                 sourceName: `yt_pl:${selectedPlaylist?.title || 'custom'}`,
                 onProgress: (p) => setIngestProgress(p)
@@ -160,9 +235,10 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
     };
 
     const handlePlayAllNow = () => {
-        if (!tracks || tracks.length === 0) return;
-        const first = tracks[0];
-        const rest = tracks.slice(1);
+        const selectedTracks = tracks.filter(t => selectedTrackIds.has(t.videoId));
+        if (selectedTracks.length === 0) return;
+        const first = selectedTracks[0];
+        const rest = selectedTracks.slice(1);
 
         const trackToPlay = {
             id: first.videoId,
@@ -171,7 +247,7 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
             artist: first.artist,
             genre: targetGenre,
             thumbnail: first.thumbnail,
-            source: 'youtube_playlist'
+            source: first.isAi ? 'youtube_playlist:ai' : 'youtube_playlist'
         };
 
         sessionEngine.playCustomTrack(trackToPlay);
@@ -182,7 +258,8 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
                 title: t.title,
                 artist: t.artist,
                 genre: targetGenre,
-                thumbnail: t.thumbnail
+                thumbnail: t.thumbnail,
+                source: t.isAi ? 'youtube_playlist:ai' : 'youtube_playlist'
             })));
         }
 
@@ -192,14 +269,16 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
     };
 
     const handleQueueAll = () => {
-        if (!tracks || tracks.length === 0) return;
-        sessionEngine.queuePlaylist(tracks.map(t => ({
+        const selectedTracks = tracks.filter(t => selectedTrackIds.has(t.videoId));
+        if (selectedTracks.length === 0) return;
+        sessionEngine.queuePlaylist(selectedTracks.map(t => ({
             id: t.videoId,
             videoId: t.videoId,
             title: t.title,
             artist: t.artist,
             genre: targetGenre,
-            thumbnail: t.thumbnail
+            thumbnail: t.thumbnail,
+            source: t.isAi ? 'youtube_playlist:ai' : 'youtube_playlist'
         })));
     };
 
@@ -211,13 +290,18 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
             artist: track.artist,
             genre: targetGenre,
             thumbnail: track.thumbnail,
-            source: 'youtube_playlist'
+            source: track.isAi ? 'youtube_playlist:ai' : 'youtube_playlist'
         };
         sessionEngine.playCustomTrack(item);
         if (onPlayTrack) {
             onPlayTrack(item);
         }
     };
+
+    const aiTracksInPlaylist = tracks.filter(t => t.isAi);
+    const selectedAiCount = aiTracksInPlaylist.filter(t => selectedTrackIds.has(t.videoId)).length;
+    const selectedCount = selectedTrackIds.size;
+    const isAllSelected = tracks.length > 0 && selectedCount === tracks.length;
 
     return (
         <div className="youtube-playlist-importer fade-in" style={{ maxWidth: '900px', margin: '1rem auto', textAlign: 'left' }}>
@@ -387,7 +471,7 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
                 <div style={{ textAlign: 'center', padding: '3rem' }}>
                     <div className="spinner" style={{ width: '2rem', height: '2rem', margin: '0 auto 1rem auto' }}></div>
                     <p style={{ color: '#c084fc', fontSize: '1.1rem' }}>
-                        Fetching playlist metadata with Zero-Quota scraper...
+                        Fetching playlist metadata & evaluating music authenticity...
                     </p>
                 </div>
             )}
@@ -412,7 +496,8 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
                             </div>
                             <h2 style={{ fontSize: '1.5rem', margin: '0 0 0.3rem 0', color: '#f8fafc' }}>{selectedPlaylist.title}</h2>
                             <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>
-                                Found <strong>{tracks.length}</strong> verified playable tracks
+                                Found <strong>{tracks.length}</strong> music tracks
+                                {filteredTracks.length > 0 && <span> (out of {selectedPlaylist.rawTotal || (tracks.length + filteredTracks.length)} total items)</span>}
                             </p>
                         </div>
 
@@ -450,49 +535,203 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
                         </div>
                     </div>
 
+                    {/* FILTERED NON-MUSIC BANNER & COLLAPSIBLE DRAWER */}
+                    {filteredTracks.length > 0 && (
+                        <div style={{ marginTop: '0.75rem' }}>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                border: '1px solid rgba(239, 68, 68, 0.25)',
+                                borderRadius: '10px',
+                                padding: '0.6rem 0.9rem',
+                                fontSize: '0.85rem',
+                                color: '#fca5a5'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span>🛡️</span>
+                                    <span>
+                                        <strong>{filteredTracks.length} non-music items filtered out</strong> (podcasts, talks, or compilations).
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="btn-text"
+                                    onClick={() => setShowFilteredList(!showFilteredList)}
+                                    style={{ color: '#f87171', fontSize: '0.8rem', padding: '0.2rem 0.6rem', textDecoration: 'underline' }}
+                                >
+                                    {showFilteredList ? 'Hide Filtered' : `Review Filtered (${filteredTracks.length}) ▾`}
+                                </button>
+                            </div>
+
+                            {showFilteredList && (
+                                <div style={{
+                                    background: 'rgba(15, 23, 42, 0.9)',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    borderRadius: '10px',
+                                    padding: '0.8rem',
+                                    marginTop: '0.5rem',
+                                    maxHeight: '220px',
+                                    overflowY: 'auto'
+                                }}>
+                                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.6rem' }}>
+                                        These items were automatically filtered because they match podcast, talk show, audiobook, or long mix patterns. If any was misclassified, click <strong>Include</strong> to restore it:
+                                    </div>
+                                    {filteredTracks.map(item => (
+                                        <div
+                                            key={item.videoId}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '0.35rem 0.5rem',
+                                                borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                                                fontSize: '0.82rem'
+                                            }}
+                                        >
+                                            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '72%' }}>
+                                                <span style={{ color: '#cbd5e1' }}>{item.title}</span>
+                                                {item.filterReason && (
+                                                    <span style={{ color: '#f87171', marginLeft: '0.5rem', fontSize: '0.72rem' }}>
+                                                        [{item.filterReason}]
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="btn-text"
+                                                onClick={() => handleForceInclude(item)}
+                                                style={{
+                                                    color: '#34d399',
+                                                    background: 'rgba(16, 185, 129, 0.1)',
+                                                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                                                    borderRadius: '6px',
+                                                    padding: '0.2rem 0.55rem',
+                                                    fontSize: '0.75rem'
+                                                }}
+                                            >
+                                                + Include Anyway
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* AI MUSIC DETECTION BANNER WITH ONE-CLICK TOGGLE */}
+                    {aiTracksInPlaylist.length > 0 && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '0.6rem',
+                            background: 'rgba(245, 158, 11, 0.1)',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            borderRadius: '10px',
+                            padding: '0.6rem 0.9rem',
+                            marginTop: '0.75rem',
+                            fontSize: '0.85rem',
+                            color: '#fcd34d'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span>🤖</span>
+                                <span>
+                                    <strong>{aiTracksInPlaylist.length} AI-generated tracks detected</strong> (Suno/Udio/synthetic).
+                                    <span style={{ opacity: 0.85, marginLeft: '0.35rem', fontSize: '0.8rem' }}>
+                                        ({selectedAiCount} currently selected)
+                                    </span>
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                {selectedAiCount > 0 ? (
+                                    <button
+                                        type="button"
+                                        className="btn-text"
+                                        onClick={() => handleToggleAllAi(false)}
+                                        style={{
+                                            background: 'rgba(239, 68, 68, 0.18)',
+                                            color: '#fca5a5',
+                                            border: '1px solid rgba(239, 68, 68, 0.35)',
+                                            borderRadius: '6px',
+                                            padding: '0.25rem 0.65rem',
+                                            fontSize: '0.78rem',
+                                            fontWeight: '600'
+                                        }}
+                                    >
+                                        🚫 Uncheck All AI ({selectedAiCount})
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="btn-text"
+                                        onClick={() => handleToggleAllAi(true)}
+                                        style={{
+                                            background: 'rgba(245, 158, 11, 0.2)',
+                                            color: '#fef08a',
+                                            border: '1px solid rgba(245, 158, 11, 0.4)',
+                                            borderRadius: '6px',
+                                            padding: '0.25rem 0.65rem',
+                                            fontSize: '0.78rem',
+                                            fontWeight: '600'
+                                        }}
+                                    >
+                                        ✓ Check All AI ({aiTracksInPlaylist.length})
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Action Bar */}
-                    <div style={{ display: 'flex', gap: '0.75rem', margin: '1.25rem 0', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '0.75rem', margin: '1.25rem 0 0.75rem 0', flexWrap: 'wrap' }}>
                         <button
                             className="btn-primary"
                             onClick={handleStartIngest}
-                            disabled={isIngesting || tracks.length === 0}
+                            disabled={isIngesting || selectedCount === 0}
                             style={{ flex: '1', minWidth: '220px', padding: '0.75rem 1.25rem', fontSize: '0.95rem' }}
                         >
-                            {isIngesting ? '📥 Ingesting into Library...' : `📥 Ingest ${tracks.length} Tracks into Library`}
+                            {isIngesting ? '📥 Ingesting into Library...' : `📥 Ingest ${selectedCount} Selected Tracks into Library`}
                         </button>
                         <button
                             className="btn-text"
                             onClick={handlePlayAllNow}
+                            disabled={selectedCount === 0}
                             style={{
-                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                color: 'white',
+                                background: selectedCount === 0 ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                color: selectedCount === 0 ? '#64748b' : 'white',
                                 padding: '0.75rem 1.25rem',
                                 borderRadius: '9999px',
                                 fontWeight: 'bold',
-                                fontSize: '0.95rem'
+                                fontSize: '0.95rem',
+                                cursor: selectedCount === 0 ? 'not-allowed' : 'pointer'
                             }}
                         >
-                            ▶ Play All Now
+                            ▶ Play Selected ({selectedCount})
                         </button>
                         <button
                             className="btn-text"
                             onClick={handleQueueAll}
+                            disabled={selectedCount === 0}
                             style={{
                                 background: 'rgba(56, 189, 248, 0.15)',
-                                color: '#38bdf8',
-                                border: '1px solid #38bdf8',
+                                color: selectedCount === 0 ? '#64748b' : '#38bdf8',
+                                border: selectedCount === 0 ? '1px solid rgba(255,255,255,0.05)' : '1px solid #38bdf8',
                                 padding: '0.75rem 1.25rem',
                                 borderRadius: '9999px',
-                                fontSize: '0.95rem'
+                                fontSize: '0.95rem',
+                                cursor: selectedCount === 0 ? 'not-allowed' : 'pointer'
                             }}
                         >
-                            ➕ Queue for Session
+                            ➕ Queue Selected ({selectedCount})
                         </button>
                     </div>
 
                     {/* Progress Indicator */}
                     {isIngesting && ingestProgress && (
-                        <div style={{ background: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.3)', borderRadius: '12px', padding: '1rem', marginBottom: '1.25rem' }}>
+                        <div style={{ background: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.3)', borderRadius: '12px', padding: '1rem', margin: '1rem 0' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.4rem', color: '#e9d5ff' }}>
                                 <span>Ingesting tracks into Supabase...</span>
                                 <span>{ingestProgress.current} / {ingestProgress.total}</span>
@@ -515,58 +754,153 @@ function PlaylistView({ playlists = [], token, onPlayTrack, onIngestComplete }) 
 
                     {/* Ingestion Finished Success Banner */}
                     {ingestResult && (
-                        <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', borderRadius: '12px', padding: '1rem', marginBottom: '1.25rem', color: '#6ee7b7' }}>
+                        <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', borderRadius: '12px', padding: '1rem', margin: '1rem 0', color: '#6ee7b7' }}>
                             🎉 <strong>Ingestion Complete!</strong> Successfully mapped <strong>{ingestResult.newlyAdded}</strong> new tracks into your database with permanent zero-quota YouTube video IDs.
                             {ingestResult.duplicates > 0 && <span> ({ingestResult.duplicates} already present in catalog).</span>}
                         </div>
                     )}
 
-                    {/* Track List Preview */}
-                    <div style={{ maxHeight: '420px', overflowY: 'auto', paddingRight: '0.5rem', marginTop: '1rem' }}>
-                        {tracks.map((track, idx) => (
-                            <div
-                                key={track.videoId + '-' + idx}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    padding: '0.6rem 0.8rem',
-                                    background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
-                                    borderRadius: '8px',
-                                    borderBottom: '1px solid rgba(255,255,255,0.04)'
-                                }}
+                    {/* Multi-Track Selection Toolbar */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.65rem 0.5rem',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                        marginTop: '0.75rem',
+                        fontSize: '0.85rem',
+                        color: '#94a3b8'
+                    }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', cursor: 'pointer', userSelect: 'none' }}>
+                            <input
+                                type="checkbox"
+                                checked={isAllSelected}
+                                onChange={handleToggleSelectAll}
+                                style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#a855f7' }}
+                            />
+                            <span style={{ color: '#f8fafc', fontWeight: '500' }}>
+                                Select All ({selectedCount} of {tracks.length} selected)
+                            </span>
+                        </label>
+                        <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.8rem' }}>
+                            <button
+                                type="button"
+                                className="btn-text"
+                                onClick={() => setSelectedTrackIds(new Set(tracks.map(t => t.videoId)))}
+                                style={{ padding: '0.15rem 0.45rem', color: '#c084fc' }}
                             >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', overflow: 'hidden' }}>
-                                    <span style={{ fontSize: '0.75rem', color: '#64748b', width: '24px', textAlign: 'right' }}>{idx + 1}</span>
-                                    <img
-                                        src={track.thumbnail}
-                                        alt=""
-                                        style={{ width: '48px', height: '36px', objectFit: 'cover', borderRadius: '4px', background: '#1e293b' }}
-                                    />
-                                    <div style={{ overflow: 'hidden' }}>
-                                        <div style={{ fontSize: '0.9rem', color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {track.title}
-                                        </div>
-                                        <div style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {track.artist}
+                                Select All
+                            </button>
+                            <span style={{ opacity: 0.3 }}>|</span>
+                            <button
+                                type="button"
+                                className="btn-text"
+                                onClick={() => setSelectedTrackIds(new Set())}
+                                style={{ padding: '0.15rem 0.45rem', color: '#94a3b8' }}
+                            >
+                                Deselect All
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Track List Preview */}
+                    <div style={{ maxHeight: '420px', overflowY: 'auto', paddingRight: '0.5rem', marginTop: '0.5rem' }}>
+                        {tracks.map((track, idx) => {
+                            const isSelected = selectedTrackIds.has(track.videoId);
+                            return (
+                                <div
+                                    key={track.videoId + '-' + idx}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '0.6rem 0.8rem',
+                                        background: isSelected
+                                            ? (idx % 2 === 0 ? 'rgba(168, 85, 247, 0.04)' : 'rgba(255, 255, 255, 0.02)')
+                                            : 'rgba(0, 0, 0, 0.2)',
+                                        opacity: isSelected ? 1 : 0.45,
+                                        borderRadius: '8px',
+                                        borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
+                                        transition: 'all 0.15s ease'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', overflow: 'hidden' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={() => toggleTrackSelection(track.videoId)}
+                                            style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#a855f7', flexShrink: 0 }}
+                                            aria-label={`Select ${track.title}`}
+                                        />
+                                        <span style={{ fontSize: '0.75rem', color: '#64748b', width: '22px', textAlign: 'right', flexShrink: 0 }}>
+                                            {idx + 1}
+                                        </span>
+                                        <img
+                                            src={track.thumbnail}
+                                            alt=""
+                                            style={{ width: '48px', height: '36px', objectFit: 'cover', borderRadius: '4px', background: '#1e293b', flexShrink: 0 }}
+                                        />
+                                        <div style={{ overflow: 'hidden' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+                                                <span style={{ fontSize: '0.9rem', color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {track.title}
+                                                </span>
+                                                {track.isAi && (
+                                                    <span
+                                                        title="Detected as AI-generated music (Suno/Udio/Synthetic)"
+                                                        style={{
+                                                            fontSize: '0.68rem',
+                                                            color: '#fbbf24',
+                                                            background: 'rgba(245, 158, 11, 0.15)',
+                                                            border: '1px solid rgba(245, 158, 11, 0.4)',
+                                                            padding: '0.1rem 0.4rem',
+                                                            borderRadius: '4px',
+                                                            fontWeight: '600',
+                                                            flexShrink: 0
+                                                        }}
+                                                    >
+                                                        🤖 AI Track
+                                                    </span>
+                                                )}
+                                                {track.forceIncluded && (
+                                                    <span
+                                                        title="Restored manually from non-music filter"
+                                                        style={{
+                                                            fontSize: '0.68rem',
+                                                            color: '#34d399',
+                                                            background: 'rgba(16, 185, 129, 0.15)',
+                                                            border: '1px solid rgba(16, 185, 129, 0.4)',
+                                                            padding: '0.1rem 0.4rem',
+                                                            borderRadius: '4px',
+                                                            fontWeight: '600',
+                                                            flexShrink: 0
+                                                        }}
+                                                    >
+                                                        👤 Restored
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {track.artist}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
-                                    <span style={{ fontSize: '0.7rem', color: '#34d399', background: 'rgba(16, 185, 129, 0.1)', padding: '0.15rem 0.4rem', borderRadius: '4px' }}>
-                                        ID: {track.videoId}
-                                    </span>
-                                    <button
-                                        className="btn-text"
-                                        onClick={() => handlePlaySingleTrack(track)}
-                                        style={{ color: '#38bdf8', padding: '0.2rem 0.5rem', fontSize: '0.85rem' }}
-                                    >
-                                        ▶ Play
-                                    </button>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
+                                        <span style={{ fontSize: '0.7rem', color: '#34d399', background: 'rgba(16, 185, 129, 0.1)', padding: '0.15rem 0.4rem', borderRadius: '4px' }}>
+                                            ID: {track.videoId}
+                                        </span>
+                                        <button
+                                            className="btn-text"
+                                            onClick={() => handlePlaySingleTrack(track)}
+                                            style={{ color: '#38bdf8', padding: '0.2rem 0.5rem', fontSize: '0.85rem' }}
+                                        >
+                                            ▶ Play
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             )}

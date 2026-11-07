@@ -264,7 +264,7 @@ function Dashboard({ token, onLogout }) {
                             aria-selected={showVisualGraph}
                             title="Explore the harmonic soundscape graph"
                         >
-                            <span className="pill-icon">🕸️</span>
+                            <span className="pill-icon">❄️</span>
                             <span className="pill-label">Visual Graph</span>
                             <span className="pill-label-short">Graph</span>
                         </button>
@@ -277,7 +277,7 @@ function Dashboard({ token, onLogout }) {
                             title="Ingest public or private YouTube playlists"
                         >
                             <span className="pill-icon">📥</span>
-                            <span className="pill-label">Ingest Playlists</span>
+                            <span className="pill-label">Ingest YouTube Playlists</span>
                             <span className="pill-label-short">Playlists</span>
                         </button>
 

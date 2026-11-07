@@ -598,7 +598,7 @@ class SessionStateMachine {
         }
 
         // Guard 0B: Anti-AI Gatekeeper
-        if (this.calibration.blockAiGenerated !== false && isAiGenerated({ title: track.title, artist: track.artist, channelTitle: track.channelTitle })) {
+        if (this.calibration.blockAiGenerated !== false && (track.source?.includes(':ai') || isAiGenerated({ title: track.title, artist: track.artist, channelTitle: track.channelTitle }))) {
             console.log(`[Guard 🛡️] Anti-AI: Dropped synthetic AI candidate "${track.artist} - ${track.title}"`);
             return false;
         }

@@ -50,6 +50,7 @@ export async function fetchPlaylistTracks(playlistIdOrUrl) {
 /**
  * Ingests playlist tracks into Supabase (both public.tracks and public.artists),
  * fully pre-mapped with 11-char youtube_video_id for immediate zero-quota playback.
+ * Tags AI-generated tracks with :ai in source for state machine policy enforcement.
  */
 export async function ingestPlaylistTracks({ tracks, primaryGenreId, sourceName = 'youtube_playlist', onProgress }) {
     if (!tracks || tracks.length === 0) {
@@ -115,16 +116,17 @@ export async function ingestPlaylistTracks({ tracks, primaryGenreId, sourceName 
                     }
                 }
 
-                // 3. Insert into public.tracks table with per-track genre normalization
+                // 3. Insert into public.tracks table with per-track genre normalization & AI tagging
                 const trackInserts = newTracks.map(t => {
                     const resolvedGenre = normalizeGenre(primaryGenreId, t.artist, t.title);
+                    const resolvedSource = t.isAi ? `${sourceName}:ai` : sourceName;
                     return {
                         title: t.title,
                         artist: t.artist,
                         artist_id: artistIdMap[t.artist] || null,
                         primary_genre_id: resolvedGenre,
                         youtube_video_id: t.videoId,
-                        source: sourceName
+                        source: resolvedSource
                     };
                 });
 
@@ -141,11 +143,12 @@ export async function ingestPlaylistTracks({ tracks, primaryGenreId, sourceName 
                     // 4. Also insert into public.local_metadata so Dashboard cloudCount immediately reflects it!
                     const metaInserts = newTracks.map(t => {
                         const resolvedGenre = normalizeGenre(primaryGenreId, t.artist, t.title);
+                        const resolvedSource = t.isAi ? `${sourceName}:ai` : sourceName;
                         return {
                             artist: t.artist,
                             track_name: t.title,
                             genre: resolvedGenre,
-                            source: sourceName
+                            source: resolvedSource
                         };
                     });
 
