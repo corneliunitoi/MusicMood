@@ -37,6 +37,29 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.7.0` — 2026-11-07
+* **Complete Headspace Behavioral Matrix (6 Core Mood Homes & Orbital Deviation Engine):**
+  * **Step 3 Onboarding Redesign (6 Core Mood Homes Matrix):**
+    * Rebuilt Step 3 in `OnboardingWizard.jsx` into a clean 2x3 matrix capturing the user's calibrated Home Anchor for each of the 6 core moods (`Focus`, `Chill`, `Energetic`, `Happy`, `Sad`, `Party`).
+    * Arrives 100% pre-filled with predictive recommendations calculated from the user's Step 1 Sonic Radar (0 clicks required to accept).
+    * Features 4–5 quick-switch chips per mood card for effortless 1-tap customization without scrolling or typing, plus a compact "More..." dropdown for deep cuts.
+  * **Hybrid Deviation Model (Magnitude + Direction):**
+    * Implemented `getGraphDistance(genreA, genreB)` for topological magnitude (shortest path harmonic hops).
+    * Implemented `getVectorDeviation(genreA, genreB)` for acoustic drift direction ($\Delta E$ energy delta + Sonic Radar pole vectors).
+  * **Orbital Discovery Leash:**
+    * Mapped the 3 discovery toggles to orbital leashes around the mood's Home:
+      * **Familiar:** Strict leash ($d = 0$). Keeps session locked to Home.
+      * **Balanced:** Moderate leash ($d \le 2$ hops). Traverses neighboring clusters with elastic gravity.
+      * **Deep Cuts:** Unrestricted leash ($d \ge 3$). Free traversal across compatible families.
+    * Upgraded `sessionEngine.surpriseMe()` to enforce orbital bounds.
+  * **Decluttered Mood Pill Hover Tooltips:**
+    * In `MoodBar.jsx`, mood buttons remain visually minimal with zero badge pollution (`{emoji} {label}`).
+    * Hovering over any mood pill reveals: `Focus • Home: Baroque (Bach, Vivaldi)`, and if currently playing and drifted: `Focus • Active: Synthwave (2 hops from Home) • Home: Baroque`.
+  * **Live Orbital Telemetry in Player Header:**
+    * Player card header dynamically indicates `🏠 Home` when at the anchor, or `Orbit: +N hops` when exploring outside the home base.
+
+---
+
 ### `v0.6.2` — 2026-11-07
 * **Seamless Google OAuth Login (No Redundant Scope Dialogs):**
   * Eliminated the mandatory `prompt: 'consent'` on regular user logins in `src/services/auth.js`.

@@ -11,7 +11,7 @@
  */
 
 import { supabase, recordListenEvent } from './supabaseService.js';
-import { GENRE_FAMILIES, GENRE_NODES, getConnectedGenres, getMoodCompatibleGenres, getPoleForGenre, violatesDealbreakers, normalizeWeights } from './tasteGraph.js';
+import { GENRE_FAMILIES, GENRE_NODES, getConnectedGenres, getGraphDistance, getVectorDeviation, getMoodCompatibleGenres, getPoleForGenre, violatesDealbreakers, normalizeWeights } from './tasteGraph.js';
 import { isSongCandidate, isAiGenerated } from './genreNormalizer.js';
 import { allMoods } from './moods.js';
 import { jitEngine } from './jitEngine.js';
@@ -110,6 +110,7 @@ class SessionStateMachine {
                 if (raw) {
                     const parsed = JSON.parse(raw);
                     parsed.weights = normalizeWeights(parsed.weights || {}, parsed.anchors, parsed.dealbreakers);
+                    parsed.homeGenres = parsed.homeGenres || {};
                     return parsed;
                 }
             }
@@ -123,6 +124,7 @@ class SessionStateMachine {
             anchors: defaultAnchors,
             dealbreakers: defaultDealbreakers,
             discoveryLevel: 0.5,
+            homeGenres: {},
             weights: normalizeWeights({}, defaultAnchors, defaultDealbreakers)
         };
     }
@@ -388,6 +390,43 @@ class SessionStateMachine {
         return topCandidate.genreId;
     }
 
+    /**
+     * Returns the user's calibrated Home Anchor genre for a given mood.
+     * Falls back to predictive scoring if no explicit Home is calibrated.
+     */
+    getHomeGenreForMood(moodId) {
+        if (this.calibration.homeGenres && this.calibration.homeGenres[moodId]) {
+            return this.calibration.homeGenres[moodId];
+        }
+        return this.predictBestGenreForMood(moodId);
+    }
+
+    /**
+     * Sets an explicit Home Anchor for a given mood and persists to calibration.
+     */
+    setHomeGenreForMood(moodId, genreId) {
+        if (!GENRE_NODES[genreId]) return;
+        const currentHomes = { ...(this.calibration.homeGenres || {}) };
+        currentHomes[moodId] = genreId;
+
+        const updated = {
+            ...this.calibration,
+            homeGenres: currentHomes
+        };
+
+        this.saveCalibration(updated);
+        console.log(`[StateMachine 🏠] Set Home Anchor for mood "${moodId}": ${GENRE_NODES[genreId].label}`);
+    }
+
+    /**
+     * Computes the current active deviation (magnitude in hops + directional vector delta)
+     * between active playing genre and the Home Anchor of the current mood.
+     */
+    getCurrentDeviation() {
+        const home = this.getHomeGenreForMood(this.state.currentMood);
+        return getVectorDeviation(home, this.state.activeGenre);
+    }
+
     setMood(moodId) {
         const moodObj = allMoods.find(m => m.id === moodId);
         if (!moodObj) return;
@@ -403,22 +442,24 @@ class SessionStateMachine {
         }
 
         const moodCompatible = getMoodCompatibleGenres(moodId);
+        const homeGenre = this.getHomeGenreForMood(moodId);
+        const discovery = this.state.discoveryLevel ?? 0.5;
+
+        // Invariant guard checks on current genre
         const currentFitsMood = moodCompatible.includes(this.state.activeGenre);
         const currentAllowed = !violatesDealbreakers(GENRE_NODES[this.state.activeGenre]?.label, this.state.activeGenre, this.calibration.dealbreakers);
+        const distFromHome = getGraphDistance(homeGenre, this.state.activeGenre);
 
-        // Predict optimal genre for this mood based on 6-point Sonic Radar DNA
-        const predictedGenre = this.predictBestGenreForMood(moodId);
+        // Orbital Leash Enforcement:
+        // - Familiar (discovery < 0.35): Locked to Home (hops = 0).
+        // - Balanced (0.35 - 0.70): Maximum 2 hops away from Home.
+        // - Deep Cuts (> 0.70): Wide exploration, resets only if current genre is incompatible.
+        const exceedsLeash = (discovery < 0.35 && this.state.activeGenre !== homeGenre) ||
+                             (discovery <= 0.70 && distFromHome > 2);
 
-        const currentPole = getPoleForGenre(this.state.activeGenre);
-        const currentPoleVal = (this.calibration.radarValues?.[currentPole] ?? 50);
-        const predictedPole = getPoleForGenre(predictedGenre);
-        const predictedPoleVal = (this.calibration.radarValues?.[predictedPole] ?? 50);
-
-        // Transition to predicted genre if current genre is incompatible with mood, violates dealbreakers,
-        // or if user's Sonic Radar heavily prefers the predicted genre over the current pole (> 20 points higher)
-        if (!currentFitsMood || !currentAllowed || (predictedPoleVal > currentPoleVal + 20)) {
-            console.log(`[StateMachine 🔮] Switched active genre to align with predicted mood taste "${moodObj.label}": ${GENRE_NODES[predictedGenre]?.label || predictedGenre}`);
-            this.state.activeGenre = predictedGenre;
+        if (!currentFitsMood || !currentAllowed || exceedsLeash) {
+            console.log(`[StateMachine 🏠] Routed to Home anchor for mood "${moodObj.label}": ${GENRE_NODES[homeGenre]?.label || homeGenre} (Hops from current: ${distFromHome}, Discovery: ${discovery.toFixed(2)})`);
+            this.state.activeGenre = homeGenre;
         }
 
         this.state.consecutiveInNode = 0;
@@ -568,28 +609,48 @@ class SessionStateMachine {
 
     /**
      * Surprise Me: User explicitly requests a fresh, surprising genre compatible with the current mood.
-     * Selects an unexpected candidate weighted by the user's 6-point Sonic Radar DNA.
+     * Selects an unexpected candidate weighted by the user's 6-point Sonic Radar DNA and leashed by discovery mode.
      */
     surpriseMe() {
         const current = this.state.activeGenre;
         const moodCompatible = getMoodCompatibleGenres(this.state.currentMood);
+        const homeGenre = this.getHomeGenreForMood(this.state.currentMood);
+        const discovery = this.state.discoveryLevel ?? 0.5;
+
+        // Leash bounds based on discovery level:
+        // - Familiar (< 0.35): max 1 hop from Home
+        // - Balanced (0.35 - 0.70): max 2 hops from Home
+        // - Deep Cuts (> 0.70): unrestricted
+        const maxHops = discovery < 0.35 ? 1 : discovery <= 0.70 ? 2 : 999;
+
         const validCandidates = (moodCompatible || []).filter(g => 
             g !== current && 
             GENRE_NODES[g] &&
             !violatesDealbreakers(GENRE_NODES[g]?.label, g, this.calibration.dealbreakers)
         );
 
+        // Filter candidates within orbital leash from Home
+        const leashedCandidates = validCandidates.filter(g => {
+            const hops = getGraphDistance(homeGenre, g);
+            return hops <= maxHops;
+        });
+
+        const poolSource = leashedCandidates.length > 0 ? leashedCandidates : validCandidates;
+
         let chosen = current;
-        if (validCandidates.length > 0) {
+        if (poolSource.length > 0) {
             // Predict fresh candidate weighted by user's Sonic Radar and discoveryLevel
             const radar = this.calibration.radarValues || {};
-            const scored = validCandidates.map(g => {
+            const scored = poolSource.map(g => {
                 const pole = getPoleForGenre(g);
                 const poleVal = (radar[pole] ?? 50) / 100;
                 const fatigue = this.nodeFatigue[g] || 0.0;
+                const dist = getGraphDistance(homeGenre, g);
+                // Mild gravity back to Home in Balanced mode
+                const homeBonus = (dist === 0 ? 1.3 : dist === 1 ? 1.15 : 1.0);
                 return {
                     id: g,
-                    score: Math.pow(poleVal, 1.2) * Math.max(0.1, 1.0 - fatigue * 0.9)
+                    score: Math.pow(poleVal, 1.2) * Math.max(0.1, 1.0 - fatigue * 0.9) * homeBonus
                 };
             }).sort((a, b) => b.score - a.score);
 
@@ -615,7 +676,8 @@ class SessionStateMachine {
             }
         }
 
-        console.log(`[StateMachine 🎲 Surprise Me] Transitioning from "${current}" -> "${chosen}" (${GENRE_NODES[chosen]?.label})`);
+        const dev = getVectorDeviation(homeGenre, chosen);
+        console.log(`[StateMachine 🎲 Surprise Me] Transitioning "${current}" -> "${chosen}" (${GENRE_NODES[chosen]?.label}) | ${dev.hops} hops from Home "${GENRE_NODES[homeGenre]?.label || homeGenre}"`);
         this.state.activeGenre = chosen;
         this.state.consecutiveInNode = 0;
         this.state.consecutiveSkips = 0;
@@ -625,7 +687,7 @@ class SessionStateMachine {
             jitEngine.replenishBuffer(chosen, this);
         }, 100);
 
-        return { id: chosen, label: GENRE_NODES[chosen]?.label || chosen };
+        return { id: chosen, label: GENRE_NODES[chosen]?.label || chosen, deviation: dev };
     }
 
     // ==========================================

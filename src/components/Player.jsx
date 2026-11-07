@@ -512,6 +512,48 @@ function Player({ initialTrack, token }) {
                     <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>
                         ({sessionState.currentMood.toUpperCase()})
                     </span>
+                    {(() => {
+                        const homeGenreId = sessionEngine.getHomeGenreForMood ? sessionEngine.getHomeGenreForMood(sessionState.currentMood) : null;
+                        const isHome = sessionState.activeGenre === homeGenreId;
+                        const deviation = (!isHome && sessionEngine.getCurrentDeviation) ? sessionEngine.getCurrentDeviation() : null;
+                        if (isHome) {
+                            return (
+                                <span
+                                    style={{
+                                        color: '#34d399',
+                                        fontSize: '0.72rem',
+                                        background: 'rgba(16, 185, 129, 0.12)',
+                                        border: '1px solid rgba(16, 185, 129, 0.25)',
+                                        borderRadius: '6px',
+                                        padding: '0.1rem 0.45rem',
+                                        fontWeight: '600'
+                                    }}
+                                    title="Currently playing at your calibrated Home Anchor"
+                                >
+                                    🏠 Home
+                                </span>
+                            );
+                        }
+                        if (deviation && deviation.hops > 0 && deviation.hops < 999) {
+                            return (
+                                <span
+                                    style={{
+                                        color: '#38bdf8',
+                                        fontSize: '0.72rem',
+                                        background: 'rgba(56, 189, 248, 0.12)',
+                                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                                        borderRadius: '6px',
+                                        padding: '0.1rem 0.45rem',
+                                        fontWeight: '600'
+                                    }}
+                                    title={`Home Anchor for ${sessionState.currentMood.toUpperCase()}: ${GENRE_NODES[homeGenreId]?.label || homeGenreId}`}
+                                >
+                                    Orbit: +{deviation.hops} {deviation.hops === 1 ? 'hop' : 'hops'}
+                                </span>
+                            );
+                        }
+                        return null;
+                    })()}
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: '#94a3b8' }}>
                     <span>Energy: <strong>{Math.round(sessionState.energyLevel * 100)}%</strong></span>

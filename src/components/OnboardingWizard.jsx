@@ -1,8 +1,62 @@
 import { useState, useRef } from 'react';
-import { GENRE_NODES, DEALBREAKER_PRESETS } from '../services/tasteGraph';
+import { GENRE_NODES, DEALBREAKER_PRESETS, getMoodCompatibleGenres } from '../services/tasteGraph';
 import { sessionEngine } from '../services/sessionStateMachine';
 import { syncCalibrationToSupabase } from '../services/supabaseService';
 import { profileLibraryTaste } from '../services/libraryProfiler';
+
+// -------------------------------------------------------------
+// CORE 6 HEADSPACE MOOD HOMES
+// -------------------------------------------------------------
+const CORE_6_MOODS = [
+    {
+        id: 'focus',
+        label: 'Focus',
+        emoji: '🧠',
+        subtitle: 'Flow state, concentration, deep work',
+        defaultHome: 'baroque',
+        chips: ['baroque', 'lofi_hiphop', 'neo_classical', 'ambient_electronic', 'post_rock']
+    },
+    {
+        id: 'chill',
+        label: 'Chill',
+        emoji: '🧘',
+        subtitle: 'Unwinding, smooth lounge, relaxed rhythm',
+        defaultHome: 'lofi_hiphop',
+        chips: ['lofi_hiphop', 'bossa_nova_jazz', 'neo_soul', 'ambient', 'indie_folk']
+    },
+    {
+        id: 'energetic',
+        label: 'Energetic',
+        emoji: '⚡',
+        subtitle: 'High drive, workout pump, kinetic tempo',
+        defaultHome: 'hard_rock',
+        chips: ['hard_rock', 'synthwave', 'drum_and_bass', 'punk_rock', 'afrobeat']
+    },
+    {
+        id: 'happy',
+        label: 'Happy',
+        emoji: '😊',
+        subtitle: 'Upbeat optimism, warm groove, joyful release',
+        defaultHome: 'funk',
+        chips: ['funk', 'indie_pop', 'classic_soul', 'dance_pop', 'bossa_nova']
+    },
+    {
+        id: 'sad',
+        label: 'Sad',
+        emoji: '😢',
+        subtitle: 'Melancholic beauty, emotional catharsis, introspective',
+        defaultHome: 'delta_blues',
+        chips: ['delta_blues', 'romantic', 'singer_songwriter', 'post_rock', 'ambient']
+    },
+    {
+        id: 'party',
+        label: 'Party',
+        emoji: '🎉',
+        subtitle: 'Social celebration, dancefloor momentum, hype',
+        defaultHome: 'dance_pop',
+        chips: ['dance_pop', 'funk', 'house', 'afrobeat', 'salsa']
+    }
+];
 
 // -------------------------------------------------------------
 // 6 CANONICAL RADAR POLES
@@ -188,29 +242,24 @@ function OnboardingWizard({ onComplete, onClose }) {
     const [discoveryLevel, setDiscoveryLevel] = useState(() => existingCalib.discoveryLevel || 0.5);
     const [blockAiGenerated, setBlockAiGenerated] = useState(() => existingCalib.blockAiGenerated !== false);
 
-    // 3. Polar Tie-Breakers (Pick 3 out of 9)
-    const [selectedTieBreakers, setSelectedTieBreakers] = useState(() => {
-        if (existingCalib.tieBreakers && Array.isArray(existingCalib.tieBreakers) && existingCalib.tieBreakers.length === 3) {
-            return existingCalib.tieBreakers;
-        }
-        return ['cosmic_prog', 'synthwave_pulse', 'modal_jazz'];
-    });
-    const [seedArtists, setSeedArtists] = useState(() => existingCalib.seedArtists || ['Pink Floyd', 'Tycho', 'Miles Davis']);
-    const [customArtistText, setCustomArtistText] = useState('');
-
-    const toggleTieBreaker = (id) => {
-        setSelectedTieBreakers(prev => {
-            if (prev.includes(id)) {
-                if (prev.length <= 1) return prev; // keep at least 1
-                return prev.filter(x => x !== id);
+    // 3. Core 6 Mood Homes
+    const [moodHomes, setMoodHomes] = useState(() => {
+        const initial = {};
+        CORE_6_MOODS.forEach(m => {
+            if (existingCalib.homeGenres && existingCalib.homeGenres[m.id]) {
+                initial[m.id] = existingCalib.homeGenres[m.id];
+            } else {
+                initial[m.id] = sessionEngine.predictBestGenreForMood(m.id) || m.defaultHome;
             }
-            if (prev.length >= 3) {
-                // Smooth shift: replace oldest selection to keep exactly 3
-                return [...prev.slice(1), id];
-            }
-            return [...prev, id];
         });
+        return initial;
+    });
+
+    const setMoodHome = (moodId, genreId) => {
+        setMoodHomes(prev => ({ ...prev, [moodId]: genreId }));
     };
+
+    const [seedArtists, setSeedArtists] = useState(() => existingCalib.seedArtists || ['Pink Floyd', 'Tycho', 'Miles Davis']);
 
     // Power user NAS profiling state
     const [isProfilingNas, setIsProfilingNas] = useState(false);
@@ -379,14 +428,8 @@ function OnboardingWizard({ onComplete, onClose }) {
     // -------------------------------------------------------------
     // GENERATE FULL CALIBRATION PAYLOAD & COMPLETE
     // -------------------------------------------------------------
-    const buildCalibrationPayload = (customPoles = poleValues) => {
-        const chosenItems = NINE_TIE_BREAKERS.filter(item => selectedTieBreakers.includes(item.id));
-        const finalAnchors = chosenItems.map(item => item.anchorGenre);
-        const resolvedSeedArtists = [
-            ...chosenItems.flatMap(item => item.artists.slice(0, 2)),
-            ...seedArtists
-        ];
-        const uniqueArtists = Array.from(new Set(resolvedSeedArtists)).slice(0, 10);
+    const buildCalibrationPayload = (customPoles = poleValues, customHomes = moodHomes) => {
+        const finalAnchors = Array.from(new Set(Object.values(customHomes)));
 
         // Map all 115 genre nodes to weights based on active pole values
         const weights = {};
@@ -398,7 +441,7 @@ function OnboardingWizard({ onComplete, onClose }) {
             const baseValue = (customPoles[matchedPole.id] || 50) / 100;
             let weight = baseValue;
 
-            // Apply tie-breaker boost: the chosen 3 anchors get a high weight boost!
+            // Apply home anchor boost: the chosen 6 homes get a high weight boost!
             if (finalAnchors.includes(nodeId)) {
                 weight = 1.0;
             }
@@ -416,6 +459,7 @@ function OnboardingWizard({ onComplete, onClose }) {
 
         return {
             anchors: finalAnchors.length > 0 ? finalAnchors : activeAnchors,
+            homeGenres: customHomes,
             dealbreakers: selectedDealbreakers,
             discoveryLevel,
             blockAiGenerated,
@@ -424,8 +468,7 @@ function OnboardingWizard({ onComplete, onClose }) {
                 melancholy: melancholyReflex,
                 vocals: vocalReflex
             },
-            seedArtists: uniqueArtists,
-            tieBreakers: selectedTieBreakers,
+            seedArtists,
             radarValues: customPoles
         };
     };
@@ -508,7 +551,7 @@ function OnboardingWizard({ onComplete, onClose }) {
                         <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#f8fafc' }}>
                             {step === 1 && 'Step 1: Sculpt Your Sound Polygon'}
                             {step === 2 && 'Step 2: Emotional Reflexes & Filters'}
-                            {step === 3 && 'Step 3: Polar Tie-Breakers (Pick 3 of 9)'}
+                            {step === 3 && 'Step 3: Define Your 6 Core Mood Homes'}
                         </div>
                     </div>
                 </div>
@@ -1000,128 +1043,140 @@ function OnboardingWizard({ onComplete, onClose }) {
                             onClick={() => setStep(3)}
                             style={{ width: 'auto', padding: '0.65rem 1.75rem', fontSize: '0.9rem' }}
                         >
-                            Next: Polar Tie-Breakers →
+                            Next: 6 Core Mood Homes →
                         </button>
                     </div>
                 </div>
             )}
 
             {/* ========================================================= */}
-            {/* STEP 3: POLAR TIE-BREAKERS (PICK 3 OUT OF 9)              */}
+            {/* STEP 3: 6 CORE MOOD HOMES MATRIX                          */}
             {/* ========================================================= */}
             {step === 3 && (
                 <div className="fade-in">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
                         <div>
                             <p style={{ color: '#cbd5e1', fontSize: '0.85rem', margin: 0 }}>
-                                Select your <strong>Top 3 Far-Apart Anchors</strong> to break ties and anchor your sessions:
+                                Set your <strong>Home Anchor</strong> for each core headspace. Quick-tap any genre or accept our smart algorithm predictions:
                             </p>
                         </div>
                         <span style={{
                             fontSize: '0.75rem',
                             fontWeight: 'bold',
-                            color: selectedTieBreakers.length === 3 ? '#34d399' : '#a855f7',
-                            background: selectedTieBreakers.length === 3 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(168, 85, 247, 0.15)',
-                            border: selectedTieBreakers.length === 3 ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(168, 85, 247, 0.35)',
+                            color: '#34d399',
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            border: '1px solid rgba(16, 185, 129, 0.35)',
                             borderRadius: '999px',
                             padding: '0.2rem 0.65rem',
                             whiteSpace: 'nowrap'
                         }}>
-                            🎯 {selectedTieBreakers.length}/3 Selected
+                            🏠 6/6 Homes Set
                         </span>
                     </div>
 
-                    {/* 3x3 Polar Tie-Breakers Grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '0.65rem', marginBottom: '1.25rem' }}>
-                        {NINE_TIE_BREAKERS.map(item => {
-                            const isSelected = selectedTieBreakers.includes(item.id);
-                            const selectionOrder = selectedTieBreakers.indexOf(item.id);
+                    {/* 2x3 Grid of 6 Core Mood Homes */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                        {CORE_6_MOODS.map(m => {
+                            const currentHome = moodHomes[m.id] || m.defaultHome;
                             return (
                                 <div
-                                    key={item.id}
-                                    onClick={() => toggleTieBreaker(item.id)}
+                                    key={m.id}
                                     style={{
-                                        padding: '0.75rem 0.85rem',
-                                        borderRadius: '14px',
+                                        padding: '0.85rem 1rem',
+                                        borderRadius: '16px',
                                         textAlign: 'left',
                                         display: 'flex',
                                         flexDirection: 'column',
                                         justifyContent: 'space-between',
-                                        cursor: 'pointer',
-                                        border: isSelected ? '2px solid #a855f7' : '1px solid rgba(255,255,255,0.08)',
-                                        background: isSelected ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.28), rgba(99, 102, 241, 0.18))' : 'rgba(255,255,255,0.03)',
-                                        boxShadow: isSelected ? '0 0 16px rgba(168, 85, 247, 0.25)' : 'none',
-                                        transition: 'all 0.18s ease',
-                                        position: 'relative'
+                                        background: 'rgba(255, 255, 255, 0.03)',
+                                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                                        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
+                                        transition: 'all 0.18s ease'
                                     }}
                                 >
                                     <div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                                <span style={{ fontSize: '1.1rem' }}>{item.icon}</span>
-                                                <strong style={{ fontSize: '0.85rem', color: isSelected ? '#f8fafc' : '#e2e8f0', lineHeight: 1.2 }}>
-                                                    {item.title}
-                                                </strong>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                <span style={{ fontSize: '1.2rem' }}>{m.emoji}</span>
+                                                <div>
+                                                    <strong style={{ fontSize: '0.88rem', color: '#f8fafc' }}>{m.label}</strong>
+                                                    <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{m.subtitle}</div>
+                                                </div>
                                             </div>
                                             <span style={{
                                                 fontSize: '0.7rem',
                                                 fontWeight: 'bold',
-                                                padding: '0.1rem 0.45rem',
-                                                borderRadius: '999px',
-                                                background: isSelected ? '#a855f7' : 'rgba(255,255,255,0.08)',
-                                                color: isSelected ? 'white' : '#64748b'
+                                                background: 'rgba(168, 85, 247, 0.2)',
+                                                border: '1px solid rgba(168, 85, 247, 0.4)',
+                                                borderRadius: '8px',
+                                                padding: '0.15rem 0.45rem',
+                                                color: '#e9d5ff',
+                                                whiteSpace: 'nowrap',
+                                                maxWidth: '120px',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis'
                                             }}>
-                                                {isSelected ? `#${selectionOrder + 1}` : '+'}
+                                                🏠 {GENRE_NODES[currentHome]?.label || currentHome}
                                             </span>
                                         </div>
-                                        <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.35rem', lineHeight: 1.35 }}>
-                                            {item.subtitle}
+
+                                        {/* Quick-switch chips */}
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.6rem' }}>
+                                            {m.chips.map(chipId => {
+                                                const isCurrent = currentHome === chipId;
+                                                return (
+                                                    <button
+                                                        key={chipId}
+                                                        type="button"
+                                                        onClick={() => setMoodHome(m.id, chipId)}
+                                                        style={{
+                                                            padding: '0.22rem 0.55rem',
+                                                            borderRadius: '8px',
+                                                            fontSize: '0.72rem',
+                                                            fontWeight: isCurrent ? 'bold' : 'normal',
+                                                            cursor: 'pointer',
+                                                            border: isCurrent ? '1px solid #a855f7' : '1px solid rgba(255,255,255,0.08)',
+                                                            background: isCurrent ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.45), rgba(99, 102, 241, 0.35))' : 'rgba(255,255,255,0.04)',
+                                                            color: isCurrent ? '#ffffff' : '#94a3b8',
+                                                            boxShadow: isCurrent ? '0 0 10px rgba(168, 85, 247, 0.3)' : 'none',
+                                                            transition: 'all 0.15s ease'
+                                                        }}
+                                                    >
+                                                        {isCurrent ? '✓ ' : ''}{GENRE_NODES[chipId]?.label || chipId}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     </div>
 
-                                    <div style={{ fontSize: '0.7rem', color: isSelected ? '#e9d5ff' : '#64748b', marginTop: '0.5rem', fontWeight: '500' }}>
-                                        {item.artists.join(' • ')}
+                                    {/* More Dropdown Picker */}
+                                    <div style={{ marginTop: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <span style={{ fontSize: '0.68rem', color: '#64748b' }}>More:</span>
+                                        <select
+                                            value={currentHome}
+                                            onChange={(e) => setMoodHome(m.id, e.target.value)}
+                                            style={{
+                                                background: 'rgba(0,0,0,0.4)',
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                borderRadius: '6px',
+                                                padding: '0.2rem 0.4rem',
+                                                color: '#cbd5e1',
+                                                fontSize: '0.7rem',
+                                                cursor: 'pointer',
+                                                outline: 'none',
+                                                width: '100%'
+                                            }}
+                                        >
+                                            {getMoodCompatibleGenres(m.id).map(g => (
+                                                <option key={g} value={g} style={{ background: '#1e1b4b', color: 'white' }}>
+                                                    {GENRE_NODES[g]?.label || g}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                             );
                         })}
-                    </div>
-
-                    {/* Custom Artist Search / Add */}
-                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
-                        <input
-                            type="text"
-                            placeholder="Add your own holy-grail artist (e.g. Chopin, Tool, Daft Punk)..."
-                            value={customArtistText}
-                            onChange={(e) => setCustomArtistText(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') handleAddCustomArtist(); }}
-                            style={{
-                                flex: 1,
-                                background: 'rgba(255,255,255,0.05)',
-                                border: '1px solid rgba(255,255,255,0.12)',
-                                borderRadius: '12px',
-                                padding: '0.65rem 1rem',
-                                color: '#f8fafc',
-                                fontSize: '0.85rem',
-                                outline: 'none'
-                            }}
-                        />
-                        <button
-                            type="button"
-                            onClick={handleAddCustomArtist}
-                            style={{
-                                background: '#a855f7',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '12px',
-                                padding: '0.65rem 1.25rem',
-                                fontWeight: 'bold',
-                                fontSize: '0.85rem',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            + Add
-                        </button>
                     </div>
 
                     {/* Engine Configuration Summary Card */}
@@ -1129,21 +1184,16 @@ function OnboardingWizard({ onComplete, onClose }) {
                         background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(99, 102, 241, 0.12))',
                         border: '1px solid rgba(168, 85, 247, 0.35)',
                         borderRadius: '16px',
-                        padding: '1rem 1.25rem',
-                        marginBottom: '1.5rem',
+                        padding: '0.85rem 1.25rem',
+                        marginBottom: '1.25rem',
                         fontSize: '0.8rem'
                     }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#e9d5ff', fontWeight: 'bold', marginBottom: '0.35rem' }}>
-                            <span>⚡ Live Engine Configuration</span>
-                            <span>{selectedTieBreakers.length} Anchors • {selectedDealbreakers.length} Dealbreakers</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#e9d5ff', fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                            <span>🏠 6 Core Mood Anchors Configured</span>
+                            <span>Familiar: 0 hops • Balanced: ≤ 2 hops • Deep Cuts: 3+ hops</span>
                         </div>
-                        <div style={{ color: '#cbd5e1', fontSize: '0.75rem', lineHeight: 1.4 }}>
-                            <strong>Selected Session Anchors:</strong> {
-                                selectedTieBreakers.map(id => NINE_TIE_BREAKERS.find(t => t.id === id)?.title).filter(Boolean).join('  |  ')
-                            }
-                        </div>
-                        <div style={{ color: '#94a3b8', fontSize: '0.7rem', marginTop: '0.25rem' }}>
-                            Your taste DNA will strictly steer along harmonic edges without drifting.
+                        <div style={{ color: '#cbd5e1', fontSize: '0.72rem', lineHeight: 1.4 }}>
+                            {CORE_6_MOODS.map(m => `${m.label}: ${GENRE_NODES[moodHomes[m.id]]?.label || moodHomes[m.id]}`).join('  •  ')}
                         </div>
                     </div>
 
@@ -1169,7 +1219,7 @@ function OnboardingWizard({ onComplete, onClose }) {
                                 boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.4)'
                             }}
                         >
-                            🚀 Complete Calibration & Play
+                            🚀 Confirm 6 Homes & Start Listening
                         </button>
                     </div>
                 </div>

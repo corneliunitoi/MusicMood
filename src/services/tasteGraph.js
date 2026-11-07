@@ -430,6 +430,63 @@ export function getConnectedGenres(nodeId) {
     return Array.from(neighbors);
 }
 
+/**
+ * Calculates shortest-path distance (number of harmonic hops) between two genres in the graph.
+ * Returns 0 if identical, or positive integer hops (e.g. 1, 2, 3).
+ */
+export function getGraphDistance(genreA, genreB) {
+    if (!genreA || !genreB) return 999;
+    if (genreA === genreB) return 0;
+
+    const visited = new Set([genreA]);
+    const queue = [[genreA, 0]];
+
+    while (queue.length > 0) {
+        const [current, dist] = queue.shift();
+        const neighbors = getConnectedGenres(current);
+
+        for (const neighbor of neighbors) {
+            if (neighbor === genreB) {
+                return dist + 1;
+            }
+            if (!visited.has(neighbor)) {
+                visited.add(neighbor);
+                queue.push([neighbor, dist + 1]);
+            }
+        }
+    }
+
+    return 999; // Disconnected or not in graph
+}
+
+/**
+ * Calculates acoustic and topological deviation vector between an active genre and a Home anchor.
+ */
+export function getVectorDeviation(genreA, genreB) {
+    if (!genreA || !genreB) {
+        return { hops: 0, deltaEnergy: 0, isSamePole: true, poleA: 'rock_metal', poleB: 'rock_metal' };
+    }
+
+    const hops = getGraphDistance(genreA, genreB);
+    const nodeA = GENRE_NODES[genreA];
+    const nodeB = GENRE_NODES[genreB];
+
+    const poleA = getPoleForGenre(genreA);
+    const poleB = getPoleForGenre(genreB);
+
+    const energyA = nodeA?.energy ?? 0.5;
+    const energyB = nodeB?.energy ?? 0.5;
+    const deltaEnergy = Number((energyB - energyA).toFixed(2));
+
+    return {
+        hops,
+        isSamePole: poleA === poleB,
+        poleA,
+        poleB,
+        deltaEnergy
+    };
+}
+
 export function violatesDealbreakers(text, candidateGenreId, activeDealbreakers = []) {
     const lowerText = (text || '').toLowerCase();
 
@@ -450,20 +507,22 @@ export function violatesDealbreakers(text, candidateGenreId, activeDealbreakers 
     return false;
 }
 
-export function normalizeWeights(weights, anchors = [], dealbreakers = []) {
+export function normalizeWeights(weights = {}, anchors = [], dealbreakers = []) {
     const clean = {};
+    const safeWeights = weights || {};
+    const safeAnchors = Array.isArray(anchors) ? anchors : [];
     const MAX_SHARE = 0.25;
     const MIN_FLOOR = 0.05;
 
-    anchors.forEach(a => {
+    safeAnchors.forEach(a => {
         if (!violatesDealbreakers(a, a, dealbreakers)) {
-            clean[a] = Math.max(MIN_FLOOR, weights[a] || MIN_FLOOR);
+            clean[a] = Math.max(MIN_FLOOR, safeWeights[a] || MIN_FLOOR);
         }
     });
 
-    Object.keys(weights).forEach(k => {
+    Object.keys(safeWeights).forEach(k => {
         if (!violatesDealbreakers(k, k, dealbreakers) && !clean[k]) {
-            clean[k] = Math.max(MIN_FLOOR, weights[k]);
+            clean[k] = Math.max(MIN_FLOOR, safeWeights[k]);
         }
     });
 

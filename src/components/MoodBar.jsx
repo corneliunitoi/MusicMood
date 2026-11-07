@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { moods, contextualMoods, nuanceMoods, modernMoods, cinematicMoods, allMoods } from '../services/moods.js';
+import { sessionEngine } from '../services/sessionStateMachine.js';
+import { GENRE_NODES } from '../services/tasteGraph.js';
 export { moods, contextualMoods, nuanceMoods, modernMoods, cinematicMoods, allMoods };
 
 const CATEGORIES = [
@@ -64,6 +66,20 @@ function MoodBar({ selectedMood, onSelectMood }) {
             <div className="mood-chips-shelf fade-in" key={activeTab}>
                 {currentCategory.list.map((mood) => {
                     const isSelected = selectedMood === mood.id;
+                    const homeGenreId = sessionEngine.getHomeGenreForMood ? sessionEngine.getHomeGenreForMood(mood.id) : null;
+                    const homeGenreName = homeGenreId && GENRE_NODES[homeGenreId] ? GENRE_NODES[homeGenreId].label : (homeGenreId || 'Auto-Steered');
+
+                    let tooltip = `${mood.label} • Home: ${homeGenreName}`;
+                    if (isSelected && sessionEngine.state) {
+                        const activeId = sessionEngine.state.activeGenre;
+                        if (activeId && activeId !== homeGenreId) {
+                            const activeName = GENRE_NODES[activeId]?.label || activeId;
+                            const dev = sessionEngine.getCurrentDeviation ? sessionEngine.getCurrentDeviation() : null;
+                            const hopsText = dev && dev.hops < 999 ? ` (${dev.hops} hops from Home)` : '';
+                            tooltip = `${mood.label} • Active: ${activeName}${hopsText} • Home: ${homeGenreName}`;
+                        }
+                    }
+
                     return (
                         <button
                             key={mood.id}
@@ -71,6 +87,7 @@ function MoodBar({ selectedMood, onSelectMood }) {
                             className={`mood-chip-modern ${isSelected ? 'active' : ''}`}
                             onClick={() => onSelectMood(mood.id)}
                             aria-pressed={isSelected}
+                            title={tooltip}
                         >
                             <span className="mood-chip-emoji">{mood.emoji}</span>
                             <span className="mood-chip-label">{mood.label}</span>
