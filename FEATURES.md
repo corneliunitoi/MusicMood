@@ -264,6 +264,9 @@ Each pill defines a multi-dimensional acoustic steering vector that modifies the
   - Ad-hoc dealbreakers: Dynamically infers and applies negative acoustic constraints (e.g., *"no screaming"*, *"no high-pitched synths"*).
 * **Authentic Human Music Curation (Strict Anti-AI Audio Integrity):** The AI operates strictly as an intelligent acoustic curator and semantic router—**never** generating synthetic AI audio. Every selected song is verified authentic human music drawn from the user's 44.8k archive and verified MusicBrainz/YouTube catalog.
 * **Seamless State Machine Steering:** Injects the synthesized intent directly into `sessionEngine.setMood()`, allowing immediate harmonic playback and auto-steering without manual slider configuration.
+* **Granular Vocal Control & Voice Input (Low Priority Extension):**
+  - Hands-free voice prompting via Web Speech API / microphone dictation.
+  - Granular vocal presence routing (strict instrumental, vocal prominent, acoustic vocal textures, non-lexical chants/chops, or vocal timbre preferences).
 
 ### 6. "Add Your Own Artist" (On-Demand Metadata & 10-Track Catalog Ingestion)
 * **On-Demand Search & Disambiguation:** A clean search input in the UI allowing users to type any artist name (including niche, foreign, or underground acts). The engine queries the MusicBrainz API (`https://musicbrainz.org/ws/2/artist/`) to fetch canonical disambiguation, country, MBID, and community genre tags.

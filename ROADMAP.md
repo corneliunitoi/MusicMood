@@ -37,6 +37,9 @@ This document outlines prioritized enhancements, user experience improvements, a
 * Natural language prompt input (e.g., *"I'm working late at night in the rain, give me something instrumental with deep bass and melancholic piano but no harsh drops"*).
 * Converts semantic intent into mathematical engine parameters: Target Energy ($E$), Target Valence ($V$), Vocal Policy (`instrumental_strict`), and taxonomy anchor nodes.
 * Strict Anti-AI Audio Integrity: Operates strictly as an intelligent acoustic curator—every selected song is authentic human music from our verified catalog.
+* **Low-Priority Extension — Granular Vocal Control & Voice Input:**
+  * Hands-free voice prompting via Web Speech API / microphone dictation.
+  * Explicit vocal texture steering: strict instrumental, vocal-prominent, vocal chops/chants, or vocal gender/timbre preferences.
 
 ### 4. 🌍 User-Selected Localized / Regional Music
 * Optional language filter (e.g., French, Romanian, Japanese, Spanish, Italian) on demand.
