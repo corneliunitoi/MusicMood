@@ -64,19 +64,25 @@ function Dashboard({ token, onLogout }) {
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [profileData, playlistsData] = await Promise.all([
-                    fetchUserProfile(token),
-                    fetchUserPlaylists(token),
-                ]);
+                // 1. Fetch user identity profile (required for session)
+                const profileData = await fetchUserProfile(token);
                 const resolvedUser = await initUserProfile(profileData);
                 setProfile({ ...profileData, ...resolvedUser });
-                setPlaylists(playlistsData);
+
+                // 2. Fetch user playlists gracefully (optional / non-fatal)
+                try {
+                    const playlistsData = await fetchUserPlaylists(token);
+                    setPlaylists(playlistsData || []);
+                } catch (playlistErr) {
+                    console.warn('[Dashboard] Could not fetch private YouTube playlists (non-fatal):', playlistErr.message);
+                    setPlaylists([]);
+                }
             } catch (err) {
                 console.error(err);
                 if (err.message === 'Unauthorized') {
                     onLogout();
                 } else {
-                    setError(err.message || 'Failed to load YouTube profile. Please try again.');
+                    setError(err.message || 'Failed to load user profile. Please try again.');
                 }
             } finally {
                 setLoading(false);

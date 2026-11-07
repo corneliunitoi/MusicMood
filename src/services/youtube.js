@@ -31,8 +31,13 @@ export const fetchUserPlaylists = async (token) => {
             let errorMessage = 'Failed to fetch playlists';
             try {
                 const errObj = JSON.parse(errorText);
+                if (errObj.error?.message) {
+                    errorMessage = errObj.error.message;
+                }
                 if (errObj.error?.errors?.[0]?.reason === 'quotaExceeded') {
                     errorMessage = 'YouTube API Quota Exceeded. You have used up your 10,000 daily units. You can still paste any YouTube playlist link below for zero-quota ingestion!';
+                } else if (errObj.error?.errors?.[0]?.reason === 'insufficientPermissions' || errObj.error?.status === 'PERMISSION_DENIED') {
+                    errorMessage = 'Insufficient authentication scopes: YouTube playlists permission has not been granted or configured in Google Cloud Console.';
                 }
             } catch (e) { }
 
