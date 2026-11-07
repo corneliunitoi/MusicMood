@@ -178,9 +178,10 @@ async function runInflationPipeline() {
     // 1. Fetch candidate artists
     let query = supabase
         .from('artists')
-        .select('id, name, primary_genre_id, secondary_genre_ids, affinity_score, track_count')
+        .select('id, name, primary_genre_id, secondary_genre_ids, affinity_score, upvotes, track_count')
         .not('name', 'is', null)
         .lt('track_count', MAX_TRACKS_PER_ARTIST)
+        .order('upvotes', { ascending: false })
         .order('affinity_score', { ascending: false })
         .order('track_count', { ascending: true })
         .limit(Math.max(LIMIT_ARTISTS * 4, 40));
@@ -217,8 +218,8 @@ async function runInflationPipeline() {
 
         const art = artists[i];
         console.log(`-------------------------------------------------`);
-        console.log(`[Artist ${i + 1}/${selectedArtists.length}] "${art.name}"`);
-        console.log(`   Affinity Score: ${art.affinity_score || 0} pts | Genre: ${art.primary_genre_id || 'unknown'}`);
+        console.log(`[Artist ${completedArtists + 1}/${LIMIT_ARTISTS}] "${art.name}"`);
+        console.log(`   Upvotes: ${art.upvotes || 0} 👍 | Affinity Score: ${art.affinity_score || 0} pts | Genre: ${art.primary_genre_id || 'unknown'}`);
 
         // Get exact current tracks in catalog for this artist
         const { data: existingTracks, error: trkErr } = await supabase

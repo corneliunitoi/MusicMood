@@ -202,3 +202,27 @@ export async function submitUserFeedback({ name, comment, userId }) {
     return true;
 }
 
+/**
+ * Upvotes a track and artist, bumping their popularity and affinity in the database.
+ */
+export async function upvoteTrack({ videoId, artist, delta = 1 }) {
+    if (!videoId && !artist) return null;
+
+    try {
+        const { data, error } = await supabase.rpc('upvote_track', {
+            p_video_id: videoId || '',
+            p_artist: artist || '',
+            p_delta: delta
+        });
+
+        if (error) {
+            console.warn('[UpvoteTrack] RPC error:', error.message);
+            return null;
+        }
+        return data;
+    } catch (e) {
+        console.warn('[UpvoteTrack] Exception:', e);
+        return null;
+    }
+}
+

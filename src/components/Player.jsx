@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../services/supabaseService';
+import { supabase, upvoteTrack } from '../services/supabaseService';
 import { sessionEngine } from '../services/sessionStateMachine';
 import { GENRE_NODES } from '../services/tasteGraph';
 import { jitEngine } from '../services/jitEngine';
@@ -61,6 +61,14 @@ function Player({ initialTrack, token }) {
     const [copiedLink, setCopiedLink] = useState(false);
     const [showQueue, setShowQueue] = useState(false);
     const [isCurrentFav, setIsCurrentFav] = useState(() => isFavorite(initialTrack));
+    const [upvotedTrackIds, setUpvotedTrackIds] = useState(() => {
+        try {
+            const stored = localStorage.getItem('musicmood_upvoted_tracks');
+            return stored ? new Set(JSON.parse(stored)) : new Set();
+        } catch {
+            return new Set();
+        }
+    });
 
     // Progress Bar & Scrubber state
     const [currentTime, setCurrentTime] = useState(0);
@@ -443,6 +451,39 @@ function Player({ initialTrack, token }) {
         }
     };
 
+    const currentTrackKey = currentTrack?.id || currentTrack?.youtube_video_id;
+    const isCurrentUpvoted = Boolean(currentTrackKey && upvotedTrackIds.has(currentTrackKey));
+
+    const handleUpvote = async () => {
+        if (!currentTrack || !currentTrackKey) return;
+
+        const willBeUpvoted = !isCurrentUpvoted;
+        setUpvotedTrackIds(prev => {
+            const next = new Set(prev);
+            if (willBeUpvoted) {
+                next.add(currentTrackKey);
+            } else {
+                next.delete(currentTrackKey);
+            }
+            try {
+                localStorage.setItem('musicmood_upvoted_tracks', JSON.stringify(Array.from(next)));
+            } catch { }
+            return next;
+        });
+
+        // Notify backend & bump artist/track popularity in database
+        await upvoteTrack({
+            videoId: currentTrackKey,
+            artist: currentTrack.artist,
+            delta: willBeUpvoted ? 1 : -1
+        });
+
+        if (willBeUpvoted) {
+            setErrorMessage(`👍 Upvoted! Boosted ${currentTrack.artist || 'artist'} in Taste Graph`);
+            setTimeout(() => setErrorMessage(null), 3000);
+        }
+    };
+
     const handleLike = () => {
         sessionEngine.onLike(currentTrackRef.current);
         if (currentTrackRef.current) {
@@ -635,8 +676,27 @@ function Player({ initialTrack, token }) {
                             </div>
                         </div>
 
-                        {/* Quick Feedback (Heart & Dislike) */}
+                        {/* Quick Feedback (Upvote, Heart & Dislike) */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginLeft: '0.35rem', flexShrink: 0 }}>
+                            <button
+                                className="control-btn"
+                                onClick={handleUpvote}
+                                disabled={!currentTrack}
+                                title={isCurrentUpvoted ? "Upvoted! (Click to undo)" : "Upvote track & artist 👍"}
+                                style={{
+                                    background: isCurrentUpvoted ? 'rgba(52, 211, 153, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                                    border: isCurrentUpvoted ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.1)',
+                                    width: '32px',
+                                    height: '32px',
+                                    padding: '0.2rem',
+                                    borderRadius: '8px',
+                                    cursor: currentTrack ? 'pointer' : 'default',
+                                    transition: 'all 0.2s ease'
+                                }}
+                            >
+                                {isCurrentUpvoted ? '👍' : '👍🏻'}
+                            </button>
+
                             <button
                                 className="control-btn"
                                 onClick={handleLike}
