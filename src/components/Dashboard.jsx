@@ -11,7 +11,18 @@ import OnboardingWizard from './OnboardingWizard';
 import JitFeedModal from './JitFeedModal';
 import FavoritesPane from './FavoritesPane';
 import { getFavoritesCount, subscribeFavorites } from '../services/favoritesService';
-import { initUserProfile, getCurrentUser, isAdmin } from '../services/userService';
+import {
+    initUserProfile,
+    getCurrentUser,
+    isAdmin,
+    isPowerUser,
+    isBetaTester,
+    canAccess,
+    TEST_PERSONAS,
+    switchTestPersona,
+    isTestUserActive,
+    subscribeUser
+} from '../services/userService';
 
 function Dashboard({ token, onLogout }) {
     const [profile, setProfile] = useState(null);
@@ -114,6 +125,14 @@ function Dashboard({ token, onLogout }) {
         return unsub;
     }, []);
 
+    // Subscribe to user profile & persona changes
+    useEffect(() => {
+        const unsub = subscribeUser((user) => {
+            if (user) setProfile(prev => ({ ...prev, ...user }));
+        });
+        return unsub;
+    }, []);
+
     // Subscribe to state machine to keep calibration, counts, and history in sync
     useEffect(() => {
         const unsubscribe = sessionEngine.subscribe((state) => {
@@ -211,10 +230,12 @@ function Dashboard({ token, onLogout }) {
         <div className="dashboard">
             <header className="dashboard-header-simple">
                 {profile && (
-                    <div className="profile-mini" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div className="profile-mini" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                         <img src={profile.picture || profile.avatar_url} alt={profile.name || profile.username} className="profile-avatar-mini" referrerPolicy="no-referrer" />
                         <span style={{ fontWeight: '500' }}>{profile.name || profile.username}</span>
-                        {profile.role === 'admin' && (
+
+                        {/* Role & Class Badges */}
+                        {profile.role === 'admin' ? (
                             <span
                                 style={{
                                     background: 'linear-gradient(135deg, #f59e0b, #d97706)',
@@ -227,10 +248,73 @@ function Dashboard({ token, onLogout }) {
                                     boxShadow: '0 2px 8px rgba(245, 158, 11, 0.4)',
                                     userSelect: 'none'
                                 }}
-                                title="Administrator Account"
+                                title="Role: Admin | Class: Poweruser"
                             >
-                                👑 ADMIN
+                                👑 ADMIN • POWERUSER
                             </span>
+                        ) : profile.user_class === 'beta' ? (
+                            <span
+                                style={{
+                                    background: 'rgba(56, 189, 248, 0.2)',
+                                    color: '#38bdf8',
+                                    border: '1px solid rgba(56, 189, 248, 0.4)',
+                                    fontWeight: '700',
+                                    fontSize: '0.65rem',
+                                    padding: '0.12rem 0.45rem',
+                                    borderRadius: '9999px',
+                                    letterSpacing: '0.04em',
+                                    userSelect: 'none'
+                                }}
+                                title="Role: User | Class: Beta Tester"
+                            >
+                                🧪 BETA
+                            </span>
+                        ) : profile.user_class === 'regular' ? (
+                            <span
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.08)',
+                                    color: '#94a3b8',
+                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                    fontWeight: '600',
+                                    fontSize: '0.65rem',
+                                    padding: '0.12rem 0.45rem',
+                                    borderRadius: '9999px',
+                                    userSelect: 'none'
+                                }}
+                                title="Role: User | Class: Regular"
+                            >
+                                REGULAR
+                            </span>
+                        ) : null}
+
+                        {/* Test Persona Switcher for Feature Validation */}
+                        {(isAdmin() || isTestUserActive()) && (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '0.2rem' }}>
+                                <select
+                                    value={isTestUserActive() ? (profile.personaKey || 'test') : 'real'}
+                                    onChange={(e) => switchTestPersona(e.target.value)}
+                                    title="Switch User Persona to validate feature gating and permissions"
+                                    style={{
+                                        background: isTestUserActive() ? 'rgba(245, 158, 11, 0.18)' : 'rgba(30, 41, 59, 0.85)',
+                                        color: isTestUserActive() ? '#fbbf24' : '#cbd5e1',
+                                        border: isTestUserActive() ? '1px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '6px',
+                                        padding: '0.15rem 0.45rem',
+                                        fontSize: '0.72rem',
+                                        outline: 'none',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <option value="real">👤 Real Account</option>
+                                    <optgroup label="── Local Test Personas ──">
+                                        {TEST_PERSONAS.map(p => (
+                                            <option key={p.key} value={p.key}>
+                                                {p.badge} ({p.name})
+                                            </option>
+                                        ))}
+                                    </optgroup>
+                                </select>
+                            </div>
                         )}
                     </div>
                 )}
@@ -239,25 +323,28 @@ function Dashboard({ token, onLogout }) {
                         <span style={{ color: '#34d399', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '9999px', padding: '0.2rem 0.6rem' }}>
                             ⚡ <strong>{playableCount}</strong> Playable
                         </span>
-                        <button
-                            onClick={() => setShowJitFeed(true)}
-                            style={{
-                                background: showJitFeed ? 'rgba(52, 211, 153, 0.25)' : 'rgba(52, 211, 153, 0.12)',
-                                border: '1px solid rgba(52, 211, 153, 0.35)',
-                                borderRadius: '9999px',
-                                padding: '0.2rem 0.65rem',
-                                color: '#34d399',
-                                fontSize: '0.8rem',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.35rem'
-                            }}
-                            title="Open JIT Organic Ingestion Monitor (Inspect & Purge)"
-                        >
-                            🌱 <strong>{jitCount}</strong> JIT Finds
-                        </button>
+                        {/* JIT Monitor is internal: visible only to Poweruser / Admin */}
+                        {canAccess('jit_monitor') && (
+                            <button
+                                onClick={() => setShowJitFeed(true)}
+                                style={{
+                                    background: showJitFeed ? 'rgba(52, 211, 153, 0.25)' : 'rgba(52, 211, 153, 0.12)',
+                                    border: '1px solid rgba(52, 211, 153, 0.35)',
+                                    borderRadius: '9999px',
+                                    padding: '0.2rem 0.65rem',
+                                    color: '#34d399',
+                                    fontSize: '0.8rem',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem'
+                                }}
+                                title="Open JIT Organic Ingestion Monitor (Inspect & Purge)"
+                            >
+                                🌱 <strong>{jitCount}</strong> JIT Finds
+                            </button>
+                        )}
                         <span className="text-secondary" style={{ opacity: 0.8 }}>
                             📁 <strong>{archiveCount.toLocaleString()}</strong> Archive
                         </span>
