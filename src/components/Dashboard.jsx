@@ -63,18 +63,26 @@ function Dashboard({ token, onLogout }) {
     const [showWelcomeSplash, setShowWelcomeSplash] = useState(() => !localStorage.getItem('musicMood_welcome_seen'));
     const [isTourActive, setIsTourActive] = useState(false);
 
-    const startTour = () => {
+    const startTour = (dontShowAgain = true) => {
+        if (dontShowAgain) {
+            localStorage.setItem('musicMood_welcome_seen', 'true');
+        } else {
+            localStorage.removeItem('musicMood_welcome_seen');
+        }
         setShowWelcomeSplash(false);
         setIsTourActive(true);
     };
 
-    const closeWelcomeSplash = () => {
-        localStorage.setItem('musicMood_welcome_seen', 'true');
+    const closeWelcomeSplash = (dontShowAgain = true) => {
+        if (dontShowAgain) {
+            localStorage.setItem('musicMood_welcome_seen', 'true');
+        } else {
+            localStorage.removeItem('musicMood_welcome_seen');
+        }
         setShowWelcomeSplash(false);
     };
 
     const finishTour = () => {
-        localStorage.setItem('musicMood_welcome_seen', 'true');
         localStorage.setItem('musicMood_tour_seen', 'true');
         setIsTourActive(false);
     };

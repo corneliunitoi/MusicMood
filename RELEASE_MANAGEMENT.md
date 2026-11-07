@@ -37,6 +37,18 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.7.2a` — 2026-11-07
+* **Welcome Screen Startup Checkbox & Human-Centered Tour Copy:**
+  * **"Don't show on startup" Checkbox (`WelcomeSplash.jsx` / `Dashboard.jsx`):**
+    * Added an interactive toggle `[x] Don't show this welcome screen on startup` (checked by default) directly on the welcome hero card.
+    * Wired user preference persistence to `localStorage.musicMood_welcome_seen`: unchecking allows the splash to greet the user again on future sessions, while keeping it checked prevents auto-display.
+    * The `✨ How It Works` button in the header nav remains available at all times for on-demand review.
+  * **Copy Refinement for Guided Tour Steps 4 & 5 (`GuidedTour.jsx`):**
+    * Replaced rigid technical engineering jargon with user-centric benefit copy:
+      * *Step 4 (Player):* Renamed to **"Music That Never Gets Stale"** — *"We built MusicMood to eliminate streaming fatigue. The player constantly rotates artists and styles in the background so you never get trapped hearing the same five songs on repeat."*
+      * *Step 5 (Surprise Me):* Renamed to **"Instant Variety on Demand"** — *"Ready for something different? Hit 'Surprise Me' to leap to a new genre that naturally fits your flow—no jarring tempo drops, no mood killers."*
+    * Refined Pillar 1 on `WelcomeSplash.jsx` to reflect the streaming fatigue elimination benefit.
+
 ### `v0.7.2` — 2026-11-07
 * **Welcome Screen Manifesto & Interactive 6-Stop Guided Spotlight Tour:**
   * **Option 1 Glassmorphic Welcome Splash (`WelcomeSplash.jsx`):**

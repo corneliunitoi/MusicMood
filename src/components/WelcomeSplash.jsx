@@ -1,4 +1,4 @@
-import React from 'react';
+import { useState } from 'react';
 
 /**
  * WelcomeSplash.jsx
@@ -7,10 +7,20 @@ import React from 'react';
  * the 6-Stop Guided Spotlight Tour across the live interface.
  */
 export default function WelcomeSplash({ onStartTour, onClose }) {
+    const [dontShowAgain, setDontShowAgain] = useState(true);
+
+    const handleTourClick = () => {
+        onStartTour(dontShowAgain);
+    };
+
+    const handleCloseClick = () => {
+        onClose(dontShowAgain);
+    };
+
     return (
         <div
             className="welcome-splash-backdrop fade-in"
-            onClick={onClose}
+            onClick={handleCloseClick}
             style={{
                 position: 'fixed',
                 inset: 0,
@@ -44,7 +54,7 @@ export default function WelcomeSplash({ onStartTour, onClose }) {
                 {/* Dismiss Button */}
                 <button
                     type="button"
-                    onClick={onClose}
+                    onClick={handleCloseClick}
                     aria-label="Close welcome screen"
                     style={{
                         position: 'absolute',
@@ -144,7 +154,7 @@ export default function WelcomeSplash({ onStartTour, onClose }) {
                             You Steer, Not the Black Box
                         </div>
                         <div style={{ fontSize: '0.74rem', color: '#94a3b8', lineHeight: '1.45' }}>
-                            A 2-track node cap and 15-artist cooldown ensure you never get stuck in repetitive autoplay loops.
+                            Eliminates streaming fatigue by rotating artists and styles in the background, so you never get trapped hearing the same five songs on repeat.
                         </div>
                     </div>
 
@@ -201,7 +211,7 @@ export default function WelcomeSplash({ onStartTour, onClose }) {
                 >
                     <button
                         type="button"
-                        onClick={onStartTour}
+                        onClick={handleTourClick}
                         className="btn-primary"
                         style={{
                             width: 'auto',
@@ -226,7 +236,7 @@ export default function WelcomeSplash({ onStartTour, onClose }) {
                     </button>
                     <button
                         type="button"
-                        onClick={onClose}
+                        onClick={handleCloseClick}
                         style={{
                             background: 'rgba(255, 255, 255, 0.06)',
                             border: '1px solid rgba(255, 255, 255, 0.12)',
@@ -243,6 +253,34 @@ export default function WelcomeSplash({ onStartTour, onClose }) {
                     >
                         Jump Straight to Player
                     </button>
+                </div>
+
+                {/* Don't Show Again Checkbox */}
+                <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center' }}>
+                    <label
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            fontSize: '0.78rem',
+                            color: '#94a3b8',
+                            cursor: 'pointer',
+                            userSelect: 'none'
+                        }}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={dontShowAgain}
+                            onChange={(e) => setDontShowAgain(e.target.checked)}
+                            style={{
+                                cursor: 'pointer',
+                                accentColor: '#a855f7',
+                                width: '15px',
+                                height: '15px'
+                            }}
+                        />
+                        <span>Don't show this welcome screen on startup</span>
+                    </label>
                 </div>
             </div>
         </div>

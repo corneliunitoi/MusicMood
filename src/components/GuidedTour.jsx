@@ -36,16 +36,16 @@ const TOUR_STEPS = [
         targetSelector: '[data-tour="player"]',
         badge: 'Step 4 of 6',
         icon: '🎧',
-        title: 'Guarded Anti-Drift Playback',
-        description: 'Every session is protected by anti-drift guards: a 2-track node dwell limit and a 15-artist cooldown ensure the player never loops the same 5 songs or drifts into generic background noise.'
+        title: 'Music That Never Gets Stale',
+        description: 'We built MusicMood to eliminate streaming fatigue. The player constantly rotates artists and styles in the background so you never get trapped hearing the same five songs on repeat.'
     },
     {
         id: 'surprise-me',
         targetSelector: '[data-tour="surprise-me"]',
         badge: 'Step 5 of 6',
         icon: '🎲',
-        title: 'Harmonic Leaps on Demand',
-        description: 'Want a change of pace without derailing your mood? One tap on "Surprise Me" leaps to a fresh, compatible genre on the 115-node graph while keeping your energy and headspace perfectly aligned.'
+        title: 'Instant Variety on Demand',
+        description: 'Ready for something different? Hit "Surprise Me" to leap to a new genre that naturally fits your flow—no jarring tempo drops, no mood killers.'
     },
     {
         id: 'discovery',
