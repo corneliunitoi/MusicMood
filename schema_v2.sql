@@ -268,3 +268,34 @@ ON CONFLICT DO NOTHING;
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+
+-- ---------------------------------------------------------------------
+-- 8. USER FEEDBACK
+-- ---------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS public.feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id TEXT,
+    name TEXT,
+    comment TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'feedback' AND policyname = 'Allow public insert on feedback'
+    ) THEN
+        CREATE POLICY "Allow public insert on feedback" ON public.feedback
+        FOR INSERT TO anon, authenticated WITH CHECK (true);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'feedback' AND policyname = 'Allow select feedback for authenticated'
+    ) THEN
+        CREATE POLICY "Allow select feedback for authenticated" ON public.feedback
+        FOR SELECT TO authenticated USING (true);
+    END IF;
+END $$;

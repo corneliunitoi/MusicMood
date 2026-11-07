@@ -3,6 +3,7 @@ import './App.css';
 import { requestGoogleLogin, getAccessToken, logout } from './services/auth';
 import { signInAsGuest, supabase } from './services/supabaseService';
 import { switchUserFavorites } from './services/favoritesService';
+import FeedbackModal from './components/FeedbackModal';
 
 import Dashboard from './components/Dashboard';
 
@@ -10,6 +11,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [token, setToken] = useState(getAccessToken());
   const [authError, setAuthError] = useState(null);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   const handleConnect = async () => {
     setIsLoading(true);
@@ -103,8 +105,38 @@ function App() {
           >
             Continue as Guest
           </button>
+
+          <div style={{ marginTop: '1.25rem' }}>
+            <button
+              type="button"
+              onClick={() => setShowFeedback(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#94a3b8',
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                opacity: 0.85,
+                transition: 'color 0.2s ease'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#c084fc')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = '#94a3b8')}
+            >
+              <span>💬</span>
+              <span>Questions or Feedback? Let us know</span>
+            </button>
+          </div>
         </div>
       </section>
+
+      <FeedbackModal
+        isOpen={showFeedback}
+        onClose={() => setShowFeedback(false)}
+        currentUser={{ role: 'guest', isGuest: true, id: 'guest' }}
+      />
     </main>
   );
 }

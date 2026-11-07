@@ -131,7 +131,12 @@ const FOLDER_GENRE_MAP = {
     'hard rock': 'Rock',
     'alternative': 'Rock',
     'punk': 'Rock',
-    'pop': 'Pop'
+    'pop': 'Pop',
+    'avant': 'Electronic/Dance',
+    'prog': 'Rock',
+    'progmassiv': 'Rock',
+    'post': 'Rock',
+    'symho': 'Classical/Instrumental'
 };
 
 function detectGenreFromPath(filePath) {

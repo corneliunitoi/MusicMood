@@ -181,3 +181,24 @@ export async function recordListenEvent({ trackId, moodId, genreId, completed = 
         console.warn("[History Record] Exception:", e);
     }
 }
+
+/**
+ * Submits user feedback to public.feedback
+ */
+export async function submitUserFeedback({ name, comment, userId }) {
+    const targetUserId = userId || getResolvedUserId();
+    const { error } = await supabase
+        .from('feedback')
+        .insert({
+            user_id: targetUserId,
+            name: name?.trim() || null,
+            comment: comment.trim()
+        });
+
+    if (error) {
+        console.error('[Feedback] Submission error:', error);
+        throw error;
+    }
+    return true;
+}
+

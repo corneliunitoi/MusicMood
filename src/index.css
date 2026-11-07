@@ -242,6 +242,43 @@ h1 {
   margin-left: auto;
 }
 
+/* Dedicated, High-Affordance Feedback Button */
+.btn-feedback {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(168, 85, 247, 0.12);
+  color: #d8b4fe;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  border-radius: 9999px;
+  padding: 0.38rem 0.95rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  user-select: none;
+}
+
+.btn-feedback:hover {
+  background: rgba(168, 85, 247, 0.25);
+  color: #ffffff;
+  border-color: rgba(168, 85, 247, 0.65);
+  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-feedback:active {
+  transform: translateY(0);
+}
+
+.btn-feedback .feedback-icon {
+  font-size: 0.92rem;
+  line-height: 1;
+}
+
 /* Dedicated, High-Affordance Sign Out Button */
 .btn-signout {
   display: inline-flex;
@@ -426,6 +463,10 @@ h1 {
     height: 32px;
   }
   .btn-signout {
+    padding: 0.3rem 0.65rem;
+    font-size: 0.76rem;
+  }
+  .btn-feedback {
     padding: 0.3rem 0.65rem;
     font-size: 0.76rem;
   }

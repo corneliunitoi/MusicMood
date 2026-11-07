@@ -14,7 +14,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const headers = { 'User-Agent': 'MusicMood/1.0.0 ( contact@musicmood.local )' };
 
 // Configuration
-const MAX_TRACKS_PER_ARTIST = 3; // Strict diversity invariant
+const DEFAULT_MAX_TRACKS_PER_ARTIST = 3; // Strict diversity invariant
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Accurate MusicBrainz tag mapping for all 115 ontology genres
@@ -213,13 +213,13 @@ async function loadExistingGenreIndex(genreId) {
  * Fetches candidate recordings in batches of 100 from MusicBrainz.
  * Filters against in-memory seenKeys instantly without any DB calls or rate limits.
  */
-async function fetchMusicBrainzBatchCandidates(genreTag, startingOffset, seenKeys, limit = 100) {
+async function fetchMusicBrainzBatchCandidates(genreTag, startingOffset, seenKeys, minCandidates = 75, limit = 100) {
     const candidates = [];
     const query = `tag:"${genreTag}" AND status:official`;
     let currentOffset = startingOffset;
-    let maxPages = 4; // Check up to 4 pages (400 recordings) per attempt
+    let maxPages = Math.max(6, Math.ceil(minCandidates / 15));
 
-    while (candidates.length < 50 && maxPages > 0) {
+    while (candidates.length < minCandidates && maxPages > 0) {
         maxPages--;
         await sleep(1100); // Respect MusicBrainz 1 req/sec limit once per 100 candidates
         const url = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(query)}&fmt=json&limit=${limit}&offset=${currentOffset}`;
@@ -244,7 +244,14 @@ async function fetchMusicBrainzBatchCandidates(genreTag, startingOffset, seenKey
             break;
         }
 
-        if (recordings.length === 0) break;
+        if (recordings.length === 0) {
+            if (currentOffset > 0 && candidates.length === 0) {
+                // If offset was past total recordings, fallback to page 0
+                currentOffset = 0;
+                continue;
+            }
+            break;
+        }
 
         for (const rec of recordings) {
             const artist = rec['artist-credit']?.[0]?.name?.trim();
@@ -306,7 +313,8 @@ export async function pullGenreTracks(genreId, targetNewTracks = 30) {
     const startOffset = existingCount > 100 ? Math.min(existingCount, 400) : 0;
     console.log(`   • Fetching MusicBrainz candidates starting at offset ${startOffset}...`);
 
-    const { candidates } = await fetchMusicBrainzBatchCandidates(tag, startOffset, seenKeys, 100);
+    const neededCandidates = Math.max(70, Math.round(targetNewTracks * 1.5));
+    const { candidates } = await fetchMusicBrainzBatchCandidates(tag, startOffset, seenKeys, neededCandidates, 100);
     console.log(`   • Received ${candidates.length} unique candidates not currently in catalog.`);
 
     if (candidates.length === 0) {
@@ -314,8 +322,9 @@ export async function pullGenreTracks(genreId, targetNewTracks = 30) {
         return { added: 0, existing: existingCount };
     }
 
-    // 3. Resolve candidates via fast Innertube JSON (~300ms) with max 3 tracks per artist
+    // 3. Resolve candidates via fast Innertube JSON (~300ms) with balanced diversity per artist
     let addedCount = 0;
+    const maxTracksPerArtist = Math.max(DEFAULT_MAX_TRACKS_PER_ARTIST, Math.min(5, Math.ceil(targetNewTracks / 12)));
     const artistTrackCounts = {};
     const tracksToInsert = [];
 
@@ -323,7 +332,7 @@ export async function pullGenreTracks(genreId, targetNewTracks = 30) {
         if (addedCount >= targetNewTracks) break;
 
         const normArtist = cand.artist.toLowerCase();
-        if ((artistTrackCounts[normArtist] || 0) >= MAX_TRACKS_PER_ARTIST) continue;
+        if ((artistTrackCounts[normArtist] || 0) >= maxTracksPerArtist) continue;
 
         process.stdout.write(`   Resolving [${addedCount + 1}/${targetNewTracks}] "${cand.artist} - ${cand.title}"... `);
 

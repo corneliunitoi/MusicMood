@@ -12,6 +12,7 @@ import JitFeedModal from './JitFeedModal';
 import FavoritesPane from './FavoritesPane';
 import WelcomeSplash from './WelcomeSplash';
 import GuidedTour from './GuidedTour';
+import FeedbackModal from './FeedbackModal';
 import { getFavoritesCount, subscribeFavorites } from '../services/favoritesService';
 import {
     initUserProfile,
@@ -57,6 +58,7 @@ function Dashboard({ token, onLogout }) {
     const [activeTopPanel, setActiveTopPanel] = useState(null);
     const [favoritesCount, setFavoritesCount] = useState(() => getFavoritesCount());
     const [showJitFeed, setShowJitFeed] = useState(false);
+    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
     // Welcome Splash & Guided Spotlight Tour state
     const [showWelcomeSplash, setShowWelcomeSplash] = useState(() => !localStorage.getItem('musicMood_welcome_seen'));
@@ -389,6 +391,16 @@ function Dashboard({ token, onLogout }) {
                     <div className="header-top-right">
                         <button
                             type="button"
+                            className="btn-feedback"
+                            onClick={() => setShowFeedbackModal(true)}
+                            title="Share feedback or suggest features"
+                        >
+                            <span className="feedback-icon">💬</span>
+                            <span className="feedback-label">Feedback</span>
+                        </button>
+
+                        <button
+                            type="button"
                             className="btn-signout"
                             onClick={onLogout}
                             title="Sign out of MusicMood"
@@ -596,6 +608,13 @@ function Dashboard({ token, onLogout }) {
                         onClose={closeWelcomeSplash}
                     />
                 )}
+
+                {/* USER FEEDBACK MODAL */}
+                <FeedbackModal
+                    isOpen={showFeedbackModal}
+                    onClose={() => setShowFeedbackModal(false)}
+                    currentUser={profile}
+                />
 
                 {/* GUIDED SPOTLIGHT TOUR ACROSS LIVE INTERFACE */}
                 {isTourActive && (

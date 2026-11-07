@@ -1,7 +1,7 @@
 {
   "name": "musicmood",
   "private": true,
-  "version": "0.7.3",
+  "version": "0.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,6 +11,8 @@
     "start": "node server.js",
     "scan-library": "node scripts/scanLibrary.js",
     "scan-library:random": "node scripts/scanLibrary.js --random",
+    "scan-library:muzike": "node scripts/scanLibrary.js \\\\192.168.0.2\\e$\\Muzike",
+    "scan-library:muzike:random": "node scripts/scanLibrary.js \\\\192.168.0.2\\e$\\Muzike --random",
     "resolve-library": "node scripts/resolveVideoIds.js",
     "resolve-library:random": "node scripts/resolveVideoIds.js --random",
     "resolve-library:innertube": "node scripts/resolveVideoIds.js --innertube",
