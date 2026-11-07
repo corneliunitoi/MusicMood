@@ -232,7 +232,23 @@ Each pill defines a multi-dimensional acoustic steering vector that modifies the
 * **🛸 Sci-Fi:** $E: 0.40 - 0.70$ | $V: 0.35 - 0.60$ | Genres: *Space Ambient, Modular Electronic, Vangelis-style CS-80 Synth*. Cosmic sub-harmonics, interstellar expanse, futuristic electronic exploration.
 * **🌫️ Ambient:** $E: 0.05 - 0.30$ | $V: 0.40 - 0.60$ | Genres: *Drone, Soundscape, Generative Music, Field Recordings*. Beatless floating textures, infinite decay, pure auditory atmosphere.
 
-### 3. Experimental: YouTube "MusicMood Favorites" Auto-Sync
+### 3. Custom Mood Defaults & Preference Presets (Core 6 Moods)
+* **User Pain Point:** Currently, clicking a mood (e.g., *Party* or *Happy*) resolves to a static, hardcoded genre affinity cluster (`MOOD_GENRE_MAP`). For instance, *Party* and *Happy* frequently start on `funk` or `classic_soul`. If a user dislikes or rarely listens to Funk, they are forced to manually switch the active node dropdown every time they change mood.
+* **Core 6 Customization:** Provide a frictionless way for listeners to define and persist their exact starting subgenre for the 6 primary moods:
+  1. 😊 **Happy:** (e.g., *Indie Pop*, *Dance-Pop*, *Bluegrass*, *Bossa Nova*)
+  2. 😢 **Sad:** (e.g., *Singer-Songwriter*, *Post-Rock*, *Delta Blues*, *Romantic Classical*)
+  3. 🧘 **Chill:** (e.g., *Lofi Hip-Hop*, *Neo-Soul*, *Chillout House*, *Roots Reggae*)
+  4. ⚡ **Energetic:** (e.g., *Synthwave*, *Hard Rock*, *Drum & Bass*, *Techno*)
+  5. 🧠 **Focus:** (e.g., *Neo-Classical*, *Minimalist Ambient*, *Lofi Beats*, *IDM*)
+  6. 🎉 **Party:** (e.g., *House*, *Dance-Pop*, *Nu-Disco*, *Hard Rock*, *Hip-Hop*)
+* **Dual-Tier UX Configuration:**
+  - **1-Click Quick-Pin in Player:** When listening to any mood and changing the active node dropdown, a small pin button (📌 *"Set as default for [Mood]"*) allows instant saving without leaving the player.
+  - **Calibration Wizard Section:** A clean *"Mood Presets"* card inside the Taste Calibration view with responsive dropdown selectors showing only mood-compatible, non-dealbreaker subgenres.
+* **Engine Integration & Persistence:**
+  - `sessionEngine.setMood(moodId)` prioritizes `calibration.moodDefaults[moodId]` above generic cluster fallbacks.
+  - Synced to browser `localStorage` (`musicmood_mood_defaults`) and Supabase PostgreSQL `user_profiles.calibration->'mood_defaults'` for instant cross-device sync.
+
+### 4. Experimental: YouTube "MusicMood Favorites" Auto-Sync
 * **One-Click Favorite:** Liking a track with ❤️ can optionally append that video ID directly to a dedicated playlist titled `"MusicMood Favorites"` in the user's authentic YouTube account.
 * **Overwriting Protection:** Uses single-playlist append-only mode to prevent overwriting or deleting any of the user's pre-existing YouTube playlists.
 

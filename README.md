@@ -121,7 +121,7 @@ MusicMood includes a suite of background maintenance and catalog expansion scrip
 ## 📄 Documentation
 
 - [FEATURES.md](FEATURES.md) — Detailed feature specifications, development history, and architectural milestones.
-- [ROADMAP.md](ROADMAP_TOMORROW.md) — Upcoming features (Artist Finder, Favorites sync, localized language selector).
+- [ROADMAP.md](ROADMAP.md) — Prioritized roadmap, custom mood defaults, and upcoming features.
 
 ---
 
