@@ -37,7 +37,10 @@ export function getReleaseNotes(targetTag) {
         return `Release ${tag}`;
     }
 
-    return match[1].trim();
+    let notes = match[1].trim();
+    // Strip trailing markdown horizontal dividers
+    notes = notes.replace(/\n\s*---\s*$/, '').trim();
+    return notes;
 }
 
 // If run directly from CLI

@@ -23,7 +23,8 @@
     "pull-genres": "node scripts/fastPullGenreTracks.js",
     "pull-genres:lowest": "node scripts/fastPullGenreTracks.js --lowest-first",
     "extract-release-notes": "node scripts/extract-release-notes.js",
-    "tag-release": "node scripts/tagWithReleaseNotes.js"
+    "tag-release": "node scripts/tagWithReleaseNotes.js",
+    "backfill-tags": "node scripts/backfillAllTags.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",

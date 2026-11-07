@@ -32,6 +32,9 @@ When you view tags or releases, MusicMood supports both local Git annotations an
    * A dedicated GitHub Actions workflow (`.github/workflows/release.yml`) automatically triggers whenever a `v*` tag is pushed to `origin`.
    * The workflow parses `RELEASE_MANAGEMENT.md`, extracts the corresponding section, and automatically publishes an official GitHub Release at `https://github.com/corneliunitoi/MusicMood/releases`.
    * When users click on the release tag on GitHub, GitHub renders the formatted markdown notes, headers, badges, and download archives.
+3. **Automated Backfill Engine for Historical Tags:**
+   * Running `npm run backfill-tags` iterates over all historical releases since `v0.5.0`, extracts their respective changelogs from this document, and annotates each Git tag pointing directly to its original historical commit.
+   * The GitHub Actions workflow (`.github/workflows/backfill-releases.yml`) automatically synchronizes and publishes official GitHub Releases for all 23 historical versions since `v0.5.0` on GitHub with formatted Markdown notes.
 
 ---
 
@@ -220,3 +223,93 @@ Whenever a release or milestone patch is prepared:
 * Initial production release on Render (`https://musicmood-ghx2.onrender.com`).
 * Cloud favorites and calibration synchronization with Supabase.
 * Single-select mutually exclusive panel navigation (`Calibrate Taste`, `Visual Graph`, `Ingest YouTube Playlists`, `Favorites`).
+
+---
+
+### `v0.5.9` — 2026-11-06
+* **Track History Back Navigation & Interactive Progress Bar Scrubber:**
+  * **Previous Track Navigation (`⏮️`):** Added a functional Back button to the player dock powered by a 25-track historical playback stack in `sessionStateMachine.js` with `localStorage` persistence.
+  * **Bi-Directional Flow:** Outgoing track unshifts to the head of the queue when navigating backward, allowing seamless forward/backward traversal.
+  * **Interactive Progress Bar Scrubber:** Dual-gradient progress bar (`#a855f7` to `#6366f1`) with live timestamps (`0:45 / 3:18`), supporting click-to-seek, drag-to-seek, and keyboard arrow controls.
+  * **Tactile Feedback:** Custom circular scrubber thumb with hover scaling (`scale(1.3)`) and purple halo glow.
+
+---
+
+### `v0.5.8` — 2026-11-06
+* **Audio Stall Watchdog, Chromium Unmuting Guard & JIT Genre Family Firewall:**
+  * **6-Second Audio Stall Watchdog:** Proactively detects silent, stalled, or geoblocked streams; automatically purges the bad video ID from Supabase catalog, blacklists it from the session, and auto-advances to the next song without user intervention.
+  * **Chromium Audio Pipeline Fix:** Expanded persistent player frame to 240×240 off-screen on `https://www.youtube.com`, preventing browser heuristics from suspending background media decoders.
+  * **Aggressive State 5 / -1 Wakeup:** Automatically invokes `unMute()`, `setVolume(100)`, and `playVideo()` when YouTube places programmatic transitions into `CUED` (5) or `UNSTARTED` (-1) states.
+  * **Truth-Based Playback Indicator:** Replaced premature "Now Playing" display with a truthful `Buffering Audio...` indicator (visualizer waves only animate when audio progress is verified).
+  * **JIT Genre Family Firewall:** Strictly validates candidates against the active mood's genre family; prevents cross-genre leakage (e.g. Blues files mislabeled as Hip-Hop in local tags are saved to catalog under Blues, but never injected into a Hip-Hop session).
+
+---
+
+### `v0.5.7` — 2026-11-06
+* **Offline-First Favorites Pane & Reactive Heart Controls:**
+  * **0ms Latency Local Favorites:** Client-side `favoritesService.js` stores favorited tracks in `localStorage` with real-time `BroadcastChannel` synchronization across open browser tabs.
+  * **Reactive Glowing Heart Control:** Dual-state glowing heart toggle (`❤️` / `🤍`) in the player dock provides immediate visual feedback and triggers subtle state machine affinity nudges.
+  * **Dedicated Favorites Pane (`FavoritesPane.jsx`):** Comprehensive management drawer with instant title/artist search, genre filter chips, sequential **Play All**, single-track removal, and **Export to JSON** backup.
+  * **Streamlined UI Header:** Replaced cluttered dashboard banner with a sleek, minimalist single-line heading (*"What headspace do you want right now?"*).
+
+---
+
+### `v0.5.6b` — 2026-11-06
+* **Hybrid JIT Queue Buffer & Fast Innertube Resolution:**
+  * **Dynamic Multi-Source Buffering:** Concurrently pulls candidate tracks from both the user's unmapped local archive and the MusicBrainz global catalog whenever the playback queue runs low.
+  * **Fast Innertube YouTube Music Client:** Resolves local metadata tracks to playable YouTube streams in ~300ms using private JSON APIs with zero quota consumption.
+
+---
+
+### `v0.5.6` — 2026-11-06
+* **JIT Organic Growth Monitor Modal & Safety Dislike Purge:**
+  * **Live Catalog Growth Monitor (`JitFeedModal.jsx`):** Modal displaying newly resolved tracks dynamically injected into `public.tracks` in real time during playback sessions.
+  * **Safety Dislike Purge:** Downvoting an automatically resolved track blacklists the artist for the session and flags invalid mappings for review.
+  * **Catalog Audit Tool (`scripts/auditJitTracks.js`):** Script auditing all dynamically harvested tracks for genre consistency and playback health.
+
+---
+
+### `v0.5.5` — 2026-11-06
+* **Up Next JIT Queue Drawer & Live Session History Sync:**
+  * **Interactive Up Next Drawer:** Live queue drawer with dynamic `⚡ JIT` badge displays buffered tracks and allows 1-click playback.
+  * **Live History Synchronization:** Tracks playback dwell times and records listening sessions to `public.listening_history`.
+  * **NAS Scanner Hardening:** Added poison-pill recovery stripping null bytes and surrogate pairs from corrupted ID3 tags across local SMB storage.
+
+---
+
+### `v0.5.4` — 2026-11-06
+* **JIT Organic Player Expansion & New Romantic Classifier Fix:**
+  * **Organic Playback Ingestion:** Enabled auto-resolution of unmapped archive tracks on demand during playback.
+  * **New Romantic / Synth-Pop Normalizer:** Fixed subgenre classification rules mapping 80s new romantic bands to canonical `synth_pop`.
+
+---
+
+### `v0.5.3` — 2026-11-05
+* **Anti-Monopoly Artist Cap & Gatekeeper Hardening:**
+  * **Strict Anti-Monopoly Cap:** Enforced `MAX_TRACKS_PER_ARTIST = 3` cap across all genres, eliminating catalog domination by prolific artists and ensuring genuine acoustic diversity.
+  * **Innertube Anti-Bot Recovery:** Fixed false anti-bot cooldown triggers when resolving obscure or unmatched audio tracks.
+  * **Song Gatekeeper Hardening:** Upgraded `isSongCandidate` to filter out compilations, full albums, and badge labels (`Song`, `Video`, `Album`) mistakenly parsed from YouTube Music headers.
+
+---
+
+### `v0.5.2` — 2026-11-05
+* **Innertube YouTube Music JSON Engine:**
+  * Introduced private Innertube client architecture (`resolveInnertubeTrack`) reducing track resolution time from 2.2s HTML scraping down to ~300ms pure JSON calls.
+  * Added `--innertube` flag to catalog resolution tools.
+
+---
+
+### `v0.5.1` — 2026-11-05
+* **Player Stream Links & MusicBrainz Genre Seeder:**
+  * Added 1-click YouTube open and copy link buttons directly in the player dock for easy track sharing.
+  * Added initial `seedGenresFromMusicBrainz.js` script to systematically populate under-represented ontology genres from MetaBrainz recordings.
+
+---
+
+### `v0.5.0` — 2026-11-05
+* **Anti-Drift Session State Machine & 115-Node Canonical Ontology:**
+  * **Anti-Drift Session State Machine:** Mathematically prevents algorithm fatigue using a 2-track node dwell cap, 15-artist cooldown, and dynamic node fatigue penalties.
+  * **115 Canonical Genres across 14 Families:** Complete music ontology with harmonic transition edges (`TASTE_GRAPH_EDGES`).
+  * **MusicBrainz Multi-Genre Integration:** Community metadata integration capturing secondary genre arrays (`secondary_genre_ids: text[]`).
+  * **Zero-Quota YouTube Player:** Invisible persistent YouTube player streaming audio without burning Google Data API quotas.
+  * **Sonic Calibration Wizard:** Analyzes user libraries to calculate acoustic DNA affinity weights and dealbreaker exclusions.
