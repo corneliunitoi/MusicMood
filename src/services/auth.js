@@ -1,38 +1,91 @@
 import { clearUserProfile } from './userService';
 
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI;
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '1065565283381-rkar9ei7i90mnbtlc0ikofcdfoosbr5r.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
 
-export const getAuthUrl = () => {
-    const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-    url.searchParams.append('client_id', CLIENT_ID);
-    url.searchParams.append('redirect_uri', REDIRECT_URI);
-    url.searchParams.append('response_type', 'token'); // Implicit flow for simplicity in SPA
-    url.searchParams.append('scope', SCOPES);
-    url.searchParams.append('include_granted_scopes', 'true');
-    url.searchParams.append('state', 'pass-through value');
-    return url.toString();
-};
+let tokenClient = null;
 
-export const handleAuthCallback = () => {
-    const hash = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    const accessToken = params.get('access_token');
+/**
+ * Ensures Google Identity Services (GIS) client library is loaded.
+ */
+function waitForGoogleScript(timeoutMs = 6000) {
+    return new Promise((resolve, reject) => {
+        if (typeof window !== 'undefined' && window.google?.accounts?.oauth2) {
+            resolve(window.google.accounts.oauth2);
+            return;
+        }
 
-    if (accessToken) {
-        localStorage.setItem('youtube_access_token', accessToken);
-        window.location.hash = ''; // Clear hash
-        return accessToken;
-    }
-    return null;
-};
+        const start = Date.now();
+        const interval = setInterval(() => {
+            if (typeof window !== 'undefined' && window.google?.accounts?.oauth2) {
+                clearInterval(interval);
+                resolve(window.google.accounts.oauth2);
+            } else if (Date.now() - start > timeoutMs) {
+                clearInterval(interval);
+                reject(new Error('Google Identity Services script failed to load. Please verify your connection or ad blocker.'));
+            }
+        }, 100);
+    });
+}
+
+/**
+ * Initiates Google OAuth popup login via Google Identity Services (GIS).
+ * Complies 100% with Google's modern "Secure Response Handling" policy.
+ * Does NOT require full-page redirects or redirect URIs.
+ */
+export async function requestGoogleLogin() {
+    const oauth2 = await waitForGoogleScript();
+
+    return new Promise((resolve, reject) => {
+        try {
+            tokenClient = oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: (tokenResponse) => {
+                    if (tokenResponse.error) {
+                        console.error('[Google OAuth Error]', tokenResponse);
+                        reject(new Error(tokenResponse.error_description || tokenResponse.error));
+                        return;
+                    }
+
+                    if (tokenResponse.access_token) {
+                        localStorage.setItem('youtube_access_token', tokenResponse.access_token);
+                        resolve(tokenResponse.access_token);
+                    } else {
+                        reject(new Error('No access token received from Google.'));
+                    }
+                },
+                error_callback: (err) => {
+                    console.error('[Google Client Init Error]', err);
+                    reject(new Error(err.message || 'Google Sign-In was cancelled or failed.'));
+                }
+            });
+
+            // Trigger the Google OAuth popup
+            tokenClient.requestAccessToken({ prompt: '' });
+        } catch (e) {
+            reject(e);
+        }
+    });
+}
 
 export const getAccessToken = () => {
     return localStorage.getItem('youtube_access_token');
 };
 
 export const logout = () => {
+    const token = getAccessToken();
+    if (token && typeof window !== 'undefined' && window.google?.accounts?.oauth2) {
+        try {
+            window.google.accounts.oauth2.revoke(token, () => {
+                console.log('[Google OAuth] Token revoked cleanly');
+            });
+        } catch (e) {}
+    }
     localStorage.removeItem('youtube_access_token');
     clearUserProfile();
 };
+
+// Backward-compatibility stubs
+export const getAuthUrl = () => '';
+export const handleAuthCallback = () => getAccessToken();
