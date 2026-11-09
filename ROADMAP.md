@@ -135,6 +135,20 @@ This document outlines prioritized enhancements, user experience improvements, a
      * Update `public.artists.primary_genre_id` to reflect actual track plurality (e.g. Depeche Mode -> `electronic`).
      * Ensure the sync script and nightly cron resolve plurality accurately when artists straddle related electronic subgenres.
 
+### 11. ⚖️ Track Upvote vs. Artist Affinity Rebalancing & Anti-Runaway Gating
+* **The Question & Dilemma:**
+  * When a listener upvotes a specific track, should the artist also receive an upvote/affinity boost?
+  * While intuitive, unmitigated 1:1 artist upvoting threatens recommendation balance in two key ways:
+    1. **The "One-Hit Wonder" / Eclectic Single Trap:** A listener may love an isolated crossover single or acoustic ballad (e.g., Gotye's *Somebody That I Used to Know* or an acoustic track by an otherwise aggressive metal band). Blindly boosting the artist floods future sessions with their broader catalog that the user may actively dislike.
+    2. **The "Rich-Get-Richer" Catalog Bias:** Prolific legacy artists with 100+ catalog tracks (e.g., Queen, Depeche Mode, Pink Floyd) accumulate artist affinity exponentially faster than indie or long-tail artists with 5 tracks, crowding out discovery.
+* **Proposed Architecture & Evaluation for Implementation:**
+  * **Option A — Fractional / Attenuated Boost:** A track upvote counts as `1.0` for the track, but applies a bounded, attenuated nudge (`0.2` to `0.25`) to the artist's score.
+  * **Option B — Multi-Track Confirmation Threshold:** Upvoting 1 song counts strictly for the track; upvoting 2 or more distinct tracks by the same artist confirms genuine fandom and unlocks the artist affinity boost.
+  * **Option C — Contextual / Mood-Scoped Affinity:** The artist's affinity boost is scoped to the active mood (e.g., *Focus* or *Chill*) rather than inflating the artist globally across all moods.
+  * **Non-Negotiable Recommendation Guardrails:**
+    * Regardless of affinity score, the state machine must strictly enforce artist dwell cooldowns (no more than 1 track per 6–8 songs from the same artist in a session).
+    * Maintain a 40–50% discovery floor in candidate selection so top-affinity repeat anchors never monopolize the queue.
+
 ---
 
 ## 📈 Completed Milestones
