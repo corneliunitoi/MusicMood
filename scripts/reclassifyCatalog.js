@@ -194,12 +194,24 @@ function sanitizeSecondaryTags(primaryGenre, secondaryTags = []) {
 }
 
 // ============================================================================
-// PHASE 1: Resolve User Flags
+// PHASE 1: Resolve User Flags & Clean Up Staging Table
 // ============================================================================
 async function resolveFlags() {
     console.log("\n=======================================================");
-    console.log("🚩 PHASE 1: Synchronizing User-Flagged Misclassifications");
+    console.log("🚩 PHASE 1: Synchronizing & Purging Flagged Misclassifications");
     console.log("=======================================================");
+
+    // 1. Purge any historical flags already marked 'resolved'
+    if (isApply) {
+        const { data: purgedOld } = await supabase
+            .from('track_genre_flags')
+            .delete()
+            .eq('status', 'resolved')
+            .select('id');
+        if (purgedOld && purgedOld.length > 0) {
+            console.log(`🧹 Cleaned up ${purgedOld.length} historical resolved flag(s) from database.`);
+        }
+    }
 
     const { data: pendingFlags, error } = await supabase
         .from('track_genre_flags')
@@ -207,37 +219,41 @@ async function resolveFlags() {
         .eq('status', 'pending');
 
     if (error || !pendingFlags || pendingFlags.length === 0) {
-        console.log("✨ All user flags are already resolved!");
+        console.log("✨ All user flags are already resolved! No pending flags.");
         return 0;
     }
 
-    console.log(`📋 Found ${pendingFlags.length} pending flag(s). Resolving...`);
+    console.log(`📋 Found ${pendingFlags.length} pending flag(s). Resolving & removing...`);
     let count = 0;
     for (const flag of pendingFlags) {
         const track = flag.tracks;
-        if (!track) continue;
+        if (!track) {
+            // Delete orphan flag if track no longer exists
+            if (isApply) await supabase.from('track_genre_flags').delete().eq('id', flag.id);
+            continue;
+        }
 
         let resolved = normalizeGenre(track.primary_genre_id, track.artist, track.title);
         if (flag.suggested_genre_id && VALID_GENRE_IDS.has(flag.suggested_genre_id)) {
             resolved = flag.suggested_genre_id;
         }
 
+        console.log(`   🩹 Healing: "${track.title}" by ${track.artist} -> [${resolved}]`);
+
         if (isApply) {
+            // Update track with verified canonical genre and sanitized secondary tags
             await supabase.from('tracks').update({
                 primary_genre_id: resolved,
                 secondary_genre_ids: sanitizeSecondaryTags(resolved, track.secondary_genre_ids),
                 updated_at: new Date().toISOString()
             }).eq('id', track.id);
 
-            await supabase.from('track_genre_flags').update({
-                status: 'resolved',
-                resolved_genre_id: resolved,
-                resolved_at: new Date().toISOString()
-            }).eq('id', flag.id);
+            // Remove the flag row from staging table after fixing
+            await supabase.from('track_genre_flags').delete().eq('id', flag.id);
         }
         count++;
     }
-    console.log(`✅ Phase 1 complete: ${count} flag(s) processed.`);
+    console.log(`✅ Phase 1 complete: ${count} flag(s) healed and removed from database.`);
     return count;
 }
 

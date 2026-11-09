@@ -238,20 +238,16 @@ async function resolveFlags() {
                     continue;
                 }
 
-                // Update flag record
-                const { error: updateFlagErr } = await supabase
+                // Remove flag record from database after healing
+                const { error: deleteFlagErr } = await supabase
                     .from('track_genre_flags')
-                    .update({
-                        status: 'resolved',
-                        resolved_genre_id: candidateGenre,
-                        resolved_at: new Date().toISOString()
-                    })
+                    .delete()
                     .eq('id', flag.id);
 
-                if (updateFlagErr) {
-                    console.warn(`   ⚠️ Track updated but failed to update flag status: ${updateFlagErr.message}`);
+                if (deleteFlagErr) {
+                    console.warn(`   ⚠️ Track updated but failed to remove flag: ${deleteFlagErr.message}`);
                 } else {
-                    console.log(`   🩹 [HEALED] Updated track to [${candidateGenre}] and marked flag as resolved!`);
+                    console.log(`   🩹 [HEALED & REMOVED] Updated track to [${candidateGenre}] and removed flag!`);
                     if (isInverted) {
                         console.log(`   ✨ [REPAIRED METADATA] Fixed artist to "${artistToSearch}" and title to "${titleToSearch}"`);
                     }

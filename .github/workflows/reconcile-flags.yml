@@ -1,0 +1,48 @@
+name: Reconcile Track Flags & Catalog Disambiguation
+
+on:
+  schedule:
+    # Runs every night at 03:00 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run in Dry-Run mode (audit only, no database writes)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    name: Reconcile Flags & Disambiguate Catalog
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Reclassification & Flag Healing
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "🔍 Running in DRY-RUN mode..."
+            node scripts/reclassifyCatalog.js --loops=2
+          else
+            echo "🚀 Running with LIVE DB updates..."
+            node scripts/reclassifyCatalog.js --apply --loops=3
+          fi
