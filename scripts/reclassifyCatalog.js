@@ -428,6 +428,67 @@ async function sweepITunes(limitArtists = 40) {
 }
 
 // ============================================================================
+// PHASE 5: Sync public.artists Table with Track Consensus
+// ============================================================================
+async function syncArtistGenres() {
+    console.log("\n=======================================================");
+    console.log("PHASE 5: Synchronizing public.artists with Track Consensus");
+    console.log("=======================================================");
+
+    const { data: artists, error } = await supabase
+        .from('artists')
+        .select('id, name, primary_genre_id, track_count')
+        .gt('track_count', 0)
+        .order('track_count', { ascending: false })
+        .limit(300);
+
+    if (error || !artists) {
+        console.warn("⚠️ Could not fetch artists for sync:", error?.message);
+        return 0;
+    }
+
+    let updated = 0;
+    const batchSize = 10;
+    for (let i = 0; i < artists.length; i += batchSize) {
+        const chunk = artists.slice(i, i + batchSize);
+        await Promise.all(chunk.map(async (a) => {
+            try {
+                const { data: tracks } = await supabase
+                    .from('tracks')
+                    .select('primary_genre_id')
+                    .ilike('artist', a.name)
+                    .limit(100);
+
+                if (!tracks || tracks.length === 0) return;
+
+                const counts = {};
+                for (const t of tracks) {
+                    if (t.primary_genre_id) counts[t.primary_genre_id] = (counts[t.primary_genre_id] || 0) + 1;
+                }
+                const sorted = Object.entries(counts).sort((x, y) => y[1] - x[1]);
+                const dominant = sorted[0]?.[0];
+                const dominantCount = sorted[0]?.[1] || 0;
+                const dominantPct = dominantCount / tracks.length;
+
+                if (dominant && dominant !== a.primary_genre_id && (dominantPct >= 0.6 || a.primary_genre_id === 'rock' || a.primary_genre_id === 'hip_hop')) {
+                    console.log(`🔄 Sync Artist: "${a.name}" [${a.primary_genre_id}] -> [${dominant}] (${Math.round(dominantPct * 100)}%)`);
+                    if (isApply) {
+                        await supabase
+                            .from('artists')
+                            .update({ primary_genre_id: dominant, updated_at: new Date().toISOString() })
+                            .eq('id', a.id);
+                    }
+                    updated++;
+                }
+            } catch (e) { }
+        }));
+    }
+
+    console.log(`✅ Phase 5 complete: Synced ${updated} artist(s).\n`);
+    return updated;
+}
+
+// ============================================================================
 // MAIN RUNNER
 // ============================================================================
 async function main() {
@@ -454,6 +515,9 @@ async function main() {
             break;
         }
     }
+
+    // Phase 5: Keep public.artists aligned with track consensus
+    await syncArtistGenres();
 
     const elapsed = Math.round((Date.now() - start) / 1000);
     console.log("\n=================================================================");
