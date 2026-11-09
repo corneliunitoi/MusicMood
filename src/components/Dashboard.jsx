@@ -14,6 +14,7 @@ import ArtistsExplorer from './ArtistsExplorer';
 import WelcomeSplash from './WelcomeSplash';
 import GuidedTour from './GuidedTour';
 import FeedbackModal from './FeedbackModal';
+import AboutModal from './AboutModal';
 import { getFavoritesCount, subscribeFavorites } from '../services/favoritesService';
 import {
     initUserProfile,
@@ -60,6 +61,7 @@ function Dashboard({ token, onLogout }) {
     const [favoritesCount, setFavoritesCount] = useState(() => getFavoritesCount());
     const [showJitFeed, setShowJitFeed] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+    const [showAboutModal, setShowAboutModal] = useState(false);
 
     // Welcome Splash & Guided Spotlight Tour state
     const [showWelcomeSplash, setShowWelcomeSplash] = useState(() => !localStorage.getItem('musicMood_welcome_seen'));
@@ -394,6 +396,17 @@ function Dashboard({ token, onLogout }) {
                         <button
                             type="button"
                             className="btn-feedback"
+                            onClick={() => setShowAboutModal(true)}
+                            title="About MusicMood & Author"
+                            style={{ borderColor: 'rgba(99, 102, 241, 0.35)', color: '#c7d2fe' }}
+                        >
+                            <span className="feedback-icon">ℹ️</span>
+                            <span className="feedback-label">About</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            className="btn-feedback"
                             onClick={() => setShowFeedbackModal(true)}
                             title="Share feedback or suggest features"
                         >
@@ -640,6 +653,12 @@ function Dashboard({ token, onLogout }) {
                     isOpen={showFeedbackModal}
                     onClose={() => setShowFeedbackModal(false)}
                     currentUser={profile}
+                />
+
+                {/* ABOUT MODAL */}
+                <AboutModal
+                    isOpen={showAboutModal}
+                    onClose={() => setShowAboutModal(false)}
                 />
 
                 {/* GUIDED SPOTLIGHT TOUR ACROSS LIVE INTERFACE */}
