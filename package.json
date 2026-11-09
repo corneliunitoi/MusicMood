@@ -30,7 +30,8 @@
     "tag-release": "node scripts/tagWithReleaseNotes.js",
     "backfill-tags": "node scripts/backfillAllTags.js",
     "resolve:flags": "node scripts/resolveFlaggedTracks.js",
-    "resolve:flags:apply": "node scripts/resolveFlaggedTracks.js --apply"
+    "resolve:flags:apply": "node scripts/resolveFlaggedTracks.js --apply",
+    "populate:avatars": "node scripts/populateArtistAvatars.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",

@@ -10,6 +10,7 @@ import MoodHistory from './MoodHistory';
 import OnboardingWizard from './OnboardingWizard';
 import JitFeedModal from './JitFeedModal';
 import FavoritesPane from './FavoritesPane';
+import ArtistsExplorer from './ArtistsExplorer';
 import WelcomeSplash from './WelcomeSplash';
 import GuidedTour from './GuidedTour';
 import FeedbackModal from './FeedbackModal';
@@ -96,6 +97,7 @@ function Dashboard({ token, onLogout }) {
     const showWizard = activeTopPanel === 'calibrate';
     const showPlaylists = activeTopPanel === 'playlists';
     const showFavorites = activeTopPanel === 'favorites';
+    const showArtists = activeTopPanel === 'artists';
 
     const [activeTrack, setActiveTrack] = useState(null);
     const [isDiscovering, setIsDiscovering] = useState(false);
@@ -488,6 +490,18 @@ function Dashboard({ token, onLogout }) {
 
                         <button
                             type="button"
+                            className={`header-pill-btn ${showArtists ? 'active' : ''}`}
+                            onClick={() => toggleTopPanel('artists')}
+                            aria-selected={showArtists}
+                            title="Browse catalog artists by genre"
+                        >
+                            <span className="pill-icon">👤</span>
+                            <span className="pill-label">Artists</span>
+                            <span className="pill-label-short">Artists</span>
+                        </button>
+
+                        <button
+                            type="button"
                             className={`header-pill-btn ${showFavorites ? 'active favorites' : ''}`}
                             onClick={() => toggleTopPanel('favorites')}
                             aria-selected={showFavorites}
@@ -527,6 +541,18 @@ function Dashboard({ token, onLogout }) {
                         onPlayTrack={(track) => {
                             setActiveTrack(track);
                             sessionEngine.commitTrack(track);
+                        }}
+                        onClose={() => setActiveTopPanel(null)}
+                    />
+                )}
+
+                {/* ARTISTS EXPLORER */}
+                {showArtists && (
+                    <ArtistsExplorer
+                        onPlayTrack={(track) => {
+                            setActiveTrack(track);
+                            sessionEngine.commitTrack(track);
+                            setActiveTopPanel(null);
                         }}
                         onClose={() => setActiveTopPanel(null)}
                     />
