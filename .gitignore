@@ -27,13 +27,13 @@ scripts/cache/
 scratch/
 
 # Architecture specs, Roadmaps & Internal Documentation
-ROADMAP.md
 FEATURES.md
 CATEGORY_PILL_FUNCTIONAL_MATRIX.md
 TASTE_GRAPH_ARCHITECTURE.md
 RELEASE_MANAGEMENT.md
 /*.md
 !/README.md
+!/ROADMAP.md
 
 # Architecture & generated SVG diagrams
 genres.svg
