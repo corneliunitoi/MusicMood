@@ -30,10 +30,10 @@ scratch/
 FEATURES.md
 CATEGORY_PILL_FUNCTIONAL_MATRIX.md
 TASTE_GRAPH_ARCHITECTURE.md
-RELEASE_MANAGEMENT.md
 /*.md
 !/README.md
 !/ROADMAP.md
+!/RELEASE_MANAGEMENT.md
 
 # Architecture & generated SVG diagrams
 genres.svg
