@@ -2,23 +2,41 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../services/supabaseService';
 import { GENRE_NODES } from '../services/tasteGraph';
 
-// High-Level Parent Genre Families (Zero subgenre clutter)
+// 14 High-Level Parent Genre Families (Zero subgenre clutter)
 const PARENT_GENRES = [
     { id: 'all', label: 'All Artists', emoji: '👥', color: '#6366f1' },
     { id: 'rock', label: 'Rock', emoji: '🎸', color: '#ef4444' },
     { id: 'metal', label: 'Metal', emoji: '🤘', color: '#8b5cf6' },
-    { id: 'classical', label: 'Classical', emoji: '🎻', color: '#f59e0b' },
-    { id: 'jazz', label: 'Jazz', emoji: '🎺', color: '#eab308' },
     { id: 'electronic', label: 'Electronic', emoji: '🎛️', color: '#06b6d4' },
-    { id: 'hip_hop', label: 'Hip-Hop', emoji: '🎤', color: '#10b981' },
     { id: 'pop', label: 'Pop', emoji: '✨', color: '#ec4899' },
+    { id: 'hip_hop', label: 'Hip-Hop', emoji: '🎤', color: '#10b981' },
+    { id: 'rnb_soul', label: 'R&B / Soul', emoji: '🎷', color: '#f43f5e' },
+    { id: 'jazz', label: 'Jazz', emoji: '🎺', color: '#eab308' },
     { id: 'blues', label: 'Blues', emoji: '🪕', color: '#3b82f6' },
+    { id: 'classical', label: 'Classical', emoji: '🎻', color: '#f59e0b' },
     { id: 'folk_acoustic', label: 'Folk', emoji: '🌾', color: '#84cc16' },
     { id: 'country', label: 'Country', emoji: '🤠', color: '#d97706' },
-    { id: 'world_reggae', label: 'World', emoji: '🌴', color: '#14b8a6' },
+    { id: 'world_reggae', label: 'World / Reggae', emoji: '🌴', color: '#14b8a6' },
     { id: 'ambient_chill', label: 'Ambient', emoji: '🌌', color: '#64748b' },
     { id: 'avant_garde', label: 'Avant-Garde', emoji: '🧪', color: '#a855f7' }
 ];
+
+const GROUP_TO_PARENT = {
+    'Rock': 'rock',
+    'Metal': 'metal',
+    'Electronic': 'electronic',
+    'Pop': 'pop',
+    'Hip-Hop': 'hip_hop',
+    'R&B / Soul': 'rnb_soul',
+    'Jazz': 'jazz',
+    'Blues': 'blues',
+    'Classical': 'classical',
+    'Folk': 'folk_acoustic',
+    'Country': 'country',
+    'World / Reggae': 'world_reggae',
+    'Ambient': 'ambient_chill',
+    'Avant-Garde': 'avant_garde'
+};
 
 /**
  * Maps any detailed subgenre to its high-level parent genre family
@@ -33,36 +51,25 @@ function getParentGenre(genreId) {
 
     // Check tasteGraph node group
     const node = GENRE_NODES[clean];
-    if (node?.group) {
-        const g = node.group.toLowerCase();
-        if (g.includes('rock')) return 'rock';
-        if (g.includes('metal')) return 'metal';
-        if (g.includes('jazz')) return 'jazz';
-        if (g.includes('blues')) return 'blues';
-        if (g.includes('classical') || g.includes('orchestr')) return 'classical';
-        if (g.includes('electronic') || g.includes('dance')) return 'electronic';
-        if (g.includes('hip-hop') || g.includes('rap')) return 'hip_hop';
-        if (g.includes('pop')) return 'pop';
-        if (g.includes('folk')) return 'folk_acoustic';
-        if (g.includes('country')) return 'country';
-        if (g.includes('reggae') || g.includes('world') || g.includes('latin')) return 'world_reggae';
-        if (g.includes('ambient') || g.includes('chill')) return 'ambient_chill';
-        if (g.includes('avant') || g.includes('experimental')) return 'avant_garde';
+    if (node?.group && GROUP_TO_PARENT[node.group]) {
+        return GROUP_TO_PARENT[node.group];
     }
 
     // Heuristics
     if (clean.includes('rock') || clean.includes('grunge') || clean.includes('punk') || clean.includes('shoegaze')) return 'rock';
     if (clean.includes('metal')) return 'metal';
+    if (clean.includes('electronic') || clean.includes('techno') || clean.includes('house') || clean.includes('trance') || clean.includes('synth') || clean.includes('idm')) return 'electronic';
+    if (clean.includes('pop')) return 'pop';
+    if (clean.includes('hip_hop') || clean.includes('rap') || clean.includes('drill') || clean.includes('boom_bap')) return 'hip_hop';
+    if (clean.includes('soul') || clean.includes('rnb') || clean.includes('funk') || clean.includes('motown')) return 'rnb_soul';
     if (clean.includes('jazz')) return 'jazz';
     if (clean.includes('blues')) return 'blues';
     if (clean.includes('classic') || clean.includes('opera') || clean.includes('baroque') || clean.includes('romantic') || clean.includes('chamber')) return 'classical';
-    if (clean.includes('techno') || clean.includes('house') || clean.includes('trance') || clean.includes('synth') || clean.includes('idm') || clean.includes('electro')) return 'electronic';
-    if (clean.includes('hip_hop') || clean.includes('rap') || clean.includes('drill') || clean.includes('boom_bap')) return 'hip_hop';
-    if (clean.includes('pop')) return 'pop';
     if (clean.includes('folk') || clean.includes('acoustic') || clean.includes('americana') || clean.includes('bluegrass')) return 'folk_acoustic';
     if (clean.includes('country')) return 'country';
-    if (clean.includes('reggae') || clean.includes('dub') || clean.includes('ska') || clean.includes('flamenco') || clean.includes('salsa')) return 'world_reggae';
-    if (clean.includes('ambient') || clean.includes('chill')) return 'ambient_chill';
+    if (clean.includes('reggae') || clean.includes('dub') || clean.includes('ska') || clean.includes('flamenco') || clean.includes('salsa') || clean.includes('latin')) return 'world_reggae';
+    if (clean.includes('ambient') || clean.includes('chill') || clean.includes('drone')) return 'ambient_chill';
+    if (clean.includes('avant') || clean.includes('experimental')) return 'avant_garde';
     return 'rock';
 }
 
@@ -73,41 +80,76 @@ function getInitials(name = '') {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+// In-memory cache across modal open/close cycles
+let cachedAllArtists = null;
+let fetchAllPromise = null;
+
+async function loadAllArtists() {
+    if (cachedAllArtists) return cachedAllArtists;
+    if (fetchAllPromise) return fetchAllPromise;
+
+    fetchAllPromise = (async () => {
+        const PAGE_SIZE = 1000;
+        const promises = [];
+        // 11 parallel chunks for ~10,850 rows in public.artists
+        for (let page = 0; page < 11; page++) {
+            promises.push(
+                supabase
+                    .from('artists')
+                    .select('id, name, primary_genre_id, track_count, avatar_url')
+                    .order('track_count', { ascending: false })
+                    .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+                    .then(res => res.data || [])
+            );
+        }
+        const chunks = await Promise.all(promises);
+        const all = chunks.flat().filter(Boolean);
+        cachedAllArtists = all;
+        fetchAllPromise = null;
+        return all;
+    })();
+
+    return fetchAllPromise;
+}
+
 export default function ArtistsExplorer({ onPlayTrack, onClose }) {
-    const [artists, setArtists] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [artists, setArtists] = useState(cachedAllArtists || []);
+    const [isLoading, setIsLoading] = useState(!cachedAllArtists);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedGenre, setSelectedGenre] = useState('all');
     const [selectedArtist, setSelectedArtist] = useState(null);
     const [artistTracks, setArtistTracks] = useState([]);
     const [isLoadingTracks, setIsLoadingTracks] = useState(false);
     const [avatarOverrides, setAvatarOverrides] = useState({});
+    const [visibleCount, setVisibleCount] = useState(60);
 
-    // 1. Fetch catalog artists
+    // 1. Fetch catalog artists (all in database)
     useEffect(() => {
         let isMounted = true;
-        async function fetchArtists() {
-            setIsLoading(true);
-            try {
-                const { data, error } = await supabase
-                    .from('artists')
-                    .select('id, name, primary_genre_id, track_count, avatar_url')
-                    .gt('track_count', 0)
-                    .order('track_count', { ascending: false })
-                    .limit(500);
-
-                if (!error && data && isMounted) {
-                    setArtists(data);
-                }
-            } catch (e) {
-                console.error('[ArtistsExplorer] Failed to fetch artists:', e);
-            } finally {
-                if (isMounted) setIsLoading(false);
-            }
+        if (cachedAllArtists) {
+            setArtists(cachedAllArtists);
+            setIsLoading(false);
+            return;
         }
-        fetchArtists();
+
+        setIsLoading(true);
+        loadAllArtists().then(all => {
+            if (isMounted) {
+                setArtists(all);
+                setIsLoading(false);
+            }
+        }).catch(e => {
+            console.error('[ArtistsExplorer] Failed to fetch all artists:', e);
+            if (isMounted) setIsLoading(false);
+        });
+
         return () => { isMounted = false; };
     }, []);
+
+    // Reset pagination when search or genre changes
+    useEffect(() => {
+        setVisibleCount(60);
+    }, [searchQuery, selectedGenre]);
 
     // 2. Fetch tracks for selected artist
     const handleSelectArtist = async (artist) => {
@@ -147,6 +189,18 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             return true;
         });
     }, [artists, selectedGenre, searchQuery]);
+
+    // Paginated slice for smooth 60fps rendering
+    const displayedArtists = useMemo(() => {
+        return filteredArtists.slice(0, visibleCount);
+    }, [filteredArtists, visibleCount]);
+
+    const handleGridScroll = (e) => {
+        const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+        if (scrollTop + clientHeight >= scrollHeight - 60) {
+            setVisibleCount(prev => Math.min(prev + 40, filteredArtists.length));
+        }
+    };
 
     // Dynamic on-demand avatar resolution for artists missing images
     const handleAvatarError = (artistName) => {
@@ -300,7 +354,9 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
 
             {/* Results Count */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem', fontSize: '0.76rem', color: '#94a3b8' }}>
-                <span>Showing <strong>{filteredArtists.length}</strong> artist(s)</span>
+                <span>
+                    Showing <strong>{displayedArtists.length}</strong> of <strong>{filteredArtists.length.toLocaleString()}</strong> artist(s)
+                </span>
                 {searchQuery && (
                     <span>Filtered by: &ldquo;{searchQuery}&rdquo;</span>
                 )}
@@ -310,7 +366,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             {isLoading ? (
                 <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                     <span className="spinner" style={{ display: 'inline-block', width: '1.75rem', height: '1.75rem', marginBottom: '0.5rem' }}></span>
-                    <div style={{ fontSize: '0.85rem' }}>Loading catalog artists...</div>
+                    <div style={{ fontSize: '0.85rem' }}>Loading all {artists.length ? artists.length.toLocaleString() : 'catalog'} artists...</div>
                 </div>
             ) : filteredArtists.length === 0 ? (
                 <div style={{
@@ -340,6 +396,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             ) : (
                 <div
                     className="artist-cards-grid"
+                    onScroll={handleGridScroll}
                     style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
@@ -349,7 +406,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                         paddingRight: '0.35rem'
                     }}
                 >
-                    {filteredArtists.map(artist => {
+                    {displayedArtists.map(artist => {
                         const parent = getParentGenre(artist.primary_genre_id);
                         const genreObj = PARENT_GENRES.find(p => p.id === parent) || PARENT_GENRES[1];
                         const hasAvatar = artist.avatar_url && avatarOverrides[artist.name] !== 'FALLBACK';
