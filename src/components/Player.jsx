@@ -93,8 +93,10 @@ function Player({ initialTrack, token }) {
         }
     };
 
-    const videoId = currentTrack?.id || currentTrack?.youtube_video_id;
-    const youtubeUrl = videoId && videoId.length === 11 ? `https://www.youtube.com/watch?v=${videoId}` : null;
+    const videoId = (currentTrack?.youtube_video_id && currentTrack.youtube_video_id.length === 11)
+        ? currentTrack.youtube_video_id
+        : (currentTrack?.id && currentTrack.id.length === 11 ? currentTrack.id : null);
+    const youtubeUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : null;
 
     const handleCopyLink = () => {
         if (!youtubeUrl) return;
@@ -162,11 +164,15 @@ function Player({ initialTrack, token }) {
             if (!isMounted || playerRef.current) return;
 
             console.log('[HardenedPlayer] Initializing persistent player on https://www.youtube.com...');
+            const initVid = (currentTrackRef.current?.youtube_video_id && currentTrackRef.current.youtube_video_id.length === 11)
+                ? currentTrackRef.current.youtube_video_id
+                : (currentTrackRef.current?.id && currentTrackRef.current.id.length === 11 ? currentTrackRef.current.id : '');
+
             playerRef.current = new YT.Player('musicmood-persistent-player', {
                 height: '240',
                 width: '240',
                 host: 'https://www.youtube.com', // Standard YouTube domain guarantees session audio stream negotiation
-                videoId: currentTrackRef.current?.id || '',
+                videoId: initVid,
                 playerVars: {
                     autoplay: 1,
                     controls: 0,
@@ -183,7 +189,7 @@ function Player({ initialTrack, token }) {
                             event.target.unMute();
                             event.target.setVolume(100);
                         } catch (e) {}
-                        if (currentTrackRef.current?.id) {
+                        if (currentTrackRef.current) {
                             playTrackImmediately(currentTrackRef.current);
                         }
                     },
@@ -302,7 +308,16 @@ function Player({ initialTrack, token }) {
     }, [initialTrack]);
 
     const playTrackImmediately = (track) => {
-        if (!track || !track.id) return;
+        if (!track) return;
+        const targetVideoId = (track.youtube_video_id && track.youtube_video_id.length === 11)
+            ? track.youtube_video_id
+            : (track.id && track.id.length === 11 ? track.id : null);
+
+        if (!targetVideoId) {
+            console.warn('[HardenedPlayer] Cannot play track - missing 11-char YouTube video ID:', track);
+            return;
+        }
+
         clearWatchdog();
         setCurrentTrack(track);
         setErrorMessage(null);
@@ -313,7 +328,7 @@ function Player({ initialTrack, token }) {
         setIsSeeking(false);
 
         if (playerRef.current && isPlayerReadyRef.current && typeof playerRef.current.loadVideoById === 'function') {
-            console.log(`[HardenedPlayer] Loading video ID via persistent player: ${track.id} (${track.title})`);
+            console.log(`[HardenedPlayer] Loading video ID via persistent player: ${targetVideoId} (${track.title})`);
             try {
                 if (typeof playerRef.current.unMute === 'function') playerRef.current.unMute();
                 if (typeof playerRef.current.setVolume === 'function') playerRef.current.setVolume(100);
@@ -322,7 +337,7 @@ function Player({ initialTrack, token }) {
             }
 
             playerRef.current.loadVideoById({
-                videoId: track.id,
+                videoId: targetVideoId,
                 startSeconds: 0
             });
             playerRef.current.playVideo();
@@ -340,31 +355,22 @@ function Player({ initialTrack, token }) {
                 } catch (e) {}
 
                 if (!isAudioMoving) {
-                    // If player is still actively buffering (State 3), grant extra grace time rather than prematurely purging
-                    try {
-                        const finalState = playerRef.current?.getPlayerState?.();
-                        if (finalState === 3) {
-                            console.log(`[Watchdog] Track ${track.id} (${track.title}) is actively buffering. Granting extra grace time...`);
-                            return;
-                        }
-                    } catch (e) {}
-
-                    console.warn(`[Watchdog ⏱️] Track ${track.id} (${track.title}) stalled or silent after 14s. Auto-recovering...`);
+                    console.warn(`[Watchdog ⏱️] Track ${targetVideoId} (${track.title}) stalled or silent after 14s. Auto-recovering...`);
                     // Purge stalled/dead video from catalog so it never plays again
                     try {
                         if (track.dbId) {
                             await supabase.from('tracks').delete().eq('id', track.dbId);
-                        } else if (track.id) {
-                            await supabase.from('tracks').delete().eq('youtube_video_id', track.id);
+                        } else if (targetVideoId) {
+                            await supabase.from('tracks').delete().eq('youtube_video_id', targetVideoId);
                         }
                     } catch (e) {
                         console.warn('[Watchdog] Purge warning:', e);
                     }
 
                     // Blacklist in recent session tracks
-                    if (track.id) {
-                        sessionEngine.state.recentTracks.push(track.id);
-                        sessionEngine.queue = (sessionEngine.queue || []).filter(t => t.id !== track.id && t.youtube_video_id !== track.id);
+                    if (targetVideoId) {
+                        sessionEngine.state.recentTracks.push(targetVideoId);
+                        sessionEngine.queue = (sessionEngine.queue || []).filter(t => t.id !== targetVideoId && t.youtube_video_id !== targetVideoId);
                     }
 
                     setErrorMessage(`Silent or stalled stream on "${track.title}". Auto-advancing...`);

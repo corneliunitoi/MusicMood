@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../services/supabaseService';
 import { GENRE_NODES } from '../services/tasteGraph';
+import { sessionEngine } from '../services/sessionStateMachine';
 
 // 14 High-Level Parent Genre Families (Zero subgenre clutter)
 const PARENT_GENRES = [
@@ -78,6 +79,30 @@ function getInitials(name = '') {
     if (parts.length === 0) return '🎵';
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/**
+ * Normalizes raw database track row to canonical player model
+ * Ensures id is always the 11-char YouTube video ID
+ */
+function formatPlayableTrack(t) {
+    if (!t) return null;
+    const ytId = (t.youtube_video_id && t.youtube_video_id.length === 11)
+        ? t.youtube_video_id
+        : (t.id && t.id.length === 11 ? t.id : null);
+
+    return {
+        id: ytId,
+        youtube_video_id: ytId,
+        dbId: t.id && t.id.length !== 11 ? t.id : (t.dbId || null),
+        title: t.title,
+        artist: t.artist,
+        genre: t.primary_genre_id || t.genre || 'rock',
+        thumbnail: ytId ? `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg` : null,
+        source: 'artist_catalog',
+        is_instrumental: t.is_instrumental,
+        energy: t.energy
+    };
 }
 
 // In-memory cache across modal open/close cycles
@@ -173,6 +198,34 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
         } finally {
             setIsLoadingTracks(false);
         }
+    };
+
+    const handlePlaySong = (rawTrack) => {
+        const playable = formatPlayableTrack(rawTrack);
+        if (!playable || !playable.id) return;
+        if (onPlayTrack) {
+            onPlayTrack(playable);
+        }
+        setSelectedArtist(null);
+    };
+
+    const handlePlayArtistRadio = () => {
+        if (artistTracks.length === 0 || !onPlayTrack) return;
+        const playables = artistTracks.map(formatPlayableTrack).filter(t => t && t.id);
+        if (playables.length === 0) return;
+
+        const first = playables[0];
+        const rest = playables.slice(1);
+
+        if (rest.length > 0) {
+            sessionEngine.queue = rest;
+        }
+        if (first.genre) {
+            sessionEngine.state.activeGenre = first.genre;
+        }
+
+        onPlayTrack(first);
+        setSelectedArtist(null);
     };
 
     // Filtered Artists
@@ -631,10 +684,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
 
                                             {onPlayTrack && (
                                                 <button
-                                                    onClick={() => {
-                                                        onPlayTrack(t);
-                                                        setSelectedArtist(null);
-                                                    }}
+                                                    onClick={() => handlePlaySong(t)}
                                                     style={{
                                                         background: 'rgba(99, 102, 241, 0.2)',
                                                         border: '1px solid #6366f1',
@@ -669,10 +719,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                 background: 'rgba(30, 41, 59, 0.3)'
                             }}>
                                 <button
-                                    onClick={() => {
-                                        onPlayTrack(artistTracks[0]);
-                                        setSelectedArtist(null);
-                                    }}
+                                    onClick={handlePlayArtistRadio}
                                     style={{
                                         background: '#6366f1',
                                         color: '#ffffff',
