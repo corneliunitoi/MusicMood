@@ -160,21 +160,41 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             background: 'rgba(15, 23, 42, 0.75)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             borderRadius: '16px',
-            padding: '1.5rem',
-            margin: '1.5rem auto',
+            padding: '0.85rem 1.25rem',
+            margin: '0.75rem auto 1.25rem auto',
             maxWidth: '1100px',
             backdropFilter: 'blur(16px)',
             boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.5)'
         }}>
+            <style>{`
+                .artist-genre-pills-row::-webkit-scrollbar {
+                    display: none;
+                }
+                .artist-cards-grid::-webkit-scrollbar {
+                    width: 6px;
+                }
+                .artist-cards-grid::-webkit-scrollbar-track {
+                    background: rgba(15, 23, 42, 0.4);
+                    border-radius: 9999px;
+                }
+                .artist-cards-grid::-webkit-scrollbar-thumb {
+                    background: rgba(255, 255, 255, 0.2);
+                    border-radius: 9999px;
+                }
+                .artist-cards-grid::-webkit-scrollbar-thumb:hover {
+                    background: rgba(255, 255, 255, 0.35);
+                }
+            `}</style>
+
             {/* Header with Search and Close */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
-                <div>
-                    <h2 style={{ margin: 0, fontSize: '1.45rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f8fafc' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.55rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#f8fafc' }}>
                         <span>👤</span> Catalog Artists
                     </h2>
-                    <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: '#94a3b8' }}>
-                        Browse {artists.length.toLocaleString()} verified artists across your library split by parent genre.
-                    </p>
+                    <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                        ({artists.length.toLocaleString()} verified artists)
+                    </span>
                 </div>
 
                 {onClose && (
@@ -183,10 +203,10 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                         style={{
                             background: 'rgba(255, 255, 255, 0.08)',
                             border: '1px solid rgba(255, 255, 255, 0.15)',
-                            borderRadius: '8px',
+                            borderRadius: '6px',
                             color: '#cbd5e1',
-                            padding: '0.4rem 0.8rem',
-                            fontSize: '0.85rem',
+                            padding: '0.25rem 0.65rem',
+                            fontSize: '0.78rem',
                             cursor: 'pointer',
                             transition: 'all 0.2s'
                         }}
@@ -197,8 +217,8 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             </div>
 
             {/* Instant Search Bar */}
-            <div style={{ position: 'relative', marginBottom: '1.25rem' }}>
-                <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.6, fontSize: '1.05rem' }}>🔍</span>
+            <div style={{ position: 'relative', marginBottom: '0.55rem' }}>
+                <span style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.6, fontSize: '0.9rem' }}>🔍</span>
                 <input
                     type="text"
                     value={searchQuery}
@@ -206,12 +226,12 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                     placeholder="Search artist name (e.g., Pink Floyd, Miles Davis, Chopin, Tipper)..."
                     style={{
                         width: '100%',
-                        padding: '0.75rem 1rem 0.75rem 2.8rem',
+                        padding: '0.45rem 1rem 0.45rem 2.4rem',
                         background: 'rgba(30, 41, 59, 0.7)',
                         border: '1px solid rgba(255, 255, 255, 0.15)',
-                        borderRadius: '12px',
+                        borderRadius: '8px',
                         color: '#f8fafc',
-                        fontSize: '0.95rem',
+                        fontSize: '0.88rem',
                         outline: 'none',
                         boxSizing: 'border-box'
                     }}
@@ -221,13 +241,13 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                         onClick={() => setSearchQuery('')}
                         style={{
                             position: 'absolute',
-                            right: '0.75rem',
+                            right: '0.65rem',
                             top: '50%',
                             transform: 'translateY(-50%)',
                             background: 'none',
                             border: 'none',
                             color: '#94a3b8',
-                            fontSize: '1rem',
+                            fontSize: '0.85rem',
                             cursor: 'pointer'
                         }}
                     >
@@ -237,14 +257,18 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             </div>
 
             {/* Parent Genre Filter Pills (Zero Subgenre Clutter) */}
-            <div style={{
-                display: 'flex',
-                gap: '0.5rem',
-                overflowX: 'auto',
-                paddingBottom: '0.5rem',
-                marginBottom: '1.5rem',
-                scrollbarWidth: 'thin'
-            }}>
+            <div
+                className="artist-genre-pills-row"
+                style={{
+                    display: 'flex',
+                    gap: '0.4rem',
+                    overflowX: 'auto',
+                    paddingBottom: '0.3rem',
+                    marginBottom: '0.55rem',
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none'
+                }}
+            >
                 {PARENT_GENRES.map(genre => {
                     const isActive = selectedGenre === genre.id;
                     return (
@@ -256,14 +280,14 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                 color: isActive ? '#ffffff' : '#cbd5e1',
                                 border: isActive ? `1px solid ${genre.color}` : '1px solid rgba(255, 255, 255, 0.1)',
                                 borderRadius: '9999px',
-                                padding: '0.35rem 0.85rem',
-                                fontSize: '0.82rem',
+                                padding: '0.22rem 0.65rem',
+                                fontSize: '0.78rem',
                                 fontWeight: isActive ? '700' : '500',
                                 whiteSpace: 'nowrap',
                                 cursor: 'pointer',
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '0.4rem',
+                                gap: '0.3rem',
                                 transition: 'all 0.15s'
                             }}
                         >
@@ -275,7 +299,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             </div>
 
             {/* Results Count */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', fontSize: '0.82rem', color: '#94a3b8' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem', fontSize: '0.76rem', color: '#94a3b8' }}>
                 <span>Showing <strong>{filteredArtists.length}</strong> artist(s)</span>
                 {searchQuery && (
                     <span>Filtered by: &ldquo;{searchQuery}&rdquo;</span>
@@ -284,21 +308,21 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
 
             {/* Artists Cards Grid */}
             {isLoading ? (
-                <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
-                    <span className="spinner" style={{ display: 'inline-block', width: '2rem', height: '2rem', marginBottom: '0.75rem' }}></span>
-                    <div>Loading catalog artists...</div>
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+                    <span className="spinner" style={{ display: 'inline-block', width: '1.75rem', height: '1.75rem', marginBottom: '0.5rem' }}></span>
+                    <div style={{ fontSize: '0.85rem' }}>Loading catalog artists...</div>
                 </div>
             ) : filteredArtists.length === 0 ? (
                 <div style={{
                     textAlign: 'center',
-                    padding: '3rem 1.5rem',
+                    padding: '2rem 1rem',
                     background: 'rgba(30, 41, 59, 0.35)',
                     borderRadius: '12px',
                     border: '1px dashed rgba(255, 255, 255, 0.15)'
                 }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔍</div>
-                    <h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc' }}>No matching artists found</h3>
-                    <p style={{ margin: '0 auto 1.25rem auto', maxWidth: '420px', color: '#94a3b8', fontSize: '0.85rem' }}>
+                    <div style={{ fontSize: '1.75rem', marginBottom: '0.35rem' }}>🔍</div>
+                    <h3 style={{ margin: '0 0 0.35rem 0', color: '#f8fafc', fontSize: '1rem' }}>No matching artists found</h3>
+                    <p style={{ margin: '0 auto 0.75rem auto', maxWidth: '420px', color: '#94a3b8', fontSize: '0.8rem' }}>
                         We couldn&apos;t find &ldquo;{searchQuery}&rdquo; in your currently indexed local/cloud library.
                     </p>
                     <div style={{
@@ -306,22 +330,25 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                         background: 'rgba(99, 102, 241, 0.15)',
                         border: '1px solid rgba(99, 102, 241, 0.35)',
                         borderRadius: '8px',
-                        padding: '0.5rem 1rem',
-                        fontSize: '0.8rem',
+                        padding: '0.4rem 0.85rem',
+                        fontSize: '0.76rem',
                         color: '#c7d2fe'
                     }}>
                         💡 Requesting new artists & auto-fetching missing songs is coming in a future update!
                     </div>
                 </div>
             ) : (
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
-                    gap: '1rem',
-                    maxHeight: '620px',
-                    overflowY: 'auto',
-                    paddingRight: '0.25rem'
-                }}>
+                <div
+                    className="artist-cards-grid"
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                        gap: '0.65rem',
+                        maxHeight: '286px',
+                        overflowY: 'auto',
+                        paddingRight: '0.35rem'
+                    }}
+                >
                     {filteredArtists.map(artist => {
                         const parent = getParentGenre(artist.primary_genre_id);
                         const genreObj = PARENT_GENRES.find(p => p.id === parent) || PARENT_GENRES[1];
@@ -334,15 +361,16 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                 style={{
                                     background: 'rgba(30, 41, 59, 0.6)',
                                     border: '1px solid rgba(255, 255, 255, 0.08)',
-                                    borderRadius: '12px',
-                                    padding: '1rem',
+                                    borderRadius: '10px',
+                                    padding: '0.65rem 0.5rem',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     alignItems: 'center',
                                     textAlign: 'center',
                                     cursor: 'pointer',
                                     transition: 'transform 0.15s, background 0.15s, border-color 0.15s',
-                                    position: 'relative'
+                                    position: 'relative',
+                                    boxSizing: 'border-box'
                                 }}
                                 onMouseEnter={(e) => {
                                     e.currentTarget.style.transform = 'translateY(-2px)';
@@ -357,13 +385,13 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                             >
                                 {/* Profile Picture / Avatar */}
                                 <div style={{
-                                    width: '74px',
-                                    height: '74px',
+                                    width: '48px',
+                                    height: '48px',
                                     borderRadius: '50%',
                                     overflow: 'hidden',
-                                    marginBottom: '0.75rem',
+                                    marginBottom: '0.45rem',
                                     border: `2px solid ${genreObj.color}`,
-                                    boxShadow: `0 0 12px ${genreObj.color}33`,
+                                    boxShadow: `0 0 10px ${genreObj.color}33`,
                                     background: `linear-gradient(135deg, ${genreObj.color}44, #0f172a)`,
                                     display: 'flex',
                                     alignItems: 'center',
@@ -378,7 +406,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                         />
                                     ) : (
-                                        <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#f8fafc', letterSpacing: '0.5px' }}>
+                                        <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#f8fafc', letterSpacing: '0.5px' }}>
                                             {getInitials(artist.name)}
                                         </span>
                                     )}
@@ -386,8 +414,9 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
 
                                 {/* Artist Name */}
                                 <h4 style={{
-                                    margin: '0 0 0.35rem 0',
-                                    fontSize: '0.92rem',
+                                    margin: '0 0 0.25rem 0',
+                                    fontSize: '0.84rem',
+                                    fontWeight: '600',
                                     color: '#f8fafc',
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
@@ -401,23 +430,23 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                 <div style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
-                                    gap: '0.3rem',
+                                    gap: '0.25rem',
                                     background: `${genreObj.color}22`,
                                     color: genreObj.color,
                                     border: `1px solid ${genreObj.color}44`,
                                     borderRadius: '9999px',
-                                    padding: '0.15rem 0.55rem',
-                                    fontSize: '0.72rem',
+                                    padding: '0.1rem 0.45rem',
+                                    fontSize: '0.68rem',
                                     fontWeight: '600',
-                                    marginBottom: '0.5rem'
+                                    marginBottom: '0.25rem'
                                 }}>
                                     <span>{genreObj.emoji}</span>
                                     <span>{genreObj.label}</span>
                                 </div>
 
                                 {/* Track Count */}
-                                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                                    {artist.track_count} tracks in catalog
+                                <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                    {artist.track_count} tracks
                                 </span>
                             </div>
                         );
