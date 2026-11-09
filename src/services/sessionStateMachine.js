@@ -1029,12 +1029,12 @@ class SessionStateMachine {
             candidateGenreIds.push(...neighbors);
             const candList = candidateGenreIds.join(',');
 
-            // 1. Try candidate genres with randomized offset
+            // 1. Try candidate genres with randomized offset (strict primary genre match)
             const randOffset = Math.floor(Math.random() * 60);
             let { data } = await supabase
                 .from('tracks')
                 .select('*')
-                .or(`primary_genre_id.in.(${candList}),secondary_genre_ids.ov.{${candList}}`)
+                .in('primary_genre_id', candidateGenreIds)
                 .not('youtube_video_id', 'is', null)
                 .neq('youtube_video_id', 'CORRUPT_TAGS')
                 .range(randOffset, randOffset + 50);
@@ -1044,7 +1044,7 @@ class SessionStateMachine {
                 const res = await supabase
                     .from('tracks')
                     .select('*')
-                    .or(`primary_genre_id.in.(${candList}),secondary_genre_ids.ov.{${candList}}`)
+                    .in('primary_genre_id', candidateGenreIds)
                     .not('youtube_video_id', 'is', null)
                     .neq('youtube_video_id', 'CORRUPT_TAGS')
                     .limit(50);
@@ -1215,12 +1215,12 @@ class SessionStateMachine {
                 });
             };
 
-            // Tier 1: Exact active subgenre in tracks table (with randomized offset sampling)
+            // Tier 1: Exact active subgenre in tracks table (STRICT primary genre match)
             const randOffset1 = Math.floor(Math.random() * 100);
             let { data: exactMapped } = await supabase
                 .from('tracks')
                 .select('*')
-                .or(`primary_genre_id.eq.${activeGenreId},secondary_genre_ids.cs.{${activeGenreId}}`)
+                .eq('primary_genre_id', activeGenreId)
                 .not('youtube_video_id', 'is', null)
                 .neq('youtube_video_id', 'CORRUPT_TAGS')
                 .range(randOffset1, randOffset1 + 50);
@@ -1229,7 +1229,7 @@ class SessionStateMachine {
                 const res = await supabase
                     .from('tracks')
                     .select('*')
-                    .or(`primary_genre_id.eq.${activeGenreId},secondary_genre_ids.cs.{${activeGenreId}}`)
+                    .eq('primary_genre_id', activeGenreId)
                     .not('youtube_video_id', 'is', null)
                     .neq('youtube_video_id', 'CORRUPT_TAGS')
                     .limit(50);
@@ -1242,7 +1242,7 @@ class SessionStateMachine {
                 available = filterCandidates(exactMapped, true);
             }
 
-            // Tier 2: Parent family
+            // Tier 2: Parent family (Strict primary genre)
             if (available.length === 0 && node?.group) {
                 const groupLower = node.group.toLowerCase();
                 const parentId = Object.keys(GENRE_FAMILIES).find(k => {
@@ -1255,7 +1255,7 @@ class SessionStateMachine {
                     let { data: familyMapped } = await supabase
                         .from('tracks')
                         .select('*')
-                        .or(`primary_genre_id.eq.${parentId},secondary_genre_ids.cs.{${parentId}}`)
+                        .eq('primary_genre_id', parentId)
                         .not('youtube_video_id', 'is', null)
                         .neq('youtube_video_id', 'CORRUPT_TAGS')
                         .range(randOffset2, randOffset2 + 50);
@@ -1264,7 +1264,7 @@ class SessionStateMachine {
                         const res = await supabase
                             .from('tracks')
                             .select('*')
-                            .or(`primary_genre_id.eq.${parentId},secondary_genre_ids.cs.{${parentId}}`)
+                            .eq('primary_genre_id', parentId)
                             .not('youtube_video_id', 'is', null)
                             .neq('youtube_video_id', 'CORRUPT_TAGS')
                             .limit(50);
@@ -1279,16 +1279,15 @@ class SessionStateMachine {
                 }
             }
 
-            // Tier 3: Harmonic neighbors
+            // Tier 3: Harmonic neighbors (Strict primary genre)
             if (available.length === 0) {
                 const neighbors = getConnectedGenres(activeGenreId).filter(g => g !== activeGenreId);
                 if (neighbors.length > 0) {
-                    const neighborList = neighbors.join(',');
                     const randOffset3 = Math.floor(Math.random() * 80);
                     let { data: neighborMapped } = await supabase
                         .from('tracks')
                         .select('*')
-                        .or(`primary_genre_id.in.(${neighborList}),secondary_genre_ids.ov.{${neighborList}}`)
+                        .in('primary_genre_id', neighbors)
                         .not('youtube_video_id', 'is', null)
                         .neq('youtube_video_id', 'CORRUPT_TAGS')
                         .range(randOffset3, randOffset3 + 50);
@@ -1297,7 +1296,7 @@ class SessionStateMachine {
                         const res = await supabase
                             .from('tracks')
                             .select('*')
-                            .or(`primary_genre_id.in.(${neighborList}),secondary_genre_ids.ov.{${neighborList}}`)
+                            .in('primary_genre_id', neighbors)
                             .not('youtube_video_id', 'is', null)
                             .neq('youtube_video_id', 'CORRUPT_TAGS')
                             .limit(50);
@@ -1309,6 +1308,22 @@ class SessionStateMachine {
                     if (available.length === 0 && neighborMapped && neighborMapped.length > 0) {
                         available = filterCandidates(neighborMapped, true);
                     }
+                }
+            }
+
+            // Tier 4: Emergency fallback to secondary genres (ONLY if no primary tracks exist in catalog)
+            if (available.length === 0) {
+                let { data: secondaryMapped } = await supabase
+                    .from('tracks')
+                    .select('*')
+                    .contains('secondary_genre_ids', [activeGenreId])
+                    .not('youtube_video_id', 'is', null)
+                    .neq('youtube_video_id', 'CORRUPT_TAGS')
+                    .limit(30);
+
+                if (secondaryMapped && secondaryMapped.length > 0) {
+                    secondaryMapped = shuffleArray(secondaryMapped);
+                    available = filterCandidates(secondaryMapped, true);
                 }
             }
 
