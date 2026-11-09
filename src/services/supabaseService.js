@@ -203,6 +203,49 @@ export async function submitUserFeedback({ name, comment, userId }) {
 }
 
 /**
+ * Flags a track for genre misclassification in public.track_genre_flags
+ */
+export async function flagTrackMisclassification({ track, userId, notes, suggestedGenreId }) {
+    if (!track) throw new Error("A valid track is required to flag misclassification.");
+    
+    let trackId = track.dbId;
+    if (!trackId && track.id) {
+        // Query tracks table by youtube_video_id
+        const { data } = await supabase
+            .from('tracks')
+            .select('id')
+            .eq('youtube_video_id', track.id)
+            .maybeSingle();
+        if (data?.id) {
+            trackId = data.id;
+        }
+    }
+    if (!trackId) {
+        throw new Error("Cannot find catalog track ID in database to flag.");
+    }
+
+    const targetUserId = userId || getResolvedUserId();
+    const currentGenreId = track.genre || track.primary_genre_id || null;
+
+    const { data, error } = await supabase
+        .from('track_genre_flags')
+        .upsert({
+            track_id: trackId,
+            user_id: targetUserId,
+            current_genre_id: currentGenreId,
+            suggested_genre_id: suggestedGenreId || null,
+            notes: notes ? notes.trim() : null,
+            status: 'pending'
+        }, { onConflict: 'track_id,user_id' });
+
+    if (error) {
+        console.error('[TrackFlag] Error submitting misclassification flag:', error);
+        throw error;
+    }
+    return data;
+}
+
+/**
  * Upvotes a track and artist, bumping their popularity and affinity in the database.
  */
 export async function upvoteTrack({ videoId, artist, delta = 1 }) {

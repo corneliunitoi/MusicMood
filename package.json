@@ -1,7 +1,7 @@
 {
   "name": "musicmood",
   "private": true,
-  "version": "0.7.5",
+  "version": "0.7.6",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -28,7 +28,9 @@
     "inflate:artists:dry": "node scripts/inflateArtists.js --dry-run",
     "extract-release-notes": "node scripts/extract-release-notes.js",
     "tag-release": "node scripts/tagWithReleaseNotes.js",
-    "backfill-tags": "node scripts/backfillAllTags.js"
+    "backfill-tags": "node scripts/backfillAllTags.js",
+    "resolve:flags": "node scripts/resolveFlaggedTracks.js",
+    "resolve:flags:apply": "node scripts/resolveFlaggedTracks.js --apply"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",

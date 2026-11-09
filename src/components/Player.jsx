@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase, upvoteTrack } from '../services/supabaseService';
+import { supabase, upvoteTrack, flagTrackMisclassification } from '../services/supabaseService';
 import { sessionEngine } from '../services/sessionStateMachine';
 import { GENRE_NODES } from '../services/tasteGraph';
 import { jitEngine } from '../services/jitEngine';
@@ -56,6 +56,7 @@ function Player({ initialTrack, token }) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [isBuffering, setIsBuffering] = useState(false);
     const [isSteering, setIsSteering] = useState(false);
+    const [isFlagging, setIsFlagging] = useState(false);
     const [errorMessage, setErrorMessage] = useState(null);
     const [sessionState, setSessionState] = useState(() => sessionEngine.getState());
     const [copiedLink, setCopiedLink] = useState(false);
@@ -518,6 +519,24 @@ function Player({ initialTrack, token }) {
         await loadNextTrack(true);
     };
 
+    const handleFlagMisclassification = async () => {
+        if (!currentTrackRef.current || isFlagging) return;
+        setIsFlagging(true);
+        const flagged = currentTrackRef.current;
+        try {
+            await flagTrackMisclassification({ track: flagged });
+            setErrorMessage(`🏷️ Flagged "${flagged.title}" for genre review. Skipping...`);
+            setTimeout(() => setErrorMessage(null), 3500);
+            await loadNextTrack(false);
+        } catch (err) {
+            console.warn('[Player] Flag misclassification error:', err);
+            setErrorMessage("⚠️ Could not flag track for review. Please try again.");
+            setTimeout(() => setErrorMessage(null), 3000);
+        } finally {
+            setIsFlagging(false);
+        }
+    };
+
     const activeNode = GENRE_NODES[sessionState.activeGenre];
 
     return (
@@ -737,6 +756,26 @@ function Player({ initialTrack, token }) {
                                 }}
                             >
                                 👎
+                            </button>
+
+                            <button
+                                className="control-btn"
+                                onClick={handleFlagMisclassification}
+                                disabled={!currentTrack || isFlagging || isSteering}
+                                title="Report Misclassified Genre (Flags track for review & skips without downvoting)"
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.05)',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    width: '32px',
+                                    height: '32px',
+                                    padding: '0.2rem',
+                                    borderRadius: '8px',
+                                    cursor: currentTrack ? 'pointer' : 'default',
+                                    opacity: isFlagging ? 0.5 : 1,
+                                    fontSize: '0.9rem'
+                                }}
+                            >
+                                🏷️
                             </button>
                         </div>
                     </div>

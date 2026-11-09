@@ -342,7 +342,7 @@ class SessionStateMachine {
             villain_mode: 0.85,
             dark_intense: 0.90
         };
-        const targetEnergy = moodObj?.defaultEnergy ?? (MOOD_TARGET_ENERGY[moodId] ?? 0.5);
+        const targetEnergy = this.state.energyLevel ?? moodObj?.defaultEnergy ?? (MOOD_TARGET_ENERGY[moodId] ?? 0.5);
 
         // Score each compatible candidate genre
         const scoredCandidates = validCandidates.map(genreId => {
@@ -361,21 +361,29 @@ class SessionStateMachine {
             const isAnchor = (this.calibration.anchors || []).includes(genreId);
             const anchorBonus = isAnchor ? 1.4 : 1.0;
 
-            // 4. Energy Delta Alignment (higher score for closer energy fit to mood)
+            // 4. Energy Delta Alignment (higher score for closer energy fit to mood/slider)
             const genreEnergy = node.energy ?? 0.5;
             const energyDelta = Math.abs(genreEnergy - targetEnergy);
-            const energyFit = Math.max(0.6, 1.0 - (energyDelta * 0.45));
+            const energyFit = Math.max(0.3, 1.0 - (energyDelta * 0.8));
 
-            // 5. Anti-Fatigue Dampener
+            // 5. Vocal Alignment
+            let vocalFit = 1.0;
+            if (this.state.vocalPreference === 'instrumental') {
+                vocalFit = (node.vocal === 'instrumental' || node.is_instrumental_default) ? 1.6 : (node.vocal === 'vocal' ? 0.35 : 1.0);
+            } else if (this.state.vocalPreference === 'vocal') {
+                vocalFit = (node.vocal === 'instrumental' || node.is_instrumental_default) ? 0.25 : (node.vocal === 'vocal' ? 1.5 : 1.0);
+            }
+
+            // 6. Anti-Fatigue Dampener
             const fatigue = this.nodeFatigue[genreId] || 0.0;
             const fatigueMultiplier = Math.max(0.15, 1.0 - (fatigue * 0.85));
 
-            // 6. User Feedback Affinity (liked genres get a boost)
+            // 7. User Feedback Affinity (liked genres get a boost)
             const isLikedGenre = this.state.likedTracks.some(tid => tid.genre === genreId);
             const feedbackBonus = isLikedGenre ? 1.25 : 1.0;
 
             // Composite Score with radar affinity as a natural bias (linear 1.0 exponent rather than aggressive winner-take-all)
-            const score = poleAffinity * nodeWeight * anchorBonus * energyFit * fatigueMultiplier * feedbackBonus;
+            const score = poleAffinity * nodeWeight * anchorBonus * energyFit * vocalFit * fatigueMultiplier * feedbackBonus;
 
             return {
                 genreId,
@@ -453,6 +461,11 @@ class SessionStateMachine {
         console.log(`[StateMachine] Transitioning Mood -> ${moodObj.label}`);
         this.state.currentMood = moodId;
 
+        // Sync slider energy to mood default energy
+        if (moodObj.defaultEnergy != null) {
+            this.state.energyLevel = moodObj.defaultEnergy;
+        }
+
         if (moodId === 'focus' || moodId === 'study' || moodId === 'sleep') {
             this.state.vocalPreference = 'instrumental';
         } else {
@@ -509,13 +522,21 @@ class SessionStateMachine {
 
     setEnergy(energyFloat) {
         this.state.energyLevel = Math.max(0.0, Math.min(1.0, energyFloat));
+        this.queue = [];
         this.notify();
+        if (this._energyDebounce) clearTimeout(this._energyDebounce);
+        this._energyDebounce = setTimeout(() => {
+            jitEngine.replenishBuffer(this.state.activeGenre, this);
+        }, 200);
     }
 
     setVocalPreference(vocalPref) {
         this.state.vocalPreference = vocalPref;
         this.queue = [];
         this.notify();
+        setTimeout(() => {
+            jitEngine.replenishBuffer(this.state.activeGenre, this);
+        }, 150);
     }
 
     setDiscoveryLevel(discoveryFloat) {
@@ -701,7 +722,24 @@ class SessionStateMachine {
             }
 
             const weight = this.calibration.weights?.[g] || (poleVal * 0.4);
-            const score = poleVal * weight * Math.max(0.1, 1.0 - fatigue * 0.9) * distanceAffinity;
+
+            // Energy delta alignment to user's active energy slider
+            const targetEnergy = this.state.energyLevel ?? 0.5;
+            const genreEnergy = GENRE_NODES[g]?.energy ?? 0.5;
+            const energyDelta = Math.abs(genreEnergy - targetEnergy);
+            const energyFit = Math.max(0.3, 1.0 - (energyDelta * 0.8));
+
+            // Vocal preference alignment
+            let vocalFit = 1.0;
+            const genreNode = GENRE_NODES[g];
+            const isInstGenre = genreNode?.vocal === 'instrumental' || genreNode?.is_instrumental_default;
+            if (this.state.vocalPreference === 'instrumental') {
+                vocalFit = isInstGenre ? 1.5 : (genreNode?.vocal === 'vocal' ? 0.35 : 1.0);
+            } else if (this.state.vocalPreference === 'vocal') {
+                vocalFit = isInstGenre ? 0.25 : (genreNode?.vocal === 'vocal' ? 1.4 : 1.0);
+            }
+
+            const score = poleVal * weight * Math.max(0.1, 1.0 - fatigue * 0.9) * distanceAffinity * energyFit * vocalFit;
 
             return {
                 id: g,
@@ -888,11 +926,33 @@ class SessionStateMachine {
         }
 
         // Guard 3: Vocal Preference Guard
+        const genreId = track.genre || track.primary_genre_id;
+        const genreNode = genreId ? GENRE_NODES[genreId] : null;
+        const isInstrumentalGenre = genreNode?.vocal === 'instrumental' || genreNode?.is_instrumental_default === true;
+
         if (this.state.vocalPreference === 'instrumental') {
             const vocalKeywords = ['vocal', 'vocals', 'lyrics', 'feat.', 'ft.', 'singing', 'official music video'];
             const hasVocalTag = vocalKeywords.some(kw => title.includes(kw));
             if (hasVocalTag && !title.includes('instrumental')) {
                 console.log(`[Guard ❌] Vocal Guard: "${title}" likely contains vocals in Instrumental mode.`);
+                return false;
+            }
+            if (track.is_instrumental === false && genreNode?.vocal === 'vocal' && !title.includes('instrumental')) {
+                console.log(`[Guard ❌] Vocal Guard: "${title}" is tagged non-instrumental in vocal genre (${genreId}).`);
+                return false;
+            }
+        } else if (this.state.vocalPreference === 'vocal') {
+            const instKeywords = ['instrumental', 'karaoke', 'backing track', 'without vocals', 'no vocals'];
+            if (instKeywords.some(kw => title.includes(kw))) {
+                console.log(`[Guard ❌] Vocal Guard: "${title}" contains instrumental keywords in Vocal mode.`);
+                return false;
+            }
+            if (track.is_instrumental === true) {
+                console.log(`[Guard ❌] Vocal Guard: "${title}" is flagged as strictly instrumental.`);
+                return false;
+            }
+            if (isInstrumentalGenre && !title.includes('vocal')) {
+                console.log(`[Guard ❌] Vocal Guard: Genre "${genreId}" is purely instrumental.`);
                 return false;
             }
         }
@@ -1008,7 +1068,7 @@ class SessionStateMachine {
             // SHUFFLE data array so initial selection is never biased to row 0
             data = shuffleArray(data);
 
-            // Pass A: Find all candidates that pass ALL strict guards and pick randomly
+            // Pass A: Find all candidates that pass ALL strict guards and pick with energy weighting
             const validPassA = [];
             for (const t of data) {
                 if (t.youtube_video_id && t.youtube_video_id.length === 11) {
@@ -1019,7 +1079,9 @@ class SessionStateMachine {
                         title: t.title,
                         genre: t.primary_genre_id || this.state.activeGenre,
                         thumbnail: `https://i.ytimg.com/vi/${t.youtube_video_id}/hqdefault.jpg`,
-                        source: 'emergency_zero_quota'
+                        source: 'emergency_zero_quota',
+                        is_instrumental: t.is_instrumental,
+                        energy: t.energy
                     };
                     if (this.passesGuards(candidate)) {
                         validPassA.push(candidate);
@@ -1027,7 +1089,24 @@ class SessionStateMachine {
                 }
             }
             if (validPassA.length > 0) {
-                return validPassA[Math.floor(Math.random() * validPassA.length)];
+                const targetEnergy = this.state.energyLevel ?? 0.5;
+                const scoredA = validPassA.map(c => {
+                    let cEnergy = c.energy != null ? parseFloat(c.energy) : null;
+                    if (cEnergy == null) {
+                        const gNode = GENRE_NODES[c.genre];
+                        cEnergy = gNode?.energy ?? 0.5;
+                    }
+                    const delta = Math.abs(cEnergy - targetEnergy);
+                    const weight = Math.max(0.02, Math.exp(-Math.pow(delta / 0.25, 2)));
+                    return { candidate: c, weight };
+                });
+                const totalW = scoredA.reduce((sum, s) => sum + s.weight, 0);
+                let r = Math.random() * totalW;
+                for (const s of scoredA) {
+                    r -= s.weight;
+                    if (r <= 0) return s.candidate;
+                }
+                return validPassA[0];
             }
 
             // Pass B: Relax artist fatigue but strictly avoid recent 15 tracks and recent 5 artists
@@ -1113,11 +1192,24 @@ class SessionStateMachine {
                     if (a) seenArtists.add(a);
 
                     if (!this.passesMetadataGuards(t)) return false;
+
+                    const titleLower = (t.title || '').toLowerCase();
+                    const genreId = t.primary_genre_id || activeGenreId;
+                    const genreNode = GENRE_NODES[genreId];
+                    const isInstrumentalGenre = genreNode?.vocal === 'instrumental' || genreNode?.is_instrumental_default === true;
+
+                    // Vocal Preference Guard
                     if (this.state.vocalPreference === 'instrumental') {
-                        const titleLower = (t.title || '').toLowerCase();
                         if (['vocal', 'vocals', 'feat.', 'ft.', 'singing'].some(k => titleLower.includes(k)) && !titleLower.includes('instrumental')) {
                             return false;
                         }
+                        if (t.is_instrumental === false && genreNode?.vocal === 'vocal' && !titleLower.includes('instrumental')) {
+                            return false;
+                        }
+                    } else if (this.state.vocalPreference === 'vocal') {
+                        if (t.is_instrumental === true) return false;
+                        if (['instrumental', 'backing track', 'karaoke', 'without vocals', 'no vocals'].some(k => titleLower.includes(k))) return false;
+                        if (isInstrumentalGenre && !titleLower.includes('vocal')) return false;
                     }
                     return true;
                 });
@@ -1222,7 +1314,31 @@ class SessionStateMachine {
 
             if (available.length === 0) return null;
 
-            const selected = available[Math.floor(Math.random() * available.length)];
+            // Energy-weighted selection based on user's active energy slider
+            const targetEnergy = this.state.energyLevel ?? 0.5;
+            const scoredCandidates = available.map(t => {
+                let trackEnergy = t.energy != null ? parseFloat(t.energy) : null;
+                if (trackEnergy == null) {
+                    const gNode = GENRE_NODES[t.primary_genre_id || activeGenreId];
+                    trackEnergy = gNode?.energy ?? 0.5;
+                }
+                const delta = Math.abs(trackEnergy - targetEnergy);
+                // Gaussian decay: tracks closer to slider energy have significantly higher selection weight
+                const weight = Math.max(0.02, Math.exp(-Math.pow(delta / 0.25, 2)));
+                return { track: t, weight };
+            });
+
+            const totalWeight = scoredCandidates.reduce((acc, c) => acc + c.weight, 0);
+            let randVal = Math.random() * totalWeight;
+            let selected = scoredCandidates[0].track;
+            for (const c of scoredCandidates) {
+                randVal -= c.weight;
+                if (randVal <= 0) {
+                    selected = c.track;
+                    break;
+                }
+            }
+
             return {
                 id: selected.youtube_video_id,
                 dbId: selected.id,
@@ -1230,7 +1346,9 @@ class SessionStateMachine {
                 title: selected.title,
                 genre: selected.primary_genre_id || activeGenreId,
                 thumbnail: `https://i.ytimg.com/vi/${selected.youtube_video_id}/hqdefault.jpg`,
-                source: selected.source || 'tracks_catalog'
+                source: selected.source || 'tracks_catalog',
+                is_instrumental: selected.is_instrumental,
+                energy: selected.energy
             };
         } catch (e) {
             console.warn('[StateMachine] Pull catalog candidate exception:', e);
@@ -1403,13 +1521,11 @@ class SessionStateMachine {
             queryParts.push(moodObj.label);
         }
 
-        if (this.state.vocalPreference === 'instrumental') {
-            queryParts.push('instrumental');
-        }
+        const vocalTerm = this.state.vocalPreference === 'instrumental' ? 'instrumental' : (this.state.vocalPreference === 'vocal' ? 'lyrics' : '');
 
         // Add explicit exclusions to kill podcasts, recitations, audiobooks, lessons
         const exclusionString = '-podcast -audiobook -recitation -lesson -asmr -reaction -vlog -shorts -tiktok';
-        const fullQuery = `"${activeNode?.label}" Topic official audio ${exclusionString}`;
+        const fullQuery = `"${activeNode?.label}" ${vocalTerm} Topic official audio ${exclusionString}`.replace(/\s+/g, ' ').trim();
 
         console.log(`[StateMachine] Anti-Drift YouTube Music Query: "${fullQuery}"`);
 
