@@ -54,6 +54,27 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.7.8` — 2026-11-12
+* **Last.fm Public API Integration, Automated 100-Artist Catalog Harvest, Elimination of Non-Deterministic Chunk Duplication & In-App Latest Added Category:**
+  * **Last.fm Official REST API Scraper & Catalog Analyzer (`scripts/scrapeLastFmArtists.js`):**
+    * Integrated with the official Last.fm AudioScrobbler REST API (`library.getartists` & `user.gettopartists`) with authenticated API key support.
+    * Bypasses Cloudflare anti-bot challenges and paginates through entire user scrobble profiles (e.g. 3,386+ artists across 34 pages).
+    * Performs live cross-referencing against MusicMood's 10,800+ catalog artists in Supabase, separating existing catalog anchors from unrepresented underground bands.
+  * **Automated Discography Ingestion & Zero-Quota Studio Resolver (`scripts/harvestLastFmArtists.js`):**
+    * Built autonomous harvest pipeline mapping artist tags to our canonical 115-taxonomy nodes with secondary tag support.
+    * Resolves top 10 iconic tracks per artist to verified studio audio streams on YouTube Music via the InnerTube `WEB_REMIX` zero-quota API.
+    * Ingested 100 new iconic & underground artists and 1,000 verified tracks directly into `public.artists` and `public.tracks` (featuring Gojira, Meshuggah, Deafheaven, GoGo Penguin, Nala Sinephro, Caligula's Horse, Machine Head, Brutus, Au5, and Romanian post-rock pioneers *Am fost la munte și mi-a plăcut*).
+  * **Elimination of Non-Deterministic Chunk Duplication in Artist Explorer (`ArtistsExplorer.jsx`):**
+    * Resolved non-deterministic sorting collisions across the 11 parallel pagination chunks by enforcing deterministic secondary ordering: `.order('track_count', { ascending: false }).order('id', { ascending: true })`.
+    * Implemented client-side `uniqueMap` deduplication by canonical artist name and UUID, permanently eliminating 760 duplicate artist cards from the explorer view.
+  * **In-App 1-Click Catalog Sync (`ArtistsExplorer.jsx`):**
+    * Added an in-place `🔄 Sync` action button directly in the Artist Explorer header.
+    * Invalidates the module-level in-memory cache and re-queries fresh catalog additions from Supabase on demand without requiring browser page reloads.
+  * **New "✨ Latest Added" Category (`ArtistsExplorer.jsx`):**
+    * Added a dedicated parent genre filter pill showcasing the **50 most recently ingested catalog artists** (sorted `created_at DESC`) with instant search.
+  * **Roadmap & Feedback Synchronization (`ROADMAP.md`):**
+    * Synced live user feedback into roadmap items: Web Media Session API lock screen/notification playback controls, authenticated user upvote isolation (`user_upvotes`), in-player artist navigation, and cross-device preferences sync.
+
 ### `v0.7.7` — 2026-11-09
 * **Catalog Artist Explorer, Defense-in-Depth YouTube Playback Hardening, Autonomous Reconciliation Nightly Cron & Author Attribution:**
   * **Top-Level Catalog Artist Explorer (`ArtistsExplorer.jsx` / `Dashboard.jsx`):**
