@@ -26,6 +26,8 @@
     "pull-genres:lowest": "node scripts/fastPullGenreTracks.js --lowest-first",
     "inflate:artists": "node scripts/inflateArtists.js",
     "inflate:artists:dry": "node scripts/inflateArtists.js --dry-run",
+    "inflate:related": "node scripts/inflateRelatedArtists.js",
+    "inflate:related:dry": "node scripts/inflateRelatedArtists.js --dry-run",
     "extract-release-notes": "node scripts/extract-release-notes.js",
     "tag-release": "node scripts/tagWithReleaseNotes.js",
     "backfill-tags": "node scripts/backfillAllTags.js",

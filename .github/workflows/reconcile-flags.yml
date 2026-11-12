@@ -1,4 +1,4 @@
-name: Reconcile Track Flags & Catalog Disambiguation
+name: Nightly Catalog Maintenance & Discovery Inflation
 
 on:
   schedule:
@@ -44,5 +44,32 @@ jobs:
             node scripts/reclassifyCatalog.js --loops=2
           else
             echo "🚀 Running with LIVE DB updates..."
-            node scripts/reclassifyCatalog.js --apply --loops=3
+            node scripts/reclassifyCatalog.js --apply --loops=2
+          fi
+
+      - name: Inflate Upvoted & Favorited Artists
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "🔍 Running Artist Inflation in DRY-RUN mode..."
+            node scripts/inflateArtists.js --dry-run --limit=10 --max-tracks=10
+          else
+            echo "🚀 Inflating top upvoted artists..."
+            node scripts/inflateArtists.js --limit=10 --max-tracks=10
+          fi
+
+      - name: Discover & Ingest Related Artists
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8' }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "🔍 Running Related Artist Discovery in DRY-RUN mode..."
+            node scripts/inflateRelatedArtists.js --dry-run --anchors=5 --similar=3 --tracks=5
+          else
+            echo "🚀 Ingesting related artists for top upvotes..."
+            node scripts/inflateRelatedArtists.js --anchors=5 --similar=3 --tracks=5
           fi
