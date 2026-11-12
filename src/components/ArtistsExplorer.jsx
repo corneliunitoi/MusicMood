@@ -3,9 +3,10 @@ import { supabase } from '../services/supabaseService';
 import { GENRE_NODES } from '../services/tasteGraph';
 import { sessionEngine } from '../services/sessionStateMachine';
 
-// 14 High-Level Parent Genre Families (Zero subgenre clutter)
+// 14 High-Level Parent Genre Families (Zero subgenre clutter) + Latest Ingestion Category
 const PARENT_GENRES = [
     { id: 'all', label: 'All Artists', emoji: '👥', color: '#6366f1' },
+    { id: 'latest', label: 'Latest Added', emoji: '✨', color: '#10b981' },
     { id: 'rock', label: 'Rock', emoji: '🎸', color: '#ef4444' },
     { id: 'metal', label: 'Metal', emoji: '🤘', color: '#8b5cf6' },
     { id: 'electronic', label: 'Electronic', emoji: '🎛️', color: '#06b6d4' },
@@ -121,7 +122,7 @@ async function loadAllArtists(force = false) {
             promises.push(
                 supabase
                     .from('artists')
-                    .select('id, name, primary_genre_id, track_count, avatar_url')
+                    .select('id, name, primary_genre_id, track_count, avatar_url, created_at, last_inflated_at')
                     .order('track_count', { ascending: false })
                     .order('id', { ascending: true })
                     .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
@@ -255,6 +256,28 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
     // Filtered Artists
     const filteredArtists = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
+
+        // 1. "Latest Added" Category: strictly the 50 most recently created/ingested artists
+        if (selectedGenre === 'latest') {
+            const latestSorted = [...artists]
+                .filter(a => a.created_at || a.last_inflated_at)
+                .sort((a, b) => {
+                    const timeA = new Date(a.created_at || a.last_inflated_at || 0).getTime();
+                    const timeB = new Date(b.created_at || b.last_inflated_at || 0).getTime();
+                    return timeB - timeA;
+                })
+                .slice(0, 50);
+
+            if (query) {
+                return latestSorted.filter(artist => 
+                    artist.name.toLowerCase().includes(query) ||
+                    (artist.primary_genre_id && artist.primary_genre_id.toLowerCase().includes(query))
+                );
+            }
+            return latestSorted;
+        }
+
+        // 2. Standard Genre Filtering
         return artists.filter(artist => {
             const parent = getParentGenre(artist.primary_genre_id);
             if (selectedGenre !== 'all' && parent !== selectedGenre) {
