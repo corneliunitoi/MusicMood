@@ -123,15 +123,26 @@ async function loadAllArtists() {
                     .from('artists')
                     .select('id, name, primary_genre_id, track_count, avatar_url')
                     .order('track_count', { ascending: false })
+                    .order('id', { ascending: true })
                     .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
                     .then(res => res.data || [])
             );
         }
         const chunks = await Promise.all(promises);
         const all = chunks.flat().filter(Boolean);
-        cachedAllArtists = all;
+
+        // Deduplicate by artist ID and canonical name
+        const uniqueMap = new Map();
+        for (const a of all) {
+            const key = a.name ? a.name.trim().toLowerCase() : a.id;
+            if (key && !uniqueMap.has(key)) {
+                uniqueMap.set(key, a);
+            }
+        }
+        const deduplicated = Array.from(uniqueMap.values());
+        cachedAllArtists = deduplicated;
         fetchAllPromise = null;
-        return all;
+        return deduplicated;
     })();
 
     return fetchAllPromise;
