@@ -109,9 +109,9 @@ function formatPlayableTrack(t) {
 let cachedAllArtists = null;
 let fetchAllPromise = null;
 
-async function loadAllArtists() {
-    if (cachedAllArtists) return cachedAllArtists;
-    if (fetchAllPromise) return fetchAllPromise;
+async function loadAllArtists(force = false) {
+    if (!force && cachedAllArtists) return cachedAllArtists;
+    if (!force && fetchAllPromise) return fetchAllPromise;
 
     fetchAllPromise = (async () => {
         const PAGE_SIZE = 1000;
@@ -151,6 +151,7 @@ async function loadAllArtists() {
 export default function ArtistsExplorer({ onPlayTrack, onClose }) {
     const [artists, setArtists] = useState(cachedAllArtists || []);
     const [isLoading, setIsLoading] = useState(!cachedAllArtists);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedGenre, setSelectedGenre] = useState('all');
     const [selectedArtist, setSelectedArtist] = useState(null);
@@ -158,6 +159,18 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
     const [isLoadingTracks, setIsLoadingTracks] = useState(false);
     const [avatarOverrides, setAvatarOverrides] = useState({});
     const [visibleCount, setVisibleCount] = useState(60);
+
+    const handleForceRefresh = async () => {
+        setIsRefreshing(true);
+        try {
+            const fresh = await loadAllArtists(true);
+            setArtists(fresh);
+        } catch (e) {
+            console.error('[ArtistsExplorer] Refresh error:', e);
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
 
     // 1. Fetch catalog artists (all in database)
     useEffect(() => {
@@ -313,6 +326,27 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                     <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
                         ({artists.length.toLocaleString()} verified artists)
                     </span>
+                    <button
+                        onClick={handleForceRefresh}
+                        disabled={isRefreshing || isLoading}
+                        title="Sync fresh artist catalog from database"
+                        style={{
+                            background: 'rgba(255, 255, 255, 0.06)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            borderRadius: '6px',
+                            color: isRefreshing ? '#94a3b8' : '#e2e8f0',
+                            padding: '0.15rem 0.5rem',
+                            fontSize: '0.72rem',
+                            cursor: isRefreshing ? 'wait' : 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        <span style={{ display: 'inline-block', transform: isRefreshing ? 'rotate(180deg)' : 'none', transition: 'transform 0.4s' }}>🔄</span>
+                        {isRefreshing ? 'Syncing...' : 'Sync'}
+                    </button>
                 </div>
 
                 {onClose && (

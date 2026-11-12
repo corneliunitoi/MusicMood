@@ -31,6 +31,7 @@ function getArg(prefix, defaultVal) {
 
 const TARGET_USER = getArg('--user=', 'octakhan888');
 const API_KEY = getArg('--key=', process.env.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8');
+const ARTIST_OFFSET = parseInt(getArg('--offset=', '0'), 10);
 const ARTIST_COUNT = parseInt(getArg('--count=', '15'), 10);
 const TRACKS_PER_ARTIST = parseInt(getArg('--tracks=', '10'), 10);
 const IS_DRY_RUN = args.includes('--dry-run');
@@ -204,10 +205,10 @@ async function runHarvest() {
         process.exit(1);
     }
 
-    const targetList = missingArtists.slice(0, ARTIST_COUNT);
-    console.log(`🎯 Queued top ${targetList.length} artists for catalog ingestion:\n`);
+    const targetList = missingArtists.slice(ARTIST_OFFSET, ARTIST_OFFSET + ARTIST_COUNT);
+    console.log(`🎯 Queued top ${targetList.length} artists (offset ${ARTIST_OFFSET}) for catalog ingestion:\n`);
     targetList.forEach((a, i) => {
-        console.log(`   ${(i + 1).toString().padStart(2, ' ')}. ${a.name.padEnd(25, ' ')} (${a.playcount} user plays)`);
+        console.log(`   ${(ARTIST_OFFSET + i + 1).toString().padStart(2, ' ')}. ${a.name.padEnd(25, ' ')} (${a.playcount} user plays)`);
     });
     console.log('\n----------------------------------------------------------------\n');
 
@@ -217,7 +218,7 @@ async function runHarvest() {
     for (let i = 0; i < targetList.length; i++) {
         const item = targetList[i];
         console.log(`================================================================`);
-        console.log(`[Artist ${i + 1}/${targetList.length}] Ingesting "${item.name}"`);
+        console.log(`[Artist ${ARTIST_OFFSET + i + 1}/${ARTIST_OFFSET + targetList.length}] Ingesting "${item.name}"`);
         console.log(`================================================================`);
 
         // A. Classify Canonical & Secondary Genres from Last.fm tags
@@ -261,7 +262,11 @@ async function runHarvest() {
 
             if (existingArt) {
                 artistRecord = existingArt;
-                console.log(`   ℹ️ Artist record found in DB (ID: ${existingArt.id})`);
+                console.log(`   ℹ️ Artist record found in DB (ID: ${existingArt.id}, tracks: ${existingArt.track_count || 0})`);
+                if ((existingArt.track_count || 0) >= TRACKS_PER_ARTIST) {
+                    console.log(`   ✅ Already has ${existingArt.track_count} tracks in catalog. Skipping.`);
+                    continue;
+                }
             } else {
                 const slug = item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
                 const { data: newArt, error: artErr } = await supabase
