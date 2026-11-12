@@ -149,6 +149,57 @@ This document outlines prioritized enhancements, user experience improvements, a
     * Regardless of affinity score, the state machine must strictly enforce artist dwell cooldowns (no more than 1 track per 6–8 songs from the same artist in a session).
     * Maintain a 40–50% discovery floor in candidate selection so top-affinity repeat anchors never monopolize the queue.
 
+### 12. 📱 Mobile Background Playback & Web Media Session API (Lock Screen & Notification Controls)
+* **Feedback Origin:** *User Feedback (Nov 10)*: *"No back next buttons on mobile in background mode, i wanna skip songs without opening up the browser, just from notification box"* & *"Background playback not working"* & *"Misfits the screen on phone"*.
+* **Scope & Implementation:**
+  * **Web Media Session API (`navigator.mediaSession`):**
+    * Wire media session metadata: track `title`, `artist`, `album` (genre/mood), and high-res artwork thumbnails (`hqdefault.jpg`).
+    * Implement action handlers for `play`, `pause`, `previoustrack`, and `nexttrack` directly hooked to `Player.jsx` and `sessionEngine.skipCurrentTrack()`.
+    * Allows listeners to skip, pause, and view current song info directly from the Android / iOS notification shade and lock-screen widget.
+  * **Mobile Screen Fit & Viewport CSS Hardening:**
+    * Transition mobile layout containers to dynamic viewport units (`100dvh`) to prevent address-bar clipping.
+    * Rebalance player action buttons on mobile screens (< 480px) to prevent button wrap or off-screen overflow.
+  * **Background Audio Persistence:**
+    * Evaluate audio keep-alive and iframe visibility handling to minimize mobile browser suspension when screens lock.
+
+### 13. 🛡️ Authenticated User Upvote Isolation & Anti-Bot Protection (`public.user_upvotes`)
+* **Feedback Origin:** *User Feedback (Nov 10)*: *"remember upvotes as well...otherwise bots might be able to destroy your library"*.
+* **Scope & Implementation:**
+  * **Database Architecture:**
+    * Create a dedicated `public.user_upvotes` table in PostgreSQL with primary key `(user_id, track_id)` and foreign keys to `auth.users` and `public.tracks`.
+    * Enable Row Level Security (RLS) so users can only manage their own upvotes (`user_id = auth.uid()`).
+  * **Anti-Bot & Rate-Limiting Guard:**
+    * Remove unauthenticated client ability to mutate global `tracks.upvotes` or `artists.affinity_score` arbitrarily.
+    * Upvotes become idempotent per user, preventing automated scripts or repeated API calls from spamming votes.
+    * Calculate public popularity via aggregated counts (`COUNT(user_upvotes)`) or throttled security-definer triggers.
+
+### 14. 🔗 Player In-App Artist Navigation (Decouple Internal Navigation from YouTube Outlink)
+* **Feedback Origin:** *User Feedback (Nov 10)*: *"change the track link in the player to bring you to the artist, and only the YT button brings you to youtube"*.
+* **Scope & Implementation:**
+  * In `src/components/Player.jsx`, decouple the track info click handler:
+    * Clicking the **Artist Name** or **Artist Avatar** will open the new Top-Level Artist Explorer (`ArtistsExplorer.jsx`) filtered directly to that artist's discography.
+    * The external YouTube icon/pill remains the sole link that opens the video on `youtube.com`.
+  * Keeps the listener inside MusicMood's focused audio environment without accidental redirects.
+
+### 15. ☁️ Cross-Device Database Sync for Genre & Mood Preferences
+* **Feedback Origin:** *User Feedback (Nov 10)*: *"save genre preferences into db so it's consistent across session and devices"*.
+* **Scope & Implementation:**
+  * Store active genre selections, pinned mood defaults (Item #1), and acoustic steering toggles (vocal preferences, energy level) in `public.user_profiles.calibration` or a dedicated preferences JSONB column in Supabase.
+  * On login across any desktop, tablet, or phone, load the listener's preferences seamlessly so sessions never revert to blank defaults.
+
+### 16. 📻 Last.fm & External Profile Library Scraper / Importer
+* **Feedback Origin:** *User Feedback (Nov 12)*: *"Scrape https://www.last.fm/user/octakhan888/library/artists profile for bands"*.
+* **Scope & Implementation:**
+  * Add an import utility allowing users to supply their Last.fm username or library URL (`https://www.last.fm/user/<username>/library/artists`).
+  * Fetch top artists and listening frequencies via the Last.fm API (`user.getTopArtists`) or web profile parser.
+  * Cross-reference imported artists against MusicMood's 115-genre taxonomy.
+  * Automatically harvest or anchor the user's favorite artists in the database, generating a customized personal radio profile.
+
+### 17. 🪟 Auto-Dismiss Modals & Panels on Playback Trigger
+* **Feedback Origin:** *User Feedback (Nov 09)*: *"bug, when playing from favorites the window doesn't disappear in it's own"*.
+* **Scope & Implementation:**
+  * In `FavoritesModal.jsx` and `ArtistsExplorer.jsx`, automatically dismiss or collapse the modal/drawer when a listener clicks "▶ Play" on a song, immediately revealing the main player and visualization.
+
 ---
 
 ## 📈 Completed Milestones
@@ -167,3 +218,5 @@ This document outlines prioritized enhancements, user experience improvements, a
 * [x] **v0.7.0 / v0.7.0a:** 6 Core Mood Homes & Orbital Deviation Engine with unconstrained full-spectrum genre picker and clean tooltips.
 * [x] **v0.7.4:** In-App User Feedback System, Muzike Network Share Ingestion (16,276 tracks), Full RLS Security Advisor Hardening on `user_favorites` and `local_metadata`, and Artist Discography Inflation Engine with Dynamic Affinity Triggers.
 * [x] **v0.7.5:** In-Player "Wrong Genre" Misclassification Flagging (`public.track_genre_flags`), Offline Secondary Source Cross-Check & Consensus Healing Engine (`scripts/resolveFlaggedTracks.js`).
+* [x] **v0.7.6:** Real-Time Energy Slider Steering Engine, Active Vocal Preferences (`Instrumental Only` / `Vocals` / `Any`), and In-Player Misclassification 1-Click Reporting.
+* [x] **v0.7.7:** Top-Level Catalog Artist Explorer (10,849 artists across 14 parent genres, compact 2-row layout), Defense-in-Depth YouTube Playback Hardening, Watchdog Deadlock Elimination, Nightly Autonomous Reconciliation Cron, and In-App Author Attribution About Modal.
