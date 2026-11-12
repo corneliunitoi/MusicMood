@@ -327,6 +327,11 @@ function Player({ initialTrack, token }) {
         setDuration(0);
         setIsSeeking(false);
 
+        // Keep local player sessionState immediately synchronized with state machine's active genre
+        if (sessionEngine.state.activeGenre) {
+            setSessionState(prev => ({ ...prev, activeGenre: sessionEngine.state.activeGenre }));
+        }
+
         if (playerRef.current && isPlayerReadyRef.current && typeof playerRef.current.loadVideoById === 'function') {
             console.log(`[HardenedPlayer] Loading video ID via persistent player: ${targetVideoId} (${track.title})`);
             try {

@@ -979,6 +979,13 @@ class SessionStateMachine {
             this.state.recentArtists.push(artist);
         }
 
+        // Steer the active graph node to the track's genre for continuity
+        const targetGenre = track.genre || track.primary_genre_id;
+        if (targetGenre && GENRE_NODES[targetGenre]) {
+            this.state.activeGenre = targetGenre;
+            this.state.consecutiveInNode = 0;
+        }
+
         // Record scrobble in Supabase listening_history
         recordListenEvent({
             trackId: track.dbId || null,

@@ -116,9 +116,17 @@ async function loadAllArtists(force = false) {
 
     fetchAllPromise = (async () => {
         const PAGE_SIZE = 1000;
+
+        // 1. Get exact current count to determine required chunks dynamically
+        const { count: totalArtists } = await supabase
+            .from('artists')
+            .select('*', { count: 'exact', head: true });
+
+        const totalToFetch = Math.max(totalArtists || 12000, 1000);
+        const totalPages = Math.ceil(totalToFetch / PAGE_SIZE);
+
         const promises = [];
-        // 11 parallel chunks for ~10,850 rows in public.artists
-        for (let page = 0; page < 11; page++) {
+        for (let page = 0; page < totalPages; page++) {
             promises.push(
                 supabase
                     .from('artists')
@@ -244,9 +252,6 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
 
         if (rest.length > 0) {
             sessionEngine.queue = rest;
-        }
-        if (first.genre) {
-            sessionEngine.state.activeGenre = first.genre;
         }
 
         onPlayTrack(first);
