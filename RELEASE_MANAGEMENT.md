@@ -54,6 +54,20 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.7.9` — 2026-11-12
+* **Dynamic Active Genre Steering & Locking, Catalog Scaling Past 11,200 Artists & Comprehensive Architecture Audit:**
+  * **Dynamic Active Genre Steering & Locking (`sessionStateMachine.js` / `Player.jsx`):**
+    * Centralized active node synchronization inside `sessionEngine.commitTrack(track)`: manually selecting any track from the Artist Explorer or Favorites now immediately jumps and locks the Taste Graph's active node to that track's specific genre.
+    * Preserves the Fixed Genre Policy so playback stays anchored in the chosen genre continuously across subsequent songs until an explicit mood change or "Surprise Me" trigger.
+    * Added immediate local synchronization in `Player.jsx` ensuring the **🛡️ Active Node** dropdown header updates with zero lag.
+  * **Dynamic Artist Explorer Pagination (`ArtistsExplorer.jsx`):**
+    * Replaced the hardcoded 11-page query ceiling with dynamic count queries (`count: 'exact', head: true`), allowing the Artist Explorer to seamlessly fetch and render beyond 11,000 artists without artificial clipping.
+  * **Last.fm Library Harvest Expansion (Batches 2 & 3):**
+    * Ingested +200 iconic artists and +1,996 verified studio tracks directly into Supabase from `@octakhan888`'s Last.fm library (covering missing underground bands across prog metal, post-rock, darksynth, jazz fusion, and electronic).
+    * Total verified catalog milestone reached: **11,200 artists** and **61,070 tracks**.
+  * **Comprehensive Pre-Sale Code & Commercial Architecture Audit:**
+    * Completed thorough code review artifact (`MUSICMOOD_COMPREHENSIVE_CODE_AUDIT.md`) detailing security (guest credential isolation, upvote RLS), component architecture (decomposing `Player.jsx`), and enterprise valuation strategies (proprietary Taste Graph IP positioning & audio provider abstraction).
+
 ### `v0.7.8` — 2026-11-12
 * **Last.fm Public API Integration, Automated 100-Artist Catalog Harvest, Elimination of Non-Deterministic Chunk Duplication & In-App Latest Added Category:**
   * **Last.fm Official REST API Scraper & Catalog Analyzer (`scripts/scrapeLastFmArtists.js`):**
