@@ -1,0 +1,80 @@
+name: Last.fm Library Harvest Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: 'Number of missing artists to ingest (e.g. 50 or 100)'
+        required: true
+        type: number
+        default: 50
+      tracks:
+        description: 'Iconic tracks per artist'
+        required: true
+        type: number
+        default: 10
+      user:
+        description: 'Last.fm username'
+        required: true
+        type: string
+        default: 'octakhan888'
+      pages:
+        description: 'Number of Last.fm library pages to scan for missing bands'
+        required: true
+        type: number
+        default: 20
+      dry_run:
+        description: 'Dry run mode (audit only, no database writes)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  harvest:
+    name: Harvest Missing Artists & Tracks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Step 1 - Scrape Library & Refresh Missing Cache
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8' }}
+        run: |
+          echo "🔍 Scanning Last.fm library for @${{ github.event.inputs.user || 'octakhan888' }}..."
+          node scripts/scrapeLastFmArtists.js --user=${{ github.event.inputs.user || 'octakhan888' }} --pages=${{ github.event.inputs.pages || 20 }}
+
+      - name: Step 2 - Harvest & Resolve Top Tracks into Supabase
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8' }}
+        run: |
+          COUNT=${{ github.event.inputs.count || 50 }}
+          TRACKS=${{ github.event.inputs.tracks || 10 }}
+          USER=${{ github.event.inputs.user || 'octakhan888' }}
+          DRY_RUN=${{ github.event.inputs.dry_run }}
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "🔍 Ingesting in DRY-RUN mode ($COUNT artists, $TRACKS tracks each)..."
+            node scripts/harvestLastFmArtists.js --count=$COUNT --tracks=$TRACKS --user=$USER --dry-run
+          else
+            echo "🚀 Ingesting LIVE into Supabase ($COUNT artists, $TRACKS tracks each)..."
+            node scripts/harvestLastFmArtists.js --count=$COUNT --tracks=$TRACKS --user=$USER
+          fi

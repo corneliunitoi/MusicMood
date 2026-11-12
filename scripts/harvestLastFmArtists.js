@@ -412,6 +412,28 @@ async function runHarvest() {
     console.log(`   • Total Tracks Ingested:   +${totalHarvestedTracks} playable tracks`);
     console.log(`   • Database:                Supabase public.artists & public.tracks`);
     console.log('================================================================\n');
+
+    // GitHub Step Summary integration
+    if (process.env.GITHUB_STEP_SUMMARY) {
+        try {
+            const summaryMd = `
+## 📻 Last.fm Library Harvest Report (@${TARGET_USER})
+
+| Metric | Result |
+| :--- | :--- |
+| **Artists Harvested** | **${totalHarvestedArtists} / ${ARTIST_COUNT}** |
+| **Playable Tracks Ingested** | **+${totalHarvestedTracks} tracks** |
+| **Iconic Target Per Artist** | **${TRACKS_PER_ARTIST} tracks** |
+| **Execution Mode** | **${IS_DRY_RUN ? 'DRY RUN (No DB Writes)' : 'LIVE DB WRITES'}** |
+
+### 🎵 Ingested Artists in this Batch:
+${targetList.map((a, i) => `${i + 1}. **${a.name}** (${a.playcount} user plays)`).join('\n')}
+`;
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summaryMd, 'utf8');
+        } catch (e) {
+            console.warn('Failed to write GITHUB_STEP_SUMMARY:', e.message);
+        }
+    }
 }
 
 runHarvest().catch(err => {
