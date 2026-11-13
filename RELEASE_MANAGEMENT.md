@@ -60,6 +60,31 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.2` — 2026-11-13
+* **Feature Freeze Milestone, Strict Genre Anchoring, Playback Fluctuation Elimination & Lossless CUE Pipeline:**
+  * **Feature Freeze & Stabilization Focus:**
+    * Concluded all major feature expansion cycles across the platform; locked roadmap strictly to stability, resilience, and bug fixing.
+  * **Strict Genre Family Containment & Invariant Locking (`sessionStateMachine.js` / `Player.jsx`):**
+    * **Zero Drift on Next / Skip:** Track candidate sourcing in `pullCatalogCandidate` and `sourceEmergencyTrack` is strictly locked to the user's active genre family (`sameFamilyGenres` sharing the exact same `group`). Hitting Next never wanders into unrelated genres.
+    * **Surprise Me Exclusivity:** Harmonic graph hops across genre families are now strictly reserved for explicit user actions ("Surprise Me", manual dropdown changes, or mood shifts). Normal playback and skips stay firmly anchored to the chosen genre.
+    * **Auto-Replay Resilience:** If a genre's local catalog is temporarily exhausted, the engine relaxes exclusion windows to replay genuine tracks in that genre family rather than falling back to random or mismatched music.
+    * **Eliminated Unfiltered Fallback:** Removed blind `select('*')` emergency fallback from `sourceEmergencyTrack`, ensuring unrelated genres can never be pulled into the active station.
+  * **Elimination of Playback Fluctuation on Next (`Player.jsx`):**
+    * Added `activeVideoIdRef` idempotency guard in `playTrackImmediately`, rejecting duplicate rapid load calls for the same video ID.
+    * Gated `sessionEngine.subscribe` track loading with `!isTransitioningRef.current`, resolving the race condition between `commitTrack()` notifications and `loadNextTrack()` returns that previously caused double video loading, stuttering, and repeated buffering.
+  * **Non-Disruptive Genre Review Flagging (`Player.jsx` / `supabaseService.js`):**
+    * Reporting a mislabeled genre (`🏷️`) no longer abruptly stops playback or forces a skip; the song continues playing uninterrupted so listeners can enjoy it and skip manually only if and when desired.
+    * Added instant visual feedback (`✓` with a green highlight) and duplicate submission prevention.
+    * Automatically purges upcoming tracks by the flagged misclassified artist from the session buffer queue.
+  * **Local Lossless CUE/APE Album Explosion & Online Stream Ingestion (`scanLocalAlbums.js` / `cueParser.js` / `resolveVideoIds.js`):**
+    * **Stage 1 (Offline Explosion):** Scanned local lossless network library (`\\192.168.0.2\e$\music\Flac muzic`), parsed 1,960 `.cue` sheets, exploded 1,826 complete albums (23,634 tracks total), and staged 19,388 unique deduplicated tracks in `public.local_metadata` with manifest in `public/exploded_albums_manifest.json`.
+    * **Stage 2 (Online Ingestion):** Added `--cue-only` and `--limit` flags to `scripts/resolveVideoIds.js`, with verified InnerTube mapping (~450ms/track) into `public.tracks` and `public.artists`.
+    * **Automated Hourly Ingestion:** Integrated continuous CUE track ingestion directly into `.github/workflows/reconcile-flags.yml` for automated background catalog expansion.
+  * **Audition Experience Improvements (`ArtistsExplorer.jsx` / `Dashboard.jsx`):**
+    * Auditioning candidate demo songs via `▶ Try` keeps the Explorer panel open and preserves scroll position.
+    * Requesting an artist instantly dismisses them from the view with visual confirmation and dynamically fetches new candidate replacements.
+    * Added reject button (`✕`) allowing listeners to permanently dismiss unwanted candidates.
+
 ### `v0.8.1a` — 2026-11-13
 * **Artist Catalog Deduplication & Reconciliation, "Try Before You Request" Candidate Demo Player & Nightly Sync:**
   * **Catalog Deduplication & Fuzzy Clustering (`ArtistsExplorer.jsx` / `auditArtistDuplicates.js` / `mergeDuplicateArtists.js`):**
