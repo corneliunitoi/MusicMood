@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       count:
-        description: 'Number of missing artists to ingest (e.g. 50 or 100)'
+        description: 'Number of missing artists to ingest (e.g. 50, 100, or 1000)'
         required: true
         type: number
-        default: 50
+        default: 1000
       tracks:
         description: 'Iconic tracks per artist'
         required: true
@@ -22,7 +22,7 @@ on:
         description: 'Number of Last.fm library pages to scan for missing bands'
         required: true
         type: number
-        default: 20
+        default: 35
       dry_run:
         description: 'Dry run mode (audit only, no database writes)'
         required: false
@@ -36,7 +36,7 @@ jobs:
   harvest:
     name: Harvest Missing Artists & Tracks
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 360
 
     steps:
       - name: Checkout repository

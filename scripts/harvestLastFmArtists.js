@@ -254,11 +254,13 @@ async function runHarvest() {
         let artistRecord = null;
         if (!IS_DRY_RUN) {
             // Check if already in DB
-            const { data: existingArt } = await supabase
+            const { data: existingArts } = await supabase
                 .from('artists')
                 .select('id, name, track_count')
                 .ilike('name', item.name)
-                .maybeSingle();
+                .limit(1);
+
+            const existingArt = existingArts?.[0] || null;
 
             if (existingArt) {
                 artistRecord = existingArt;
@@ -268,7 +270,8 @@ async function runHarvest() {
                     continue;
                 }
             } else {
-                const slug = item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                let slug = item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                if (!slug) slug = 'artist-' + Date.now();
                 const { data: newArt, error: artErr } = await supabase
                     .from('artists')
                     .insert({
@@ -282,14 +285,21 @@ async function runHarvest() {
                         track_count: 0
                     })
                     .select()
-                    .single();
+                    .maybeSingle();
 
                 if (artErr) {
-                    console.error(`   ❌ Failed to create artist record: ${artErr.message}`);
-                    continue;
+                    // If slug collision, try finding by slug
+                    const { data: slugArt } = await supabase.from('artists').select('id, name, track_count').eq('slug', slug).limit(1);
+                    if (slugArt?.[0]) {
+                        artistRecord = slugArt[0];
+                    } else {
+                        console.error(`   ❌ Failed to create artist record: ${artErr.message}`);
+                        continue;
+                    }
+                } else {
+                    artistRecord = newArt;
+                    console.log(`   ✅ Created new artist in public.artists (ID: ${newArt.id})`);
                 }
-                artistRecord = newArt;
-                console.log(`   ✅ Created new artist in public.artists (ID: ${newArt.id})`);
             }
         } else {
             artistRecord = { id: 'dry-run-uuid', name: item.name, track_count: 0 };
@@ -386,7 +396,7 @@ async function runHarvest() {
                 existingTrackTitles.add(lowerTitle);
             }
 
-            await sleep(350); // Respectful throttle
+            await sleep(150); // Respectful throttle
         }
 
         // E. Update artist track count in public.artists
@@ -403,7 +413,7 @@ async function runHarvest() {
 
         console.log(`   🎉 Finished "${item.name}": +${tracksAddedForArtist} tracks added to catalog.\n`);
         totalHarvestedArtists++;
-        await sleep(500);
+        await sleep(200);
     }
 
     console.log('================================================================');
