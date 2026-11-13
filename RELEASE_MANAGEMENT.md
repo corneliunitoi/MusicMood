@@ -60,6 +60,23 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.1a` — 2026-11-13
+* **Artist Catalog Deduplication & Reconciliation, "Try Before You Request" Candidate Demo Player & Nightly Sync:**
+  * **Catalog Deduplication & Fuzzy Clustering (`ArtistsExplorer.jsx` / `auditArtistDuplicates.js` / `mergeDuplicateArtists.js`):**
+    * Identified and resolved 198 duplicate artist clusters caused by punctuation differences, casing, and unicode hyphens (e.g., *Jean-Michel Jarre* vs *Jean Michel Jarre*, *Pink Floyd* vs *PINK FLOYD*, *Dead Can Dance* vs *DEAD CAN DANCE*, *Björk* vs *Bjork*).
+    * Implemented frontend fuzzy clustering with linguistic quality scoring in `ArtistsExplorer.jsx`: collapses duplicate artist rows into a single canonical card, picks the cleanest Title Case name with proper accents, and combines track counts.
+    * Unified 6,685 tracks in `public.tracks` to canonical artist IDs and names.
+    * Added normalized fuzzy search: searching without hyphens or diacritics (e.g. `jean michel jarre`) immediately matches the canonical entry.
+    * Cleaned CJK mojibake tag corruptions (`Phil Collins潶` $\to$ `Phil Collins`, `Duran Duran攀` $\to$ `Duran Duran`).
+  * **"Try Before You Request" Candidate Demo Player (`ArtistsExplorer.jsx` / `artist_suggestions` / `populateStagedDemos.js`):**
+    * Added `demo_youtube_id` and `demo_track_title` columns to `public.artist_suggestions`.
+    * Added **`▶ Try`** button alongside **`+ Request`** on each Potential Match card: allows listeners to demo the artist's signature track with 0ms delay before deciding to request full catalog ingestion.
+    * Plays through the standard MusicMood YouTube player bar via `onPlayTrack()`, preserving audio controls and visualizer state.
+    * Created `scripts/populateStagedDemos.js` to automatically resolve signature tracks for staged candidates.
+  * **Nightly Automation Updates (`.github/workflows/reconcile-flags.yml`):**
+    * Integrated automated candidate demo track population into the nightly 03:00 UTC maintenance run.
+    * Maintained the 250 artist/night open-license profile picture auto-population queue.
+
 ### `v0.8.0a` — 2026-11-13
 * **On-Demand Player Subgenre Locking, 100% Staged Genre Normalization, 2-Tier Open-License Artist Avatars & Nightly Pipeline Automation:**
   * **On-Demand Player Subgenre Locking (`sessionStateMachine.js` / `Player.jsx` / `Dashboard.jsx`):**

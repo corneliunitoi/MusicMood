@@ -15,8 +15,68 @@ const inFlightRequests = new Map();
 
 export function cleanArtistNameVariants(name) {
     if (!name) return [];
-    const clean = name.trim();
+    let clean = name.trim();
     const candidates = [clean];
+
+    // Known artist aliases & diacritic fixes
+    if (clean.toLowerCase().includes('andres ségovia') || clean.toLowerCase().includes('andres segovia')) {
+        candidates.push('Andrés Segovia');
+    }
+    if (clean.includes('μ‐Ziq') || clean.includes('μ-Ziq')) {
+        candidates.push('Mu-Ziq');
+        candidates.push('Mike Paradinas');
+    }
+    if (clean.toLowerCase().includes('hiromi the trio project')) {
+        candidates.push('Hiromi Uehara');
+        candidates.push('Hiromi');
+    }
+    if (clean.toLowerCase().includes('carreras') && clean.toLowerCase().includes('domingo') && clean.toLowerCase().includes('pavarotti')) {
+        candidates.push('Luciano Pavarotti');
+        candidates.push('The Three Tenors');
+    }
+    if (clean.toLowerCase().includes('elîna garanca') || clean.toLowerCase().includes('elina garanca')) {
+        candidates.push('Elīna Garanča');
+    }
+    if (clean.toLowerCase().includes('moscow phil')) {
+        candidates.push('Moscow Philharmonic Orchestra');
+    }
+    if (clean.toLowerCase().includes('jeff beck')) {
+        candidates.push('Jeff Beck');
+    }
+    if (clean.toLowerCase().includes('k.flagstad') || clean.toLowerCase().includes('kirsten flagstad')) {
+        candidates.push('Kirsten Flagstad');
+    }
+    if (clean.toLowerCase().includes('riccardo chailly')) {
+        candidates.push('Riccardo Chailly');
+        candidates.push('Gewandhausorchester');
+    }
+    if (clean.toLowerCase().includes('john eliot gardiner')) {
+        candidates.push('John Eliot Gardiner');
+    }
+    if (clean.toLowerCase().includes('richard bonynge')) {
+        candidates.push('Richard Bonynge');
+    }
+    if (clean.toLowerCase().includes('paco de luc')) {
+        candidates.push('Paco de Lucía');
+    }
+    if (clean.toLowerCase().includes('fischer-dieskau')) {
+        candidates.push('Dietrich Fischer-Dieskau');
+    }
+    if (clean.toLowerCase().includes('pavarotti')) {
+        candidates.push('Luciano Pavarotti');
+    }
+
+    // Split by slash or backslash: 'Dietrich Fischer-Dieskau\Jörg Demus'
+    if (clean.includes('\\') || clean.includes('/')) {
+        const parts = clean.split(/[\\/]/);
+        parts.forEach(p => { if (p && p.trim().length > 2) candidates.push(p.trim()); });
+    }
+
+    // Split by hyphen with orchestra/band: 'Richard Bonynge - National Philharmonic Orchestra'
+    if (clean.includes(' - ')) {
+        const parts = clean.split(' - ');
+        parts.forEach(p => { if (p && p.trim().length > 2) candidates.push(p.trim()); });
+    }
 
     // Inverted names: 'Caruso, Enrico' -> 'Enrico Caruso'
     if (clean.includes(', ') && !clean.includes(';')) {
@@ -59,6 +119,28 @@ export function cleanArtistNameVariants(name) {
 
     if (clean.toLowerCase() === 'tom jones') {
         candidates.push('Tom Jones (singer)');
+    }
+    if (clean === 'Anti Martikainen') {
+        candidates.push('Antti Martikainen');
+    }
+    if (clean === 'そこに鳴る') {
+        candidates.push('Sokoninaru');
+    }
+    if (clean === 'For You.Earth') {
+        candidates.push('For You. Earth');
+    }
+    if (clean.includes("Choir of New College Oxford")) {
+        candidates.push('Choir of New College Oxford');
+    }
+    if (clean === 'Pechocova') {
+        candidates.push('Slávka Pechocová');
+        candidates.push('Jana Pechocova');
+    }
+    if (clean === 'Spaced Out') {
+        candidates.push('SpacedOut');
+    }
+    if (clean.includes('Liviu Vasilic')) {
+        candidates.push('Liviu Vasilica');
     }
 
     return [...new Set(candidates)];

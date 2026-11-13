@@ -23,7 +23,7 @@ export async function fetchArtistSuggestions(search = '', limit = 100) {
     try {
         let query = supabase
             .from('artist_suggestions')
-            .select('id, name, slug, status, confidence_score, primary_genre_id, source, batch_id, created_at, is_requested, request_count')
+            .select('id, name, slug, status, confidence_score, primary_genre_id, source, batch_id, created_at, is_requested, request_count, demo_youtube_id, demo_track_title')
             .order('request_count', { ascending: false })
             .order('confidence_score', { ascending: false })
             .order('name', { ascending: true })

@@ -85,6 +85,43 @@ function getInitials(name = '') {
 }
 
 /**
+ * Normalizes artist name for fuzzy deduplication & clustering
+ * Strips diacritics, punctuation, dashes/hyphens, and collapses spaces
+ */
+export function normalizeArtistKey(name) {
+    if (!name) return '';
+    return name
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove diacritics
+        .replace(/[‐‑‒–—―-]/g, ' ') // normalize all hyphens to space
+        .replace(/[^a-z0-9\s]/g, '') // remove punctuation
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+/**
+ * Scores artist name quality: favors proper mixed casing, proper accents, and standard hyphens
+ * Penalizes ALL-CAPS (e.g. PINK FLOYD), all-lowercase, CJK mojibake, and odd unicode dashes
+ */
+export function scoreArtistNameQuality(name) {
+    if (!name) return 0;
+    let score = 10;
+    // Penalize CJK / mojibake characters in western artist names
+    if (/[\u4e00-\u9fff\u3400-\u4dbf\uff00-\uffef]/.test(name) && !/^[^\x00-\x7F]+$/.test(name)) score -= 30;
+    // Penalize odd unicode dashes/hyphens (e.g. U+2010 hyphen)
+    if (/[\u2010\u2011\u2012\u2013\u2014]/.test(name)) score -= 15;
+    // Penalize ALL-CAPS if longer than 3 chars (e.g. PINK FLOYD vs Pink Floyd, but allow U2, R.E.M.)
+    if (name.length > 3 && name === name.toUpperCase()) score -= 20;
+    // Penalize all-lowercase (e.g. "nine inch nails" vs "Nine Inch Nails")
+    if (name === name.toLowerCase()) score -= 15;
+    // Reward standard accented Latin letters (e.g. Björk, Frédéric, Paco de Lucía, Antonín Dvořák)
+    if (/[áàâäãåçéèêëíìîïñóòôöõúùûüýÿřžščďťňľ]/i.test(name)) score += 10;
+    // Reward standard hyphen (e.g. Jean-Michel Jarre)
+    if (name.includes('-')) score += 5;
+    return score;
+}
+
+/**
  * Normalizes raw database track row to canonical player model
  * Ensures id is always the 11-char YouTube video ID
  */
@@ -142,15 +179,36 @@ async function loadAllArtists(force = false) {
         const chunks = await Promise.all(promises);
         const all = chunks.flat().filter(Boolean);
 
-        // Deduplicate by artist ID and canonical name
+        // Deduplicate and merge artist clusters by normalized canonical key
         const uniqueMap = new Map();
         for (const a of all) {
-            const key = a.name ? a.name.trim().toLowerCase() : a.id;
-            if (key && !uniqueMap.has(key)) {
-                uniqueMap.set(key, a);
+            const key = normalizeArtistKey(a.name) || a.id;
+            if (!uniqueMap.has(key)) {
+                uniqueMap.set(key, {
+                    ...a,
+                    allIds: [a.id],
+                    allNames: [a.name]
+                });
+            } else {
+                const existing = uniqueMap.get(key);
+                existing.track_count = (existing.track_count || 0) + (a.track_count || 0);
+                existing.upvotes = (existing.upvotes || 0) + (a.upvotes || 0);
+                if (!existing.allIds.includes(a.id)) existing.allIds.push(a.id);
+                if (!existing.allNames.includes(a.name)) existing.allNames.push(a.name);
+                if (!existing.avatar_url && a.avatar_url) existing.avatar_url = a.avatar_url;
+
+                // Pick cleanest canonical display name & primary id
+                const curScore = scoreArtistNameQuality(existing.name);
+                const newScore = scoreArtistNameQuality(a.name);
+                if (newScore > curScore || (newScore === curScore && !existing.avatar_url && a.avatar_url)) {
+                    existing.name = a.name;
+                    existing.id = a.id;
+                    if (a.avatar_url) existing.avatar_url = a.avatar_url;
+                    if (a.primary_genre_id && a.primary_genre_id !== 'other') existing.primary_genre_id = a.primary_genre_id;
+                }
             }
         }
-        const deduplicated = Array.from(uniqueMap.values());
+        const deduplicated = Array.from(uniqueMap.values()).filter(a => (a.track_count || 0) > 0);
         cachedAllArtists = deduplicated;
         fetchAllPromise = null;
         return deduplicated;
@@ -174,6 +232,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
     // Potential matches (Staged Candidates)
     const [stagedArtists, setStagedArtists] = useState([]);
     const [isLoadingStaged, setIsLoadingStaged] = useState(false);
+    const [demoPlayingId, setDemoPlayingId] = useState(null);
     const [requestedArtists, setRequestedArtists] = useState(() => {
         try {
             const saved = localStorage.getItem('musicmood_requested_artists');
@@ -182,6 +241,26 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             return {};
         }
     });
+
+    const handlePlayDemo = (artist, e) => {
+        if (e) e.stopPropagation();
+        if (!onPlayTrack || !artist.demo_youtube_id) return;
+
+        setDemoPlayingId(artist.id);
+        const playable = {
+            id: artist.demo_youtube_id,
+            youtube_video_id: artist.demo_youtube_id,
+            title: artist.demo_track_title || `${artist.name} (Demo)`,
+            artist: artist.name,
+            genre: artist.primary_genre_id || 'rock',
+            thumbnail: `https://i.ytimg.com/vi/${artist.demo_youtube_id}/hqdefault.jpg`,
+            source: 'artist_demo'
+        };
+        if (sessionEngine.playOnDemand) {
+            sessionEngine.playOnDemand(playable, false);
+        }
+        onPlayTrack(playable);
+    };
 
     const handleToggleRequest = async (artist, e) => {
         if (e) e.stopPropagation();
@@ -300,13 +379,23 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
         }
 
         try {
-            const { data, error } = await supabase
+            const namesToQuery = (artist.allNames && artist.allNames.length > 0)
+                ? artist.allNames
+                : [artist.name];
+
+            let query = supabase
                 .from('tracks')
                 .select('*')
-                .ilike('artist', artist.name)
                 .not('youtube_video_id', 'is', null)
-                .neq('youtube_video_id', 'CORRUPT_TAGS')
-                .limit(50);
+                .neq('youtube_video_id', 'CORRUPT_TAGS');
+
+            if (namesToQuery.length === 1) {
+                query = query.ilike('artist', namesToQuery[0]);
+            } else {
+                query = query.in('artist', namesToQuery);
+            }
+
+            const { data, error } = await query.limit(50);
 
             if (!error && data) {
                 setArtistTracks(data);
@@ -349,6 +438,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
     // Filtered Artists
     const filteredArtists = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
+        const normQuery = normalizeArtistKey(searchQuery);
 
         // 1. "Potential Matches" Tab: artists currently sitting in staging awaiting ingestion
         if (selectedGenre === 'potential') {
@@ -368,11 +458,18 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                     source: a.source,
                     is_requested: a.is_requested || !!requestedArtists[a.id || a.name],
                     request_count: a.request_count || 0,
+                    demo_youtube_id: a.demo_youtube_id || null,
+                    demo_track_title: a.demo_track_title || null,
                     track_count: 0
                 };
             });
             if (query) {
-                return mapped.filter(a => a.name.toLowerCase().includes(query) || (a.primary_genre_id && a.primary_genre_id.toLowerCase().includes(query)));
+                return mapped.filter(a => {
+                    const normA = normalizeArtistKey(a.name);
+                    return normA.includes(normQuery) ||
+                        a.name.toLowerCase().includes(query) ||
+                        (a.primary_genre_id && a.primary_genre_id.toLowerCase().includes(query));
+                });
             }
             return mapped;
         }
@@ -389,10 +486,12 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                 .slice(0, 50);
 
             if (query) {
-                return latestSorted.filter(artist => 
-                    artist.name.toLowerCase().includes(query) ||
-                    (artist.primary_genre_id && artist.primary_genre_id.toLowerCase().includes(query))
-                );
+                return latestSorted.filter(artist => {
+                    const normA = normalizeArtistKey(artist.name);
+                    return normA.includes(normQuery) ||
+                        artist.name.toLowerCase().includes(query) ||
+                        (artist.primary_genre_id && artist.primary_genre_id.toLowerCase().includes(query));
+                });
             }
             return latestSorted;
         }
@@ -403,8 +502,11 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             if (selectedGenre !== 'all' && parent !== selectedGenre) {
                 return false;
             }
-            if (query && !artist.name.toLowerCase().includes(query)) {
-                return false;
+            if (query) {
+                const normA = normalizeArtistKey(artist.name);
+                if (!normA.includes(normQuery) && !artist.name.toLowerCase().includes(query)) {
+                    return false;
+                }
             }
             return true;
         });
@@ -760,27 +862,55 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                     <span>{isStaged && artist.primary_genre_id && artist.primary_genre_id !== 'other' ? artist.primary_genre_id.replace(/_/g, ' ') : genreObj.label}</span>
                                 </div>
 
-                                {/* Track Count or Request Button */}
+                                {/* Track Count or Try Demo + Request Buttons */}
                                 {isStaged ? (
-                                    <button
-                                        onClick={(e) => handleToggleRequest(artist, e)}
-                                        style={{
-                                            marginTop: '0.2rem',
-                                            width: '100%',
-                                            padding: '0.2rem 0.45rem',
-                                            borderRadius: '5px',
-                                            border: isRequested ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.15)',
-                                            background: isRequested ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.06)',
-                                            color: isRequested ? '#34d399' : '#cbd5e1',
-                                            fontSize: '0.68rem',
-                                            fontWeight: '600',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.15s'
-                                        }}
-                                        title={isRequested ? 'Click to cancel request' : 'Request this artist to be prioritized for catalog ingestion'}
-                                    >
-                                        {isRequested ? '✓ Requested' : '+ Request'}{artist.request_count > 0 ? ` (${artist.request_count})` : ''}
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '0.25rem', width: '100%', marginTop: '0.2rem' }}>
+                                        {artist.demo_youtube_id && (
+                                            <button
+                                                onClick={(e) => handlePlayDemo(artist, e)}
+                                                style={{
+                                                    flex: '0 0 auto',
+                                                    padding: '0.2rem 0.45rem',
+                                                    borderRadius: '5px',
+                                                    border: demoPlayingId === artist.id ? '1px solid #10b981' : '1px solid rgba(99, 102, 241, 0.4)',
+                                                    background: demoPlayingId === artist.id ? 'rgba(16, 185, 129, 0.25)' : 'rgba(99, 102, 241, 0.15)',
+                                                    color: demoPlayingId === artist.id ? '#34d399' : '#a5b4fc',
+                                                    fontSize: '0.68rem',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.2rem',
+                                                    transition: 'all 0.15s'
+                                                }}
+                                                title={artist.demo_track_title ? `Try song: "${artist.demo_track_title}"` : `Demo ${artist.name}`}
+                                            >
+                                                <span>{demoPlayingId === artist.id ? '🔊' : '▶'}</span>
+                                                <span>Try</span>
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={(e) => handleToggleRequest(artist, e)}
+                                            style={{
+                                                flex: 1,
+                                                padding: '0.2rem 0.35rem',
+                                                borderRadius: '5px',
+                                                border: isRequested ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.15)',
+                                                background: isRequested ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                                                color: isRequested ? '#34d399' : '#cbd5e1',
+                                                fontSize: '0.68rem',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.15s',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                            title={isRequested ? 'Click to cancel request' : 'Request this artist to be prioritized for catalog ingestion'}
+                                        >
+                                            {isRequested ? '✓ Added' : '+ Request'}{artist.request_count > 0 ? ` (${artist.request_count})` : ''}
+                                        </button>
+                                    </div>
                                 ) : (
                                     <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
                                         {artist.track_count} tracks
