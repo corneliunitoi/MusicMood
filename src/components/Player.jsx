@@ -85,6 +85,7 @@ function Player({ initialTrack, token }) {
     const isPlayerReadyRef = useRef(false);
     const isTransitioningRef = useRef(false);
     const currentTrackRef = useRef(initialTrack);
+    const activeVideoIdRef = useRef(initialTrack?.youtube_video_id || initialTrack?.id || null);
     const watchdogTimerRef = useRef(null);
 
     const clearWatchdog = () => {
@@ -147,7 +148,7 @@ function Player({ initialTrack, token }) {
     useEffect(() => {
         const unsubscribe = sessionEngine.subscribe((newState) => {
             setSessionState({ ...newState });
-            if (newState.currentTrack && newState.currentTrack.id && newState.currentTrack.id !== currentTrackRef.current?.id) {
+            if (!isTransitioningRef.current && newState.currentTrack && newState.currentTrack.id && newState.currentTrack.id !== currentTrackRef.current?.id) {
                 playTrackImmediately(newState.currentTrack);
             }
         });
@@ -318,6 +319,14 @@ function Player({ initialTrack, token }) {
             console.warn('[HardenedPlayer] Cannot play track - missing 11-char YouTube video ID:', track);
             return;
         }
+
+        // Idempotency Guard: prevent duplicate rapid loads of the exact same video
+        if (activeVideoIdRef.current === targetVideoId && isPlaying) {
+            console.log(`[HardenedPlayer] Video ${targetVideoId} already active. Skipping duplicate load.`);
+            return;
+        }
+        activeVideoIdRef.current = targetVideoId;
+        currentTrackRef.current = track;
 
         clearWatchdog();
         setCurrentTrack(track);

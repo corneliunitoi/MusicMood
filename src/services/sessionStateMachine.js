@@ -1092,55 +1092,53 @@ class SessionStateMachine {
         try {
             const activeGenreId = this.state.activeGenre;
             const node = GENRE_NODES[activeGenreId];
+            const targetGroup = (node?.group || '').toLowerCase();
 
-            // Build candidate genre list: specific subgenre, parent family, and harmonic neighbors
-            const candidateGenreIds = [activeGenreId];
-            if (node?.group) {
-                const groupLower = node.group.toLowerCase();
-                const parentId = Object.keys(GENRE_FAMILIES).find(k => {
-                    const l = GENRE_FAMILIES[k].label.toLowerCase();
-                    return l.includes(groupLower) || groupLower.includes(l);
-                });
-                if (parentId) candidateGenreIds.push(parentId);
+            // Strict Genre Family Filter: candidate genres limited exclusively to active genre & sister subgenres in SAME family
+            const sameFamilyGenres = Object.keys(GENRE_NODES).filter(g => {
+                const grp = (GENRE_NODES[g]?.group || '').toLowerCase();
+                return grp && targetGroup && grp === targetGroup;
+            });
+            if (!sameFamilyGenres.includes(activeGenreId)) {
+                sameFamilyGenres.push(activeGenreId);
             }
-            const neighbors = getConnectedGenres(activeGenreId);
-            candidateGenreIds.push(...neighbors);
-            const candList = candidateGenreIds.join(',');
 
-            // 1. Try candidate genres with randomized offset (strict primary genre match)
+            // 1. Try exact active genre first (with random offset)
             const randOffset = Math.floor(Math.random() * 60);
             let { data } = await supabase
                 .from('tracks')
                 .select('*')
-                .in('primary_genre_id', candidateGenreIds)
+                .eq('primary_genre_id', activeGenreId)
                 .not('youtube_video_id', 'is', null)
                 .neq('youtube_video_id', 'CORRUPT_TAGS')
                 .range(randOffset, randOffset + 50);
 
-            // 2. If empty, retry without offset
+            // 2. If empty, retry exact active genre without offset
             if (!data || data.length === 0) {
                 const res = await supabase
                     .from('tracks')
                     .select('*')
-                    .in('primary_genre_id', candidateGenreIds)
+                    .eq('primary_genre_id', activeGenreId)
                     .not('youtube_video_id', 'is', null)
                     .neq('youtube_video_id', 'CORRUPT_TAGS')
                     .limit(50);
                 data = res.data;
             }
 
-            // 3. Fall back to any catalog track sampled with random offset
+            // 3. If exact genre has no tracks, query sister subgenres strictly within the SAME family
             if (!data || data.length === 0) {
-                const randomOffset = Math.floor(Math.random() * 200);
                 const res = await supabase
                     .from('tracks')
                     .select('*')
+                    .in('primary_genre_id', sameFamilyGenres)
                     .not('youtube_video_id', 'is', null)
                     .neq('youtube_video_id', 'CORRUPT_TAGS')
-                    .range(randomOffset, randomOffset + 50);
+                    .limit(50);
                 data = res.data;
             }
 
+            // If catalog has no tracks in this genre family, return null so JIT engine pulls genuine tracks
+            // NEVER fall back to other genre families or random tracks!
             if (!data || data.length === 0) return null;
 
             // SHUFFLE data array so initial selection is never biased to row 0
@@ -1248,21 +1246,32 @@ class SessionStateMachine {
         try {
             const activeGenreId = this.state.activeGenre;
             const node = GENRE_NODES[activeGenreId];
+            const targetGroup = (node?.group || '').toLowerCase();
+
+            // Strict Genre Family: candidate pool restricted exclusively to subgenres in the SAME family
+            const sameFamilyGenres = Object.keys(GENRE_NODES).filter(g => {
+                const grp = (GENRE_NODES[g]?.group || '').toLowerCase();
+                return grp && targetGroup && grp === targetGroup;
+            });
+            if (!sameFamilyGenres.includes(activeGenreId)) {
+                sameFamilyGenres.push(activeGenreId);
+            }
 
             const excludeSet = new Set([
-                ...(this.state.recentTracks || []).slice(-50),
+                ...(this.state.recentTracks || []).slice(-30),
                 ...(excludeIds || []),
                 this.state.currentTrack?.id
             ].filter(Boolean));
-            const recentArtistsSet = new Set((this.state.recentArtists || []).slice(-15));
+            const recentArtistsSet = new Set((this.state.recentArtists || []).slice(-10));
 
-            const filterCandidates = (tracks, relaxArtist = false) => {
+            const filterCandidates = (tracks, relaxArtist = false, minimalExclude = false) => {
                 if (!tracks || !Array.isArray(tracks)) return [];
                 const seenArtists = new Set();
                 return tracks.filter(t => {
                     const vid = t.youtube_video_id || t.id;
                     if (!vid || vid.length !== 11) return false;
-                    if (excludeSet.has(vid)) return false;
+                    if (!minimalExclude && excludeSet.has(vid)) return false;
+                    if (minimalExclude && vid === this.state.currentTrack?.id) return false;
                     const a = (t.artist || '').toLowerCase();
                     if (!relaxArtist && a && recentArtistsSet.has(a)) return false;
                     // Strict artist diversity: max 1 song per artist per candidate pool
@@ -1294,7 +1303,7 @@ class SessionStateMachine {
             };
 
             // Tier 1: Exact active subgenre in tracks table (STRICT primary genre match)
-            const randOffset1 = Math.floor(Math.random() * 100);
+            const randOffset1 = Math.floor(Math.random() * 80);
             let { data: exactMapped } = await supabase
                 .from('tracks')
                 .select('*')
@@ -1320,88 +1329,59 @@ class SessionStateMachine {
                 available = filterCandidates(exactMapped, true);
             }
 
-            // Tier 2: Parent family (Strict primary genre)
-            if (available.length === 0 && node?.group) {
-                const groupLower = node.group.toLowerCase();
-                const parentId = Object.keys(GENRE_FAMILIES).find(k => {
-                    const l = GENRE_FAMILIES[k].label.toLowerCase();
-                    return l.includes(groupLower) || groupLower.includes(l);
-                }) || groupLower;
+            // Tier 2: Sister subgenres within the SAME parent family
+            let familyMapped = null;
+            if (available.length === 0 && sameFamilyGenres.length > 1) {
+                const randOffset2 = Math.floor(Math.random() * 80);
+                let { data: famData } = await supabase
+                    .from('tracks')
+                    .select('*')
+                    .in('primary_genre_id', sameFamilyGenres)
+                    .not('youtube_video_id', 'is', null)
+                    .neq('youtube_video_id', 'CORRUPT_TAGS')
+                    .range(randOffset2, randOffset2 + 50);
 
-                if (parentId && parentId !== activeGenreId) {
-                    const randOffset2 = Math.floor(Math.random() * 100);
-                    let { data: familyMapped } = await supabase
+                if (!famData || famData.length === 0) {
+                    const res = await supabase
                         .from('tracks')
                         .select('*')
-                        .eq('primary_genre_id', parentId)
+                        .in('primary_genre_id', sameFamilyGenres)
                         .not('youtube_video_id', 'is', null)
                         .neq('youtube_video_id', 'CORRUPT_TAGS')
-                        .range(randOffset2, randOffset2 + 50);
+                        .limit(50);
+                    famData = res.data;
+                }
 
-                    if (!familyMapped || familyMapped.length === 0) {
-                        const res = await supabase
-                            .from('tracks')
-                            .select('*')
-                            .eq('primary_genre_id', parentId)
-                            .not('youtube_video_id', 'is', null)
-                            .neq('youtube_video_id', 'CORRUPT_TAGS')
-                            .limit(50);
-                        familyMapped = res.data;
-                    }
-
-                    familyMapped = shuffleArray(familyMapped);
-                    available = filterCandidates(familyMapped);
-                    if (available.length === 0 && familyMapped && familyMapped.length > 0) {
-                        available = filterCandidates(familyMapped, true);
-                    }
+                familyMapped = shuffleArray(famData);
+                available = filterCandidates(familyMapped);
+                if (available.length === 0 && familyMapped && familyMapped.length > 0) {
+                    available = filterCandidates(familyMapped, true);
                 }
             }
 
-            // Tier 3: Harmonic neighbors (Strict primary genre)
+            // Tier 3: If all tracks in this family were recently played, RELAX exclusions to replay tracks
+            // NEVER jump outside the user's genre family!
             if (available.length === 0) {
-                const neighbors = getConnectedGenres(activeGenreId).filter(g => g !== activeGenreId);
-                if (neighbors.length > 0) {
-                    const randOffset3 = Math.floor(Math.random() * 80);
-                    let { data: neighborMapped } = await supabase
-                        .from('tracks')
-                        .select('*')
-                        .in('primary_genre_id', neighbors)
-                        .not('youtube_video_id', 'is', null)
-                        .neq('youtube_video_id', 'CORRUPT_TAGS')
-                        .range(randOffset3, randOffset3 + 50);
-
-                    if (!neighborMapped || neighborMapped.length === 0) {
-                        const res = await supabase
-                            .from('tracks')
-                            .select('*')
-                            .in('primary_genre_id', neighbors)
-                            .not('youtube_video_id', 'is', null)
-                            .neq('youtube_video_id', 'CORRUPT_TAGS')
-                            .limit(50);
-                        neighborMapped = res.data;
-                    }
-
-                    neighborMapped = shuffleArray(neighborMapped);
-                    available = filterCandidates(neighborMapped);
-                    if (available.length === 0 && neighborMapped && neighborMapped.length > 0) {
-                        available = filterCandidates(neighborMapped, true);
-                    }
+                const pool = (exactMapped && exactMapped.length > 0) ? exactMapped : familyMapped;
+                if (pool && pool.length > 0) {
+                    available = filterCandidates(pool, true, true);
                 }
             }
 
-            // Tier 4: Emergency fallback to secondary genres (ONLY if no primary tracks exist in catalog)
+            // Tier 4: Fallback to secondary genres strictly within the SAME family
             if (available.length === 0) {
                 let { data: secondaryMapped } = await supabase
                     .from('tracks')
                     .select('*')
                     .contains('secondary_genre_ids', [activeGenreId])
+                    .in('primary_genre_id', sameFamilyGenres)
                     .not('youtube_video_id', 'is', null)
                     .neq('youtube_video_id', 'CORRUPT_TAGS')
                     .limit(30);
 
                 if (secondaryMapped && secondaryMapped.length > 0) {
                     secondaryMapped = shuffleArray(secondaryMapped);
-                    available = filterCandidates(secondaryMapped, true);
+                    available = filterCandidates(secondaryMapped, true, true);
                 }
             }
 
