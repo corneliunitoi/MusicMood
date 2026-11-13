@@ -338,18 +338,25 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
 
         // 1. "Potential Matches" Tab: artists currently sitting in staging awaiting ingestion
         if (selectedGenre === 'potential') {
-            const mapped = stagedArtists.map(a => ({
-                id: a.id,
-                name: a.name,
-                primary_genre_id: a.primary_genre_id || 'other',
-                is_staged: true,
-                status: a.status,
-                confidence_score: a.confidence_score,
-                source: a.source,
-                is_requested: a.is_requested || !!requestedArtists[a.id || a.name],
-                request_count: a.request_count || 0,
-                track_count: 0
-            }));
+            const mapped = stagedArtists.map(a => {
+                const parent = getParentGenre(a.primary_genre_id);
+                const safeGenre = a.primary_genre_id && a.primary_genre_id !== 'other'
+                    ? a.primary_genre_id
+                    : (parent && parent !== 'other' ? parent : 'rock');
+
+                return {
+                    id: a.id,
+                    name: a.name,
+                    primary_genre_id: safeGenre,
+                    is_staged: true,
+                    status: a.status,
+                    confidence_score: a.confidence_score,
+                    source: a.source,
+                    is_requested: a.is_requested || !!requestedArtists[a.id || a.name],
+                    request_count: a.request_count || 0,
+                    track_count: 0
+                };
+            });
             if (query) {
                 return mapped.filter(a => a.name.toLowerCase().includes(query) || (a.primary_genre_id && a.primary_genre_id.toLowerCase().includes(query)));
             }
@@ -720,7 +727,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                     marginBottom: '0.25rem'
                                 }}>
                                     <span>{genreObj.emoji}</span>
-                                    <span>{isStaged && artist.primary_genre_id ? artist.primary_genre_id : genreObj.label}</span>
+                                    <span>{isStaged && artist.primary_genre_id && artist.primary_genre_id !== 'other' ? artist.primary_genre_id.replace(/_/g, ' ') : genreObj.label}</span>
                                 </div>
 
                                 {/* Track Count or Request Button */}

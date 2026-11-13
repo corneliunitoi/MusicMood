@@ -33,6 +33,7 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+import { normalizeGenre } from '../src/services/genreNormalizer.js';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
@@ -315,14 +316,34 @@ async function fetchKEXPPlays(targetCount, library) {
                 library.exactSet.add(lowerName);
                 library.normalizedSet.add(normName);
 
+                // Dynamically resolve artist genre via Last.fm top tags (default to alt_rock, never null / other)
+                let assignedGenre = 'alt_rock';
+                if (LASTFM_API_KEY) {
+                    try {
+                        const tagUrl = `https://ws.audioscrobbler.com/2.0/?method=artist.gettoptags&artist=${encodeURIComponent(name)}&api_key=${LASTFM_API_KEY}&format=json`;
+                        const tagRes = await fetch(tagUrl);
+                        if (tagRes.ok) {
+                            const tagData = await tagRes.json();
+                            const tags = tagData?.toptags?.tag || [];
+                            for (const t of tags.slice(0, 5)) {
+                                const norm = normalizeGenre(t.name, name);
+                                if (norm && norm !== 'other' && norm !== 'unknown') {
+                                    assignedGenre = norm;
+                                    break;
+                                }
+                            }
+                        }
+                    } catch { }
+                }
+
                 artists.push({
                     name,
                     source: 'kexp_live',
                     discovered_via: `kexp:${play.show_title || 'live_radio'}`,
                     source_url: `https://kexp.org/search/?q=${encodeURIComponent(name)}`,
-                    primary_genre_id: null, // Let later enrichment assign exact genre
-                    genre_label: 'Eclectic / Radio Curated',
-                    raw_tags: ['kexp_curated', 'eclectic_radio'],
+                    primary_genre_id: assignedGenre,
+                    genre_label: assignedGenre.replace(/_/g, ' '),
+                    raw_tags: ['kexp_curated', assignedGenre],
                     estimated_listeners: 0,
                     confidence_score: 95,
                 });
@@ -498,7 +519,7 @@ async function main() {
                 source: c.source || 'scanner',
                 batch_id: c.discovered_via || `scan-${new Date().toISOString().slice(0, 10)}`,
                 confidence_score: c.confidence_score,
-                primary_genre_id: c.primary_genre_id || null,
+                primary_genre_id: c.primary_genre_id && c.primary_genre_id !== 'other' ? c.primary_genre_id : 'alt_rock',
                 quality_flags: Array.isArray(c.raw_tags) ? c.raw_tags : [],
                 status: isApproved ? 'approved' : 'pending',
             };
