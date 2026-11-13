@@ -553,7 +553,7 @@ function Dashboard({ token, onLogout }) {
                     <FavoritesPane
                         onPlayTrack={(track) => {
                             setActiveTrack(track);
-                            sessionEngine.commitTrack(track);
+                            sessionEngine.playOnDemand(track);
                         }}
                         onClose={() => setActiveTopPanel(null)}
                     />
@@ -564,7 +564,7 @@ function Dashboard({ token, onLogout }) {
                     <ArtistsExplorer
                         onPlayTrack={(track) => {
                             setActiveTrack(track);
-                            sessionEngine.commitTrack(track);
+                            sessionEngine.playOnDemand(track);
                             setActiveTopPanel(null);
                         }}
                         onClose={() => setActiveTopPanel(null)}
@@ -620,6 +620,7 @@ function Dashboard({ token, onLogout }) {
                             token={token}
                             onPlayTrack={(track) => {
                                 setActiveTrack(track);
+                                sessionEngine.playOnDemand(track);
                             }}
                             onIngestComplete={async () => {
                                 try {

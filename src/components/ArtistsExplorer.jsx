@@ -328,6 +328,9 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             sessionEngine.queue = rest;
         }
 
+        if (sessionEngine.playOnDemand) {
+            sessionEngine.playOnDemand(first, rest.length > 0);
+        }
         onPlayTrack(first);
         setSelectedArtist(null);
     };

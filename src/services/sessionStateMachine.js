@@ -12,7 +12,7 @@
 
 import { supabase, recordListenEvent } from './supabaseService.js';
 import { GENRE_FAMILIES, GENRE_NODES, getConnectedGenres, getGraphDistance, getVectorDeviation, getMoodCompatibleGenres, getPoleForGenre, violatesDealbreakers, normalizeWeights } from './tasteGraph.js';
-import { isSongCandidate, isAiGenerated } from './genreNormalizer.js';
+import { isSongCandidate, isAiGenerated, normalizeGenre } from './genreNormalizer.js';
 import { allMoods } from './moods.js';
 import { jitEngine } from './jitEngine.js';
 
@@ -520,6 +520,55 @@ class SessionStateMachine {
         }, 100);
     }
 
+    /**
+     * Plays a track on demand (from Artists Explorer, Favorites, Playlists, or Search).
+     * Locks the state machine into that track's subgenre and clears stale queues from
+     * the prior genre so playback stays firmly in this requested subgenre.
+     */
+    playOnDemand(track, preserveQueue = false) {
+        if (!track) return;
+
+        // 1. Resolve canonical genre ID
+        let targetGenre = track.genre || track.primary_genre_id;
+        if (targetGenre) {
+            const normalized = normalizeGenre(targetGenre, track.artist, track.title);
+            if (normalized && GENRE_NODES[normalized]) {
+                targetGenre = normalized;
+            } else {
+                const cleanKey = String(targetGenre).toLowerCase().replace(/[\s-]+/g, '_');
+                if (GENRE_NODES[cleanKey]) {
+                    targetGenre = cleanKey;
+                }
+            }
+        }
+
+        // 2. Switch active genre and reset consecutive dwell
+        if (targetGenre && GENRE_NODES[targetGenre]) {
+            console.log(`[StateMachine 🎯] On-demand play locked genre -> ${GENRE_NODES[targetGenre].label} (${targetGenre})`);
+            this.state.activeGenre = targetGenre;
+            this.state.consecutiveInNode = 0;
+            this.state.consecutiveSkips = 0;
+        }
+
+        // 3. Clear stale buffer from prior genre unless specifically preserved (e.g. Artist Radio)
+        if (!preserveQueue) {
+            this.queue = [];
+        }
+
+        // 4. Commit track
+        this.commitTrack(track);
+
+        // 5. Notify all listeners (Player.jsx dropdown and UI update immediately)
+        this.notify();
+
+        // 6. Pre-buffer next songs in this newly requested subgenre
+        if (!preserveQueue || this.queue.length < 2) {
+            setTimeout(() => {
+                jitEngine.replenishBuffer(this.state.activeGenre, this);
+            }, 100);
+        }
+    }
+
     setEnergy(energyFloat) {
         this.state.energyLevel = Math.max(0.0, Math.min(1.0, energyFloat));
         this.queue = [];
@@ -980,7 +1029,18 @@ class SessionStateMachine {
         }
 
         // Steer the active graph node to the track's genre for continuity
-        const targetGenre = track.genre || track.primary_genre_id;
+        let targetGenre = track.genre || track.primary_genre_id;
+        if (targetGenre) {
+            const normalized = normalizeGenre(targetGenre, track.artist, track.title);
+            if (normalized && GENRE_NODES[normalized]) {
+                targetGenre = normalized;
+            } else {
+                const cleanKey = String(targetGenre).toLowerCase().replace(/[\s-]+/g, '_');
+                if (GENRE_NODES[cleanKey]) {
+                    targetGenre = cleanKey;
+                }
+            }
+        }
         if (targetGenre && GENRE_NODES[targetGenre]) {
             this.state.activeGenre = targetGenre;
             this.state.consecutiveInNode = 0;

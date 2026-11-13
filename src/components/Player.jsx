@@ -3,6 +3,7 @@ import { supabase, upvoteTrack, flagTrackMisclassification } from '../services/s
 import { sessionEngine } from '../services/sessionStateMachine';
 import { GENRE_NODES } from '../services/tasteGraph';
 import { jitEngine } from '../services/jitEngine';
+import { normalizeGenre } from '../services/genreNormalizer';
 import { isFavorite, toggleFavorite, subscribeFavorites } from '../services/favoritesService';
 
 /**
@@ -327,8 +328,21 @@ function Player({ initialTrack, token }) {
         setDuration(0);
         setIsSeeking(false);
 
-        // Keep local player sessionState immediately synchronized with state machine's active genre
-        if (sessionEngine.state.activeGenre) {
+        // Resolve and lock genre for on-demand track so player immediately switches and stays on this subgenre
+        let trackGenre = track.genre || track.primary_genre_id;
+        if (trackGenre) {
+            const norm = normalizeGenre(trackGenre, track.artist, track.title);
+            const targetGenre = (norm && GENRE_NODES[norm])
+                ? norm
+                : (GENRE_NODES[String(trackGenre).toLowerCase().replace(/[\s-]+/g, '_')] ? String(trackGenre).toLowerCase().replace(/[\s-]+/g, '_') : null);
+
+            if (targetGenre) {
+                sessionEngine.state.activeGenre = targetGenre;
+                setSessionState(prev => ({ ...prev, activeGenre: targetGenre }));
+            } else if (sessionEngine.state.activeGenre) {
+                setSessionState(prev => ({ ...prev, activeGenre: sessionEngine.state.activeGenre }));
+            }
+        } else if (sessionEngine.state.activeGenre) {
             setSessionState(prev => ({ ...prev, activeGenre: sessionEngine.state.activeGenre }));
         }
 
