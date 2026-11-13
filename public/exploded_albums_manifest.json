@@ -1,0 +1,29 @@
+{
+  "lastScannedAt": "2026-11-13T12:54:30.241Z",
+  "totalAlbums": 2,
+  "totalTracks": 22,
+  "albums": [
+    {
+      "artist": "B.B. King",
+      "album": "Singing the Blues",
+      "genre": "Blues",
+      "format": "FLAC/CUE",
+      "audioContainer": "A1 - Please Love Me.flac",
+      "trackCount": 12,
+      "path": "\\\\192.168.0.2\\e$\\music\\Flac muzic\\Blues\\B.B King - 24 Bit Vinyl Pack\\(1956) B.B. King - Singing The Blues\\BB King - Singing the Blues.cue",
+      "explodedAt": "2026-11-13T12:54:29.927Z",
+      "status": "pending_online_ingestion"
+    },
+    {
+      "artist": "B.B. King",
+      "album": "My Kind of Blues",
+      "genre": "Blues",
+      "format": "FLAC/CUE",
+      "audioContainer": "A1 - You Done Lost Your Good Thing Now.flac",
+      "trackCount": 10,
+      "path": "\\\\192.168.0.2\\e$\\music\\Flac muzic\\Blues\\B.B King - 24 Bit Vinyl Pack\\(1961) B.B. King - My Kind Of Blues\\BB King - My Kind of Blues.cue",
+      "explodedAt": "2026-11-13T12:54:30.209Z",
+      "status": "pending_online_ingestion"
+    }
+  ]
+}
