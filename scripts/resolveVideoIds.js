@@ -18,6 +18,9 @@ const useInnertube = process.argv.includes('--innertube') || process.env.npm_con
 const BASE_DELAY_MS = useInnertube ? 450 : 2200; // 450ms for Innertube JSON, 2200ms for Desktop HTML
 
 const isRandom = process.argv.includes('--random') || process.env.npm_config_random === 'true';
+const cueOnly = process.argv.includes('--cue-only') || process.env.npm_config_cue_only === 'true';
+const limitArg = process.argv.find(a => a.startsWith('--limit='));
+const MAX_TRACKS = limitArg ? parseInt(limitArg.split('=')[1], 10) : Infinity;
 const artistCache = new Map();
 let consecutiveZeroes = 0;
 
@@ -430,6 +433,8 @@ async function startResolver() {
     console.log("   • Song-Only Gatekeeper (Stems & Compilations filtered)");
     console.log(isRandom ? "   • Sampling: RANDOM 🎲 (Diverse artists across library)" : "   • Sampling: SEQUENTIAL (pass --random for diverse artists)");
     console.log(useInnertube ? "   • Engine: INNERTUBE ⚡ (YouTube Music Private JSON API ~300ms)" : "   • Engine: DESKTOP_SCRAPER 🛡️ (Standard HTML Scraper 2.2s)");
+    if (cueOnly) console.log("   • Target Filter: CUE ONLY 💿 (source = 'ko-local:cue')");
+    if (MAX_TRACKS !== Infinity) console.log(`   • Run Limit: ${MAX_TRACKS} tracks`);
     console.log("=================================================\n");
 
     let totalResolved = 0;
@@ -442,20 +447,33 @@ async function startResolver() {
     });
 
     while (isRunning) {
+        if (totalResolved >= MAX_TRACKS) {
+            console.log(`\n🎯 Run limit of ${MAX_TRACKS} tracks reached.`);
+            break;
+        }
+
         // 1. Fetch unmapped tracks from public.local_metadata archive
         let records;
         let error;
 
-        if (isRandom) {
+        if (isRandom && !cueOnly) {
             const res = await supabase.rpc('get_random_unmapped_local_tracks', { batch_size: BATCH_SIZE });
             records = res.data;
             error = res.error;
         } else {
-            const res = await supabase
+            let query = supabase
                 .from('local_metadata')
                 .select('id, artist, track_name, genre')
-                .is('youtube_video_id', null)
-                .limit(BATCH_SIZE);
+                .is('youtube_video_id', null);
+
+            if (cueOnly) {
+                query = query.eq('source', 'ko-local:cue');
+            }
+
+            const fetchLimit = Math.min(BATCH_SIZE, MAX_TRACKS - totalResolved);
+            if (fetchLimit <= 0) break;
+
+            const res = await query.limit(fetchLimit);
             records = res.data;
             error = res.error;
         }
