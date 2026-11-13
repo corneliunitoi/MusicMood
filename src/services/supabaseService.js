@@ -19,12 +19,14 @@ function getResolvedUserId() {
 /**
  * Fetches staged artist suggestions (potential candidates awaiting catalog ingestion)
  */
-export async function fetchArtistSuggestions(search = '', limit = 100) {
+export async function fetchArtistSuggestions(search = '', limit = 150) {
     try {
         let query = supabase
             .from('artist_suggestions')
             .select('id, name, slug, status, confidence_score, primary_genre_id, source, batch_id, created_at, is_requested, request_count, demo_youtube_id, demo_track_title')
-            .order('request_count', { ascending: false })
+            .neq('status', 'rejected')
+            .neq('status', 'inflated')
+            .eq('is_requested', false)
             .order('confidence_score', { ascending: false })
             .order('name', { ascending: true })
             .limit(limit);
@@ -50,16 +52,52 @@ export async function fetchArtistSuggestions(search = '', limit = 100) {
  */
 export async function submitArtistRequest(artistId) {
     try {
-        const { data, error } = await supabase.rpc('request_staged_artist', {
-            p_artist_id: artistId
-        });
+        // 1. Try RPC if defined
+        await supabase.rpc('request_staged_artist', { p_artist_id: artistId }).catch(() => {});
+
+        // 2. Mark artist as requested and approved in artist_suggestions
+        const { error } = await supabase
+            .from('artist_suggestions')
+            .update({
+                is_requested: true,
+                status: 'approved',
+                last_requested_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', artistId);
+
         if (error) {
             console.error('[supabaseService] Error submitting artist request:', error);
             return { success: false, error: error.message };
         }
-        return data || { success: true };
+        return { success: true };
     } catch (e) {
         console.error('[supabaseService] Error requesting artist:', e);
+        return { success: false, error: e.message };
+    }
+}
+
+/**
+ * Rejects and dismisses a staged artist suggestion so they never appear again
+ */
+export async function rejectArtistSuggestion(artistId) {
+    try {
+        const { error } = await supabase
+            .from('artist_suggestions')
+            .update({
+                status: 'rejected',
+                rejection_reason: 'user_dismissed',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', artistId);
+
+        if (error) {
+            console.error('[supabaseService] Error rejecting artist suggestion:', error);
+            return { success: false, error: error.message };
+        }
+        return { success: true };
+    } catch (e) {
+        console.error('[supabaseService] Error rejecting artist suggestion:', e);
         return { success: false, error: e.message };
     }
 }

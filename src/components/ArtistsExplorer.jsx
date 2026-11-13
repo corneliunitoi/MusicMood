@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { supabase, fetchArtistSuggestions, submitArtistRequest } from '../services/supabaseService';
+import { supabase, fetchArtistSuggestions, submitArtistRequest, rejectArtistSuggestion } from '../services/supabaseService';
 import { GENRE_NODES } from '../services/tasteGraph';
 import { sessionEngine } from '../services/sessionStateMachine';
 import { resolveArtistAvatarOnDemand } from '../services/avatarService';
@@ -233,6 +233,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
     const [stagedArtists, setStagedArtists] = useState([]);
     const [isLoadingStaged, setIsLoadingStaged] = useState(false);
     const [demoPlayingId, setDemoPlayingId] = useState(null);
+    const [dismissingIds, setDismissingIds] = useState(new Set());
     const [requestedArtists, setRequestedArtists] = useState(() => {
         try {
             const saved = localStorage.getItem('musicmood_requested_artists');
@@ -304,42 +305,40 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
     const handleToggleRequest = async (artist, e) => {
         if (e) e.stopPropagation();
         const key = artist.id || artist.name;
-        const currentlyRequested = !!requestedArtists[key] || !!artist.is_requested;
 
-        // Optimistic UI state update
-        setRequestedArtists(prev => {
-            const updated = {
-                ...prev,
-                [key]: !currentlyRequested
-            };
-            try {
-                localStorage.setItem('musicmood_requested_artists', JSON.stringify(updated));
-            } catch (err) {
-                console.warn('[ArtistsExplorer] Failed to save requested artists:', err);
-            }
-            return updated;
-        });
-
-        // Update in-memory staged artist counts immediately
-        setStagedArtists(prev => prev.map(a => {
-            if ((a.id && a.id === artist.id) || a.name === artist.name) {
-                return {
-                    ...a,
-                    is_requested: !currentlyRequested,
-                    request_count: Math.max(0, (a.request_count || 0) + (currentlyRequested ? -1 : 1)),
-                    status: !currentlyRequested ? 'approved' : a.status
-                };
-            }
-            return a;
-        }));
+        // Visual confirmation before dismissal
+        setDismissingIds(prev => new Set(prev).add(key));
 
         // Persist live request directly to Supabase
-        if (!currentlyRequested && artist.id) {
-            try {
-                await submitArtistRequest(artist.id);
-            } catch (err) {
+        if (artist.id) {
+            submitArtistRequest(artist.id).catch(err => {
                 console.error('[ArtistsExplorer] Failed to submit artist request to Supabase:', err);
-            }
+            });
+        }
+
+        // After a brief 350ms confirmation flash, remove from candidate list to make room for fresh ones
+        setTimeout(() => {
+            setStagedArtists(prev => prev.filter(a => (a.id || a.name) !== key));
+            setDismissingIds(prev => {
+                const next = new Set(prev);
+                next.delete(key);
+                return next;
+            });
+        }, 350);
+    };
+
+    const handleRejectArtist = async (artist, e) => {
+        if (e) e.stopPropagation();
+        const key = artist.id || artist.name;
+
+        // Instantly dismiss from local view
+        setStagedArtists(prev => prev.filter(a => (a.id || a.name) !== key));
+
+        // Persist rejection to Supabase so it's permanently filtered out
+        if (artist.id) {
+            rejectArtistSuggestion(artist.id).catch(err => {
+                console.error('[ArtistsExplorer] Failed to reject artist in Supabase:', err);
+            });
         }
     };
 
@@ -349,7 +348,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
         setIsLoadingStaged(true);
 
         const timer = setTimeout(async () => {
-            const results = await fetchArtistSuggestions(searchQuery, 300);
+            const results = await fetchArtistSuggestions(searchQuery, 150);
             if (isMounted) {
                 setStagedArtists(results);
                 setIsLoadingStaged(false);
@@ -361,6 +360,19 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             clearTimeout(timer);
         };
     }, [searchQuery]);
+
+    // Auto-refill staged candidates if user requests/dismisses many and list shrinks below 20
+    useEffect(() => {
+        if (selectedGenre === 'potential' && stagedArtists.length > 0 && stagedArtists.length < 20 && !isLoadingStaged) {
+            fetchArtistSuggestions(searchQuery, 100).then(results => {
+                setStagedArtists(prev => {
+                    const existingKeys = new Set(prev.map(a => a.id || a.name));
+                    const newItems = results.filter(r => !existingKeys.has(r.id || r.name));
+                    return [...prev, ...newItems];
+                });
+            }).catch(() => {});
+        }
+    }, [stagedArtists.length, selectedGenre, searchQuery, isLoadingStaged]);
 
     const handleForceRefresh = async () => {
         setIsRefreshing(true);
@@ -932,9 +944,9 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                                 flex: 1,
                                                 padding: '0.2rem 0.35rem',
                                                 borderRadius: '5px',
-                                                border: isRequested ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.15)',
-                                                background: isRequested ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.06)',
-                                                color: isRequested ? '#34d399' : '#cbd5e1',
+                                                border: dismissingIds.has(artist.id || artist.name) ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.15)',
+                                                background: dismissingIds.has(artist.id || artist.name) ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.06)',
+                                                color: dismissingIds.has(artist.id || artist.name) ? '#34d399' : '#cbd5e1',
                                                 fontSize: '0.68rem',
                                                 fontWeight: '600',
                                                 cursor: 'pointer',
@@ -943,9 +955,28 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                                 textOverflow: 'ellipsis',
                                                 whiteSpace: 'nowrap'
                                             }}
-                                            title={isRequested ? 'Click to cancel request' : 'Request this artist to be prioritized for catalog ingestion'}
+                                            title="Request this artist to be prioritized for catalog ingestion"
                                         >
-                                            {isRequested ? '✓ Added' : '+ Request'}{artist.request_count > 0 ? ` (${artist.request_count})` : ''}
+                                            {dismissingIds.has(artist.id || artist.name) ? '✓ Added!' : '+ Request'}
+                                        </button>
+                                        <button
+                                            onClick={(e) => handleRejectArtist(artist, e)}
+                                            style={{
+                                                flex: '0 0 auto',
+                                                padding: '0.2rem 0.4rem',
+                                                borderRadius: '5px',
+                                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                background: 'rgba(239, 68, 68, 0.1)',
+                                                color: '#f87171',
+                                                fontSize: '0.68rem',
+                                                fontWeight: '700',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.15s'
+                                            }}
+                                            title={`Reject and dismiss ${artist.name}`}
+                                            aria-label="Reject"
+                                        >
+                                            ✕
                                         </button>
                                     </div>
                                 ) : (
