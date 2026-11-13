@@ -24,7 +24,7 @@ jobs:
   reconcile:
     name: Reconcile Flags & Disambiguate Catalog
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -102,12 +102,14 @@ jobs:
           fi
 
       - name: Ingest Local Lossless CUE Tracks to Catalog
+        timeout-minutes: 4
+        continue-on-error: true
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
         run: |
           echo "💿 Ingesting batch of unmapped lossless CUE tracks into permanent catalog..."
-          node scripts/resolveVideoIds.js --innertube --cue-only --limit=50
+          node scripts/resolveVideoIds.js --innertube --cue-only --limit=25
 
       - name: Discover & Ingest Related Artists
         env:

@@ -439,6 +439,7 @@ async function startResolver() {
 
     let totalResolved = 0;
     let totalSkipped = 0;
+    let consecutiveCooldowns = 0;
     let isRunning = true;
 
     process.on('SIGINT', () => {
@@ -508,6 +509,12 @@ async function startResolver() {
             }
 
             if (res.status === 'RATE_LIMITED') {
+                consecutiveCooldowns++;
+                if (consecutiveCooldowns >= 3) {
+                    console.warn(`\n🛑 Persistent 429 rate limit across 3 attempts. Exiting gracefully to prevent runner hang.`);
+                    isRunning = false;
+                    break;
+                }
                 console.warn(`🛑 Rate limit persistent. Cooling down for 45s before continuing...`);
                 await sleep(45000);
                 continue; // Do NOT flag as unresolved!
@@ -516,6 +523,12 @@ async function startResolver() {
             if (res.status === 'ZERO_CANDIDATES') {
                 consecutiveZeroes++;
                 if (consecutiveZeroes >= 2) {
+                    consecutiveCooldowns++;
+                    if (consecutiveCooldowns >= 4) {
+                        console.warn(`\n🛑 YouTube IP rate-limiting persistent across 4 consecutive cooldowns. Exiting gracefully.`);
+                        isRunning = false;
+                        break;
+                    }
                     console.warn(`\n⏳ YouTube anti-bot cooldown detected (${consecutiveZeroes} empty pages in a row). Pausing polite resolver for 35s...`);
                     await sleep(35000);
                     consecutiveZeroes = 0;
@@ -525,6 +538,7 @@ async function startResolver() {
             }
 
             consecutiveZeroes = 0;
+            consecutiveCooldowns = 0;
 
             if (res.status === 'JUNK') {
                 console.log(`[Junk Filter 🗑️] ${res.reason || 'Non-music'}: "${record.artist} - ${record.track_name}"`);
