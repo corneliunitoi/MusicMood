@@ -48,13 +48,14 @@ This document outlines prioritized enhancements, user experience improvements, a
 ### 5. ❤️ YouTube "MusicMood Favorites" Auto-Sync
 * Optional two-way or append-only sync from in-app Favorites into a dedicated playlist titled `"MusicMood Favorites"` on the user's authentic YouTube account.
 
-### 6. 🔊 In-App Master Volume Slider & Mute Control
+### 6. 🔊 In-App Master Volume Slider & Mute Control *(Completed in v0.8.3)*
+* **Status:** ✅ **Shipped in v0.8.3**
 * **Problem:** Currently playback volume is locked to 100% in the underlying YouTube player (`setVolume(100)`). Users without hardware media keys cannot easily balance MusicMood against other audio.
 * **Scope:**
   * Add a sleek, glassmorphic volume slider + mute toggle directly into the player control bar.
   * Persist the listener's preferred volume level across sessions in `localStorage`.
 
-### 6. 📑 Dynamic Playlist Creation & Smart Favorites Curation (Concept Backlog)
+### 7. 📑 Dynamic Playlist Creation & Smart Favorites Curation (Concept Backlog)
 * **Idea & Purpose:** Provide the ability to create, assemble, and manage playlists without cluttering the airy player interface.
 * **Smart Auto-Pick from Favorites:**
   * Automatically analyze and cluster the listener's favorited / liked tracks by headspace, energy profile, or genre adjacency.
@@ -149,7 +150,8 @@ This document outlines prioritized enhancements, user experience improvements, a
     * Regardless of affinity score, the state machine must strictly enforce artist dwell cooldowns (no more than 1 track per 6–8 songs from the same artist in a session).
     * Maintain a 40–50% discovery floor in candidate selection so top-affinity repeat anchors never monopolize the queue.
 
-### 12. 📱 Mobile Background Playback & Web Media Session API (Lock Screen & Notification Controls)
+### 12. 📱 Mobile Background Playback & Web Media Session API (Lock Screen & Notification Controls) *(Completed in v0.8.3)*
+* **Status:** ✅ **Shipped in v0.8.3**
 * **Feedback Origin:** *User Feedback (Nov 10)*: *"No back next buttons on mobile in background mode, i wanna skip songs without opening up the browser, just from notification box"* & *"Background playback not working"* & *"Misfits the screen on phone"*.
 * **Scope & Implementation:**
   * **Web Media Session API (`navigator.mediaSession`):**
@@ -173,7 +175,8 @@ This document outlines prioritized enhancements, user experience improvements, a
     * Upvotes become idempotent per user, preventing automated scripts or repeated API calls from spamming votes.
     * Calculate public popularity via aggregated counts (`COUNT(user_upvotes)`) or throttled security-definer triggers.
 
-### 14. 🔗 Player In-App Artist Navigation (Decouple Internal Navigation from YouTube Outlink)
+### 14. 🔗 Player In-App Artist Navigation (Decouple Internal Navigation from YouTube Outlink) *(Completed in v0.8.4)*
+* **Status:** ✅ **Shipped in v0.8.4**
 * **Feedback Origin:** *User Feedback (Nov 10)*: *"change the track link in the player to bring you to the artist, and only the YT button brings you to youtube"*.
 * **Scope & Implementation:**
   * In `src/components/Player.jsx`, decouple the track info click handler:
@@ -218,6 +221,94 @@ This document outlines prioritized enhancements, user experience improvements, a
   * **4. Algorithmic Prediction Engine for Step 3:**
     * Combine Step 1's Radar Pole weights with Step 2's Energy & Catharsis reflexes to compute exact, personalized home recommendations for all 6 moods in Step 3 (e.g., A Rock fan who chooses "Atmospheric Catharsis" gets `post_rock` or `doom_metal` predicted for Sad; an Electronic fan who chooses "Groove" gets `house` or `synthwave` for Party).
 
+### 19. ⚖️ Automated Staged Ingestion Algorithm: Tiered Hybrid Pipeline (Option C)
+* **Context & Problem Statement:**
+  * MusicMood currently maintains thousands of high-potential candidate artists and tracks in staging (`public.artist_suggestions`, `public.local_metadata`, and live discovery feeds). While listeners can manually audition and request candidates (`+ Request`), expanding the playable library (`public.tracks` / `public.artists`) requires an autonomous, mathematically balanced ingestion algorithm.
+  * A naive automated pull creates major risks:
+    1. **The Pop Star Bias:** Mainstream acts with millions of plays crowd out indie, underground, and boutique masters.
+    2. **Noise & Contamination:** Podcasts, live interviews, fan reactions, and karaoke stems degrade audio quality.
+    3. **Taxonomy & Headspace Drift:** Random additions flood the active session with songs disconnected from the listener's calibrated mood anchors.
+* **The 4-Pillar Composite Scoring Formula (0 to 100 Points):**
+  * Each candidate in staging is evaluated using a normalized, multi-factor composite index:
+    $$\text{Ingestion Score} = w_1 \cdot S_{\text{match}} + w_2 \cdot S_{\text{quality}} + w_3 \cdot S_{\text{popularity}} + w_4 \cdot S_{\text{gatekeeper}}$$
+
+```mermaid
+graph TD
+    A["Staged Candidate (artist_suggestions / track_suggestions)"] --> B["AI Noise Filter & Sanity Gatekeeper"]
+    B -->|Fails Gate: Noise/Duration/Embed| X["Auto-Dismiss / Quarantined"]
+    B -->|Passes Gate| C["Multi-Factor Scoring Engine"]
+    
+    C --> C1["1. Library Affinity & Gap Filling (35%)"]
+    C --> C2["2. Quality & Audio Authenticity (25%)"]
+    C --> C3["3. Popularity & Social Demand (25%)"]
+    C --> C4["4. Discovery Tier Alignment (15%)"]
+    
+    C1 --> D["Composite Score (0 - 100)"]
+    C2 --> D
+    C3 --> D
+    C4 --> D
+    
+    D -->|Score >= 75| E["Promoted to Active Playset"]
+    D -->|Score < 75| F["Held in Staging Pool"]
+```
+
+* **Detailed Pillar Breakdown:**
+  1. **Library Coherence & Deficit Gap Filling (35% Weight — $S_{\text{match}}$):**
+     * *Graph Proximity:* Shortest path distance in `tasteGraph.js` from active mood anchors and user calibration:
+       * Direct subgenre match: $+25\text{ pts}$
+       * 1 hop away (neighboring harmonic sound): $+15\text{ pts}$
+       * 2+ hops away: $+5\text{ pts}$
+     * *Library Deficit Compensation (Inverse Density):*
+       * Underrepresented genres ($< 50$ tracks in active catalog) receive an automatic $+10\text{ pt}$ boost to build acoustic breadth.
+       * Saturated genres ($> 1,500$ tracks) raise the threshold to prioritize only exceptional additions.
+  2. **Quality & Audio Authenticity (25% Weight — $S_{\text{quality}}$):**
+     * *Verified Metadata:* Clean MusicBrainz ID (`mbid`), authentic release year, and specific canonical subgenre taxonomy rather than generic catch-all buckets ($+15\text{ pts}$).
+     * *Audio Stream Verification:*
+       * Official YouTube Music Topic Channel match (`- Topic`): $+15\text{ pts}$
+       * Verified studio track length between $2:00$ and $8:00$ (with extensions for Neo-Classical and Ambient): $+10\text{ pts}$
+  3. **Popularity & Social Demand (25% Weight — $S_{\text{popularity}}$ — Damped / Egalitarian):**
+     * *Direct User Requests:*
+       $$\text{Request Score} = \min(20, \text{request\_count} \times 10)$$
+       *(Any artist explicitly requested by listeners receives an immediate high-priority bump without breaking the 100-point ceiling).*
+     * *Logarithmic Global Popularity:*
+       Uses $\log_{10}(\text{Last.fm listeners})$ or playcount dampening so mega-pop stars never drown out high-quality niche or underground artists.
+  4. **AI Gatekeeper & Noise Quarantine (15% Weight + Hard Veto — $S_{\text{gatekeeper}}$):**
+     * *Hard Disqualification (Immediate Discard / Quarantine):*
+       * Title contains blacklisted noise tokens: `podcast`, `interview`, `reaction`, `remastered stems`, `karaoke`, `ringtone`, `teaser`, `speech`.
+       * Track duration $< 45\text{ seconds}$ or $> 25\text{ minutes}$ (unless Neo-Classical/Ambient).
+       * Video flagged with YouTube embed restriction codes (`101` / `150`).
+     * *Cleanliness Bonus:* Passes all sanitization checks with clean casing and zero mojibake/corrupt characters ($+15\text{ pts}$).
+
+* **Architectural Options Comparison & Selection:**
+
+| Dimension | Option A: Real-Time JIT Expansion | Option B: Scheduled Batch Curator | **Option C: Tiered Hybrid Pipeline (Selected)** |
+|---|---|---|---|
+| **Trigger** | While listening (dynamic queue replenishment) | Background Cron (GitHub Actions / Supabase Cron) | **Dual:** Background ranks staging pool; JIT pulls highest-ranked |
+| **Ingestion Pace** | 1–2 tracks per session on demand | 10–25 tracks per run | **Continuous, smooth catalog growth** |
+| **API Load** | Distributed across listening sessions | Concentrated periodic spikes | **Steady, quota-safe, and rate-limited** |
+| **Responsiveness**| Immediate reaction to current mood | Pre-computed catalog additions | **Instant for active genre; structured for the rest** |
+| **Pros** | Catalog expands where listener is listening | Predictable, auditable, batch-healable | **Combines instant session relevance with disciplined quality control** |
+| **Cons** | Adds ~300ms network resolution to buffering | Unaware of listener's immediate headspace | Requires a lightweight priority view / queue in PostgreSQL |
+
+* **Option C Implementation Blueprint:**
+  1. **PostgreSQL Scoring View (`public.v_staged_ingestion_priority`):**
+     * Pre-computes the composite priority score across `public.artist_suggestions` and `public.track_suggestions` using the 4 weighted pillars.
+     * Materialized or indexed by `(primary_genre_id, ingestion_score DESC)`.
+  2. **Dual-Speed Ingestion Engine:**
+     * **Background Curator:** Hourly maintenance cron scans top candidates with $\text{Score} \ge 75$ in underrepresented genres and inflates their top 5–10 iconic tracks via zero-quota InnerTube resolution.
+     * **Real-Time JIT Buffer Replenishment:** When an active session queue falls below low-watermark threshold for a specific genre, the JIT engine queries:
+       ```sql
+       SELECT * FROM public.v_staged_ingestion_priority 
+       WHERE primary_genre_id = :activeGenre 
+       ORDER BY ingestion_score DESC 
+       LIMIT 5;
+       ```
+       Top-scoring candidates are inflated into `public.tracks` and woven into upcoming discovery slots.
+  3. **Strict Non-Negotiable Guardrails:**
+     * *Artist Dwell Cooldown:* Maximum 1 track from any newly promoted staged artist per 6–8 songs in a session.
+     * *Discovery Floor:* Maintain 40–50% discovery ratio so promoted candidates complement established catalog anchors without overwhelming familiar hits.
+     * *Status:* **Documented in Strategic Roadmap; implementation targeted post-v0.8.x stabilization.**
+
 ---
 
 ## 📈 Completed Milestones
@@ -238,3 +329,10 @@ This document outlines prioritized enhancements, user experience improvements, a
 * [x] **v0.7.5:** In-Player "Wrong Genre" Misclassification Flagging (`public.track_genre_flags`), Offline Secondary Source Cross-Check & Consensus Healing Engine (`scripts/resolveFlaggedTracks.js`).
 * [x] **v0.7.6:** Real-Time Energy Slider Steering Engine, Active Vocal Preferences (`Instrumental Only` / `Vocals` / `Any`), and In-Player Misclassification 1-Click Reporting.
 * [x] **v0.7.7:** Top-Level Catalog Artist Explorer (10,849 artists across 14 parent genres, compact 2-row layout), Defense-in-Depth YouTube Playback Hardening, Watchdog Deadlock Elimination, Nightly Autonomous Reconciliation Cron, and In-App Author Attribution About Modal.
+* [x] **v0.7.8:** Last.fm REST API Ingestion (+100 artists, 1,000 tracks), Anti-Duplication Chunk Sorting, In-App 1-Click Sync & "✨ Latest Added" Category.
+* [x] **v0.7.9:** Dynamic Active Genre Locking, Dynamic Pagination (>11,200 artists, 61k tracks), Pre-Sale Code & Commercial Architecture Audit.
+* [x] **v0.8.0 / v0.8.0a:** Artist Staging Area (`artist_suggestions`), Multi-Genre Balancer, Hourly Scanners, On-Demand Subgenre Locking, 2-Tier Open-License Artist Avatars, and 100% Staged Genre Normalization.
+* [x] **v0.8.1a:** Canonical Artist Deduplication & Fuzzy Clustering (198 clusters unified), "Try Before You Request" Candidate Demo Player, and Diacritic/CJK Healing.
+* [x] **v0.8.2:** Strict Genre Family Containment (`sameFamilyGenres`), Playback Fluctuation Elimination, Non-Disruptive Genre Review Flagging, Lossless CUE/APE Album Explosion & Online Ingestion Pipeline.
+* [x] **v0.8.3:** In-App Master Volume Slider & Mute Toggle, Web Media Session API (Lock Screen & Notification Controls), Full Title Tooltips, and Toxic Secondary Tag Sanitization.
+* [x] **v0.8.4:** Adaptive Buffering Engine (YouTube state 3 handling & 10s auto-nudge), Zero-Video Pure Audio Engine Lock (1x1px off-screen), Clean Single-Line Player Geometry & In-App Discography Navigation, Staged Artist Request Hygiene, Catalog Healing ("Years" -> "10 Years" Metal), and Lossless CUE Ingestion (>91.8k catalog tracks).
