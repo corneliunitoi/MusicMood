@@ -62,3 +62,13 @@ jobs:
 
           echo "🔍 Scanning artists: mode=$MODE, count=$COUNT, genre=$GENRE..."
           node scripts/scanArtistCandidates.js --mode="$MODE" --count="$COUNT" --genre="$GENRE"
+
+      - name: Populate Demo Songs for Staged Artists
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
+        run: |
+          echo "🎧 Populating signature demo tracks for newly staged artists..."
+          node scripts/populateStagedDemos.js --limit=250

@@ -346,6 +346,7 @@ async function fetchKEXPPlays(targetCount, library) {
                     raw_tags: ['kexp_curated', assignedGenre],
                     estimated_listeners: 0,
                     confidence_score: 95,
+                    demo_track_title: play.song || null,
                 });
 
                 if (artists.length >= targetCount) break;
@@ -522,6 +523,7 @@ async function main() {
                 primary_genre_id: c.primary_genre_id && c.primary_genre_id !== 'other' ? c.primary_genre_id : 'alt_rock',
                 quality_flags: Array.isArray(c.raw_tags) ? c.raw_tags : [],
                 status: isApproved ? 'approved' : 'pending',
+                demo_track_title: c.demo_track_title || null,
             };
         });
 

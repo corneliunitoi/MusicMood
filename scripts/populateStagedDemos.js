@@ -8,8 +8,9 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduft
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function searchYouTubeMusic(artist) {
+async function searchYouTubeMusic(artist, songHint = '') {
     try {
+        const query = songHint ? `${artist} ${songHint}` : artist;
         const res = await fetch('https://music.youtube.com/youtubei/v1/search', {
             method: 'POST',
             headers: {
@@ -20,7 +21,7 @@ async function searchYouTubeMusic(artist) {
             },
             body: JSON.stringify({
                 context: { client: { clientName: 'WEB_REMIX', clientVersion: '1.20240101.01.00', hl: 'en', gl: 'US' } },
-                query: artist
+                query
             })
         });
         if (!res.ok) return null;
@@ -81,7 +82,7 @@ async function run() {
 
     console.log(`Found ${candidates.length} candidates. Populating demos...`);
     for (const c of candidates) {
-        const match = await searchYouTubeMusic(c.name);
+        const match = await searchYouTubeMusic(c.name, c.demo_track_title);
         if (match && match.videoId) {
             console.log(`  ✅ ${c.name} -> "${match.title}" (https://youtu.be/${match.videoId})`);
             await supabase
