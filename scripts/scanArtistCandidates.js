@@ -284,6 +284,43 @@ async function run() {
     console.log(`   • Staging Table:         public.artist_suggestions`);
     console.log(`   • Batch ID:              ${BATCH_ID}`);
     console.log('================================================================\n');
+
+    // GitHub Step Summary integration for on-screen review
+    if (process.env.GITHUB_STEP_SUMMARY && stagedList.length > 0) {
+        try {
+            const fs = await import('fs');
+            const approved = stagedList.filter(a => a.status === 'approved');
+            const pending = stagedList.filter(a => a.status === 'pending');
+
+            const summaryMd = `
+## 🔍 Staged Artist Candidates Batch (\`${BATCH_ID}\`)
+
+| Metric | Count |
+| :--- | :--- |
+| **Newly Staged Candidates** | **${stagedCount} artists** |
+| **Pre-Approved (Score $\\ge 95$)** | **${approved.length} artists** *(pre-2023 human pedigree)* |
+| **Pending Review (Score 80)** | **${pending.length} artists** *(recent or unverified labels)* |
+| **Already in Production** | **${existingCount} skipped** |
+
+---
+
+### 🌟 Pre-Approved Candidates (${approved.length})
+| Artist | Canonical Genre | Era | Score | Flags |
+| :--- | :--- | :---: | :---: | :--- |
+${approved.map(a => `| **${a.name}** | \`${a.primary_genre_id}\` | ${a.first_release_year || 'N/A'} | **${a.confidence_score}** | ${a.quality_flags.join(', ')} |`).join('\n')}
+
+---
+
+### ⏳ Pending Review Candidates (${pending.length})
+| Artist | Canonical Genre | Era | Score | Flags |
+| :--- | :--- | :---: | :---: | :--- |
+${pending.map(a => `| **${a.name}** | \`${a.primary_genre_id}\` | ${a.first_release_year || 'N/A'} | ${a.confidence_score} | ${a.quality_flags.join(', ')} |`).join('\n')}
+`;
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summaryMd, 'utf8');
+        } catch (e) {
+            console.warn('Failed to write GITHUB_STEP_SUMMARY:', e.message);
+        }
+    }
 }
 
 run().catch(err => {
