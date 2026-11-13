@@ -116,6 +116,12 @@ export const ARTIST_CANONICAL_GENRES = {
     'tool': 'prog_metal',
     'meshuggah': 'prog_metal',
     'symphony x': 'prog_metal',
+    'sonata arctica': 'symphonic_metal',
+    'apocalyptica': 'symphonic_metal',
+    'rhapsody of fire': 'symphonic_metal',
+    'trans-siberian orchestra': 'symphonic_metal',
+    'electric light orchestra': 'classic_rock',
+    'elo': 'classic_rock',
     'fates warning': 'prog_metal',
     'queensryche': 'prog_metal',
     'haken': 'prog_metal',
@@ -163,6 +169,98 @@ export const ARTIST_CANONICAL_GENRES = {
     'sergei rachmaninoff': 'romantic',
     'antonin dvorak': 'romantic',
     'dvorak': 'romantic',
+    'hugo wolf': 'romantic',
+    'jean sibelius': 'romantic',
+    'sibelius': 'romantic',
+    'gustav mahler': 'romantic',
+    'mahler': 'romantic',
+    'sergei prokofiev': 'classical',
+    'prokofiev': 'classical',
+    'dmitri shostakovich': 'classical',
+    'shostakovich': 'classical',
+    'igor stravinsky': 'classical',
+    'stravinsky': 'classical',
+    'bela bartok': 'classical',
+    'béla bartók': 'classical',
+    'bartok': 'classical',
+    'maurice ravel': 'classical',
+    'ravel': 'classical',
+    'gabriel faure': 'classical',
+    'gabriel fauré': 'classical',
+    'faure': 'classical',
+    'fauré': 'classical',
+    'camille saint-saens': 'romantic',
+    'camille saint-saëns': 'romantic',
+    'saint-saens': 'romantic',
+    'felix mendelssohn': 'romantic',
+    'mendelssohn': 'romantic',
+    'robert schumann': 'romantic',
+    'schumann': 'romantic',
+    'schumann, robert': 'romantic',
+    'franz schubert': 'romantic',
+    'schubert': 'romantic',
+    'richard strauss': 'romantic',
+    'johann strauss': 'romantic',
+    'johann strauss ii': 'romantic',
+    'anton bruckner': 'romantic',
+    'bruckner': 'romantic',
+    'modest mussorgsky': 'romantic',
+    'mussorgsky': 'romantic',
+    'moussorgsky': 'romantic',
+    'nikolai rimsky-korsakov': 'romantic',
+    'rimsky-korsakov': 'romantic',
+    'alexander borodin': 'romantic',
+    'borodin': 'romantic',
+    'edvard grieg': 'romantic',
+    'grieg': 'romantic',
+    'richard wagner': 'opera',
+    'wagner': 'opera',
+    'arvo pärt': 'contemporary_classical',
+    'arvo part': 'contemporary_classical',
+    'ralph vaughan williams': 'classical',
+    'vaughan williams': 'classical',
+    'edward elgar': 'romantic',
+    'elgar': 'romantic',
+    'gustav holst': 'classical',
+    'holst': 'classical',
+    'benjamin britten': 'classical',
+    'britten': 'classical',
+    'enrique granados': 'romantic',
+    'granados': 'romantic',
+    'isaac albeniz': 'romantic',
+    'isaac albéniz': 'romantic',
+    'albeniz': 'romantic',
+    'brian ferneyhough': 'contemporary_classical',
+    'ferneyhough': 'contemporary_classical',
+    'alban berg': 'classical',
+    'anton webern': 'classical',
+    'arnold schoenberg': 'classical',
+    'schoenberg': 'classical',
+    'anna netrebko': 'opera',
+    'riccardo muti': 'classical',
+    'gewandhausorchester': 'classical',
+    'gewandhausorchester dir. riccardo chailly': 'classical',
+    'bayreuther festspielorchester': 'opera',
+    'wiener philharmoniker': 'classical',
+    'berliner philharmoniker': 'classical',
+    'london symphony orchestra': 'classical',
+    'chicago symphony orchestra': 'classical',
+    'moscow philharmonic orchestra': 'classical',
+    'moscow phil. symph. orch.': 'classical',
+    'sinfonietta riga': 'contemporary_classical',
+    'wolfgang schäfer': 'classical',
+    'wolfgang schafer': 'classical',
+    'radoslav kvapil': 'romantic',
+    'jörg demus': 'classical_period',
+    'jorg demus': 'classical_period',
+    'olli mustonen': 'classical_period',
+    'gianluca cascioli': 'classical_period',
+    'françois chaplin': 'romantic',
+    'francois chaplin': 'romantic',
+    'sergio ortiz': 'romantic',
+    'hagen quartet': 'chamber_music',
+    'chamber music society of lincoln center': 'chamber_music',
+    'balmorhea': 'neo_classical',
     'wilhelm kempff': 'romantic',
     'andrés segovia': 'classical',
     'andres segovia': 'classical',
@@ -193,6 +291,7 @@ export const ARTIST_CANONICAL_GENRES = {
     'hans zimmer': 'cinematic_orchestral',
     'john williams': 'cinematic_orchestral',
     'ennio morricone': 'cinematic_orchestral',
+    'shigeru umebayashi': 'cinematic_orchestral',
 
     // Electronic & Ambient Icons
     'tipper': 'electronic',
@@ -220,6 +319,11 @@ export const ARTIST_CANONICAL_GENRES = {
     'rodrigo y gabriela': 'flamenco',
 
     // Classic Rock, Singer-Songwriter & Alternative
+    'richard thompson': 'singer_songwriter',
+    'steppenwolf': 'classic_rock',
+    'bachman-turner overdrive': 'classic_rock',
+    'crosby, stills, nash & young': 'classic_rock',
+    'crosby, stills & nash': 'classic_rock',
     'bob dylan': 'singer_songwriter',
     'bob dylan & the band': 'singer_songwriter',
     'the beatles': 'classic_rock',
@@ -583,25 +687,25 @@ export function normalizeGenre(rawGenre, artistName = '', trackTitle = '', fallb
     if (cleanArtist.includes('tori amos')) return 'alt_rock';
 
     // Tier 1C: Classical Forms, Composers & Performers in artist name or title
-    if (/\b(opera|opéra|aria|recitative|libretto|soprano|tenor|baritone|act\s+[0-9ivx]+|atto\s+[0-9ivx]+|scena\s+[0-9ivx]+|puccini|verdi|rossini|donizetti|bizet|bellini|placido domingo|pavarotti|callas|tebaldi|flagstad|nilsson)\b/i.test(combined)) {
+    if (/\b(opera|opéra|aria|recitative|libretto|soprano|tenor|baritone|act\s+[0-9ivx]+|atto\s+[0-9ivx]+|scena\s+[0-9ivx]+|puccini|verdi|rossini|donizetti|bizet|bellini|placido domingo|pavarotti|callas|tebaldi|flagstad|nilsson|netrebko|bayreuth|festspielorchester|tristan und isolde)\b/i.test(combined)) {
         return 'opera';
     }
-    if (/\b(string quartet|streichquartett|chamber music|kammermusik|quartet|quartett|quintet|violins?\s*(&|and)\s*viola|alban berg quartet|guarneri|amadeus quartet|chamber music society)\b/i.test(combined)) {
+    if (/\b(string quartet|streichquartett|chamber music|kammermusik|quartet|quartett|quintet|violins?\s*(&|and)\s*viola|alban berg quartet|guarneri|amadeus quartet|chamber music society|hagen quartet)\b/i.test(combined)) {
         return 'chamber_music';
     }
-    if (/\b(baroque|bach|vivaldi|handel|händel|scarlatti|purcell|harpsichord|cantata|bwv\s*[0-9]+|rv\s*[0-9]+|z[0-9]{2,3}|choir of new college oxford|king's consort)\b/i.test(combined)) {
+    if (/\b(baroque|bach|vivaldi|handel|händel|scarlatti|purcell|harpsichord|cantata|kantate|motet|bwv\s*[0-9]+|rv\s*[0-9]+|z[0-9]{2,3}|choir of new college oxford|king's consort)\b/i.test(combined)) {
         return 'baroque';
     }
     // Guard: Prevent "new romantic" or modern songs with "romantic" in title from polluting classical Romantic Era
     if (!cleanRaw.includes('new romantic') && !cleanRaw.includes('new-romantic') && !cleanTitle.includes('new romantic')) {
-        if (/\b(chopin|liszt|schumann|schubert|tchaikovsky|rachmaninoff|brahms|mussorgsky|moussorgsky|grieg|dvorak|dvořák|horowitz|rubinstein|nocturne|etude|étude|valse|waltz|walzer|polonaise|mazurka|liebeslieder)\b/i.test(combined)) {
+        if (/\b(chopin|liszt|schumann|schubert|tchaikovsky|rachmaninoff|brahms|mussorgsky|moussorgsky|grieg|dvorak|dvořák|hugo wolf|wolfgang schäfer|horowitz|rubinstein|nocturne|etude|étude|valse|waltz|walzer|polonaise|mazurka|liebeslieder|lieder|lied\b|gesang|scherzo|intermezzo|capriccio|berceuse|morceaux|landler|ländler|sicilienne)\b/i.test(combined)) {
             return 'romantic';
         }
     }
-    if (/\b(classical period|mozart|beethoven|haydn|bagatelle|für elise|woo\s*[0-9]+|k\.\s*[0-9]+|hob\.\s*[0-9]+)\b/i.test(combined)) {
+    if (/\b(classical period|mozart|beethoven|haydn|bagatelle|für elise|woo\s*[0-9]+|k\.\s*[0-9]+|kv\s*[0-9]+|hob\.\s*[0-9]+|variations on|variationen über)\b/i.test(combined)) {
         return 'classical_period';
     }
-    if (/\b(classique|klassik|classical|sonata|sonate|concerto|konzert|symphony|sinfonie|adagio|allegro|andante|largo|orchestra|orchestre|philharmonic|segovia|organist|organiste|op\.\s*[0-9]+|opus\s*[0-9]+)\b/i.test(combined)) {
+    if (/\b(classique|klassik|classical|sonata|sonate|concerto|konzert|symphony|sinfonie|sümfoniett|sinfonietta|adagio|allegro|andante|largo|presto|vivace|moderato|allegretto|andantino|orchestra|orchestre|philharmonic|gewandhausorchester|segovia|organist|organiste|op\.\s*[0-9]+|opus\s*[0-9]+|vaughan williams|prokofiev|shostakovich|stravinsky|bartok|ravel|faure|fauré|britten|holst)\b/i.test(combined)) {
         return 'classical';
     }
 

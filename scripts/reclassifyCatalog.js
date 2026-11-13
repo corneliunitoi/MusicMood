@@ -173,7 +173,7 @@ const TOXIC_TAGS_MAP = {
     blues_pure: new Set(['rock', 'pop'])
 };
 
-const CLASSICAL_GENRES = new Set(['classical', 'baroque', 'romantic', 'classical_period', 'chamber_music', 'opera', 'neo_classical']);
+const CLASSICAL_GENRES = new Set(['classical', 'baroque', 'romantic', 'classical_period', 'chamber_music', 'opera', 'neo_classical', 'contemporary_classical']);
 const PURE_JAZZ_GENRES = new Set(['jazz', 'cool_jazz', 'bebop_jazz', 'modal_jazz', 'big_band']);
 const PURE_BLUES_GENRES = new Set(['blues', 'chicago_blues', 'delta_blues', 'electric_blues', 'soul_blues']);
 
@@ -361,6 +361,54 @@ async function healCanonicalArtists() {
 }
 
 // ============================================================================
+// PHASE 3B: Deep Track-Level Disambiguation (Classical, Jazz, Blues, etc.)
+// ============================================================================
+async function healMisclassifiedTracks() {
+    console.log("=======================================================");
+    console.log("🎯 PHASE 3B: Deep Track-Level Disambiguation");
+    console.log("=======================================================");
+
+    let totalHealed = 0;
+    let offset = 0;
+    const batchSize = 1000;
+
+    while (true) {
+        const { data: tracks, error } = await supabase
+            .from('tracks')
+            .select('id, title, artist, primary_genre_id, secondary_genre_ids')
+            .in('primary_genre_id', ['rock', 'metal'])
+            .range(offset, offset + batchSize - 1);
+
+        if (error || !tracks || tracks.length === 0) break;
+
+        for (const track of tracks) {
+            const resolved = normalizeGenre(null, track.artist, track.title);
+            if (resolved && resolved !== 'rock' && resolved !== 'metal') {
+                console.log(`   🩹 Track Healed: "${track.title}" by ${track.artist} -> [${resolved}]`);
+                if (isApply) {
+                    const cleanedSecondary = sanitizeSecondaryTags(resolved, track.secondary_genre_ids);
+                    await supabase
+                        .from('tracks')
+                        .update({
+                            primary_genre_id: resolved,
+                            secondary_genre_ids: cleanedSecondary,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', track.id);
+                }
+                totalHealed++;
+            }
+        }
+
+        if (tracks.length < batchSize) break;
+        offset += batchSize;
+    }
+
+    console.log(`✅ Phase 3B complete: ${totalHealed} track(s) healed.\n`);
+    return totalHealed;
+}
+
+// ============================================================================
 // PHASE 4: Apple iTunes API Batch Consensus Sweep
 // ============================================================================
 async function sweepITunes(limitArtists = 40) {
@@ -484,6 +532,28 @@ async function syncArtistGenres() {
         }));
     }
 
+    // Phase 5B: Direct Canonical Disambiguation for artists sitting in rock/metal
+    const { data: rockArtists } = await supabase
+        .from('artists')
+        .select('id, name, primary_genre_id')
+        .in('primary_genre_id', ['rock', 'metal']);
+
+    if (rockArtists && rockArtists.length > 0) {
+        for (const a of rockArtists) {
+            const canonical = normalizeGenre(null, a.name, '');
+            if (canonical && canonical !== 'rock' && canonical !== 'metal') {
+                console.log(`🔄 Canonical Sync Artist: "${a.name}" [${a.primary_genre_id}] -> [${canonical}]`);
+                if (isApply) {
+                    await supabase
+                        .from('artists')
+                        .update({ primary_genre_id: canonical, updated_at: new Date().toISOString() })
+                        .eq('id', a.id);
+                }
+                updated++;
+            }
+        }
+    }
+
     console.log(`✅ Phase 5 complete: Synced ${updated} artist(s).\n`);
     return updated;
 }
@@ -508,9 +578,10 @@ async function main() {
     for (let loop = 1; loop <= MAX_LOOPS; loop++) {
         console.log(`\n--- Loop ${loop}/${MAX_LOOPS} ---`);
         const cHealed = await healCanonicalArtists();
+        const tHealed = await healMisclassifiedTracks();
         const iHealed = await sweepITunes(30);
 
-        if (cHealed === 0 && iHealed === 0) {
+        if (cHealed === 0 && tHealed === 0 && iHealed === 0) {
             console.log("🎉 Reclassification converged! No further updates needed in this cycle.");
             break;
         }
