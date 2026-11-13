@@ -858,7 +858,7 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 1.25rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   text-align: left;
 }
 
@@ -866,9 +866,10 @@ h1 {
   display: flex;
   align-items: center;
   gap: 0.85rem;
-  min-width: 220px;
-  max-width: 380px;
-  flex: 1 1 240px;
+  min-width: 0;
+  max-width: 320px;
+  flex: 0 1 300px;
+  overflow: hidden;
   text-align: left;
 }
 
@@ -1199,4 +1200,19 @@ h1 {
 .history-genre {
   color: #94a3b8;
   font-size: 0.9rem;
+}
+
+/* Strictly Invisible Audio-Only YouTube Engine Lock */
+#musicmood-persistent-player,
+iframe#musicmood-persistent-player,
+iframe[src*="youtube.com/embed"] {
+  position: fixed !important;
+  top: -9999px !important;
+  left: -9999px !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  z-index: -9999 !important;
 }

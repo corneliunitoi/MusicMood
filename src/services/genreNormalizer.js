@@ -139,6 +139,10 @@ export const ARTIST_CANONICAL_GENRES = {
     'slayer': 'thrash_metal',
     'sepultura': 'thrash_metal',
     'senmuth': 'prog_metal',
+    '10 years': 'metal',
+    'chevelle': 'alt_rock',
+    'breaking benjamin': 'alt_rock',
+    'seether': 'alt_rock',
 
     // Post-Rock, Ambient & Neofolk
     'sigur ros': 'post_rock',

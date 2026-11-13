@@ -60,6 +60,29 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.4` — 2026-11-13
+* **Adaptive Buffering Engine, Zero-Video Audio Lock, Staged Artist Request Hygiene & Fixed Geometry:**
+  * **⏳ Adaptive Buffering Engine with User Control (`Player.jsx`):**
+    * Differentiated `BUFFERING` (`pState === 3`) from dead streams: rather than violently cutting off audio at 14s, the watchdog grants an extended grace window (up to 30s total) for slower connections.
+    * Gentle Auto-Nudge (Re-kick at 10s): silently issues `player.playVideo()` to kickstart YouTube's internal DASH/HLS pipeline without restarting playback.
+    * Polite Buffering UI: displays an interactive inline banner (`⏳ Slow connection: buffering audio stream... [Skip Now ⏭️]`) allowing listeners to wait or skip instantly.
+    * Non-Destructive Watchdog: eliminated database deletions on network timeouts, preserving valid songs.
+    * Bandwidth Optimization: added `suggestedQuality: 'small'` (`144p`/`tiny`) to `loadVideoById`, reducing video chunk payloads by 95%+ and directing bandwidth strictly to audio streams.
+  * **🔇 Zero-Video Pure Audio Engine Lock (`Player.jsx` / `index.css`):**
+    * Eliminated accidental 240x240 video window leak by configuring `YT.Player` dimensions to `1px × 1px` and enforcing strict off-screen CSS locks (`top: -9999px !important; left: -9999px !important; opacity: 0 !important; pointer-events: none !important;`).
+  * **🏷️ Clean Player Geometry & Library Artist Navigation (`Player.jsx` / `Dashboard.jsx` / `ArtistsExplorer.jsx`):**
+    * Song title unlinked from YouTube (YouTube opens exclusively from the dedicated button). Hovering reveals full track and artist title via tooltip.
+    * Clean artist display with single-line truncation (`white-space: nowrap; overflow: hidden; text-overflow: ellipsis;`). Prevents multi-line wrapping and keeps player window height strictly stable.
+    * Clicking the artist name opens their discography modal directly in the library without reloading or losing playback state.
+  * **🗃️ Staged Artist Request Hygiene & Catalog Deduplication (`supabaseService.js` / `ArtistsExplorer.jsx`):**
+    * Filtered `fetchArtistSuggestions` to exclude `is_requested: true`, `request_count > 0`, and statuses `['requested', 'inflated', 'rejected']`.
+    * Added `fetchRequestedArtistIdentifiers()` to hydrate client cache on mount with all requested artists directly from Supabase.
+    * Excluded verified catalog artists from "Potential Matches" candidates to prevent duplicate suggestions.
+  * **🩹 Catalog Healing: "Years" ➔ "10 Years":**
+    * Reassigned 69 tracks from phantom artist `"Years"` to `"10 Years"`, healed genre from `pop` to `metal` (`[alt_rock, hard_rock]`), and registered canonical lock in `genreNormalizer.js`.
+  * **💿 Milestone Lossless CUE Ingestion:**
+    * Ingested +2,000 lossless CUE tracks into `public.tracks` (crossing **91,826+** total playable tracks), reducing remaining unmapped archive tracks to only ~2,687.
+
 ### `v0.8.3` — 2026-11-13
 * **In-App Master Volume Slider, Web Media Session API, Player QoL Improvements & Dynamic Tag Sanitization:**
   * **🔊 In-App Master Volume Slider & Mute Toggle (`Player.jsx`):**

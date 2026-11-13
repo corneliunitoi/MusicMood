@@ -51,10 +51,11 @@ function formatTime(totalSeconds) {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
-function Player({ initialTrack, token }) {
+function Player({ initialTrack, token, onOpenArtist }) {
     const [currentTrack, setCurrentTrack] = useState(initialTrack);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isBuffering, setIsBuffering] = useState(false);
+    const [isLongBuffering, setIsLongBuffering] = useState(false);
     const [isSteering, setIsSteering] = useState(false);
     const [isFlagging, setIsFlagging] = useState(false);
     const [flaggedTrackIds, setFlaggedTrackIds] = useState(new Set());
@@ -173,6 +174,7 @@ function Player({ initialTrack, token }) {
             clearTimeout(watchdogTimerRef.current);
             watchdogTimerRef.current = null;
         }
+        setIsLongBuffering(false);
     };
 
     const videoId = (currentTrack?.youtube_video_id && currentTrack.youtube_video_id.length === 11)
@@ -255,8 +257,8 @@ function Player({ initialTrack, token }) {
                 : (currentTrackRef.current?.id && currentTrackRef.current.id.length === 11 ? currentTrackRef.current.id : '');
 
             playerRef.current = new YT.Player('musicmood-persistent-player', {
-                height: '240',
-                width: '240',
+                height: '1',
+                width: '1',
                 host: 'https://www.youtube.com', // Standard YouTube domain guarantees session audio stream negotiation
                 videoId: initVid,
                 playerVars: {
@@ -431,41 +433,55 @@ function Player({ initialTrack, token }) {
             });
             playerRef.current.playVideo();
 
-            // 14-Second Silence / Stalled Stream Watchdog (allows healthy buffer grace period)
-            watchdogTimerRef.current = setTimeout(async () => {
+            // Adaptive Buffering & Stalled Stream Watchdog
+            if (watchdogTimerRef.current) {
+                clearTimeout(watchdogTimerRef.current);
+            }
+            setIsLongBuffering(false);
+
+            // Stage 1: 10-Second Check & Gentle Auto-Nudge
+            watchdogTimerRef.current = setTimeout(() => {
                 let isAudioMoving = false;
+                let isActivelyBuffering = false;
                 try {
                     const pState = playerRef.current?.getPlayerState?.();
                     const pTime = playerRef.current?.getCurrentTime?.();
-                    // State 1 is PLAYING and audio progress has moved
                     if (pState === 1 && pTime > 0) {
                         isAudioMoving = true;
+                    } else if (pState === 3) { // 3: BUFFERING (actively receiving stream chunks)
+                        isActivelyBuffering = true;
                     }
                 } catch (e) {}
 
-                if (!isAudioMoving) {
-                    console.warn(`[Watchdog ⏱️] Track ${targetVideoId} (${track.title}) stalled or silent after 14s. Auto-recovering...`);
-                    // Purge stalled/dead video from catalog so it never plays again
+                if (isAudioMoving) return;
+
+                // Gentle Auto-Nudge (Re-kick at 10s):
+                // Kick YouTube's internal buffer pipeline without restarting the track
+                try {
+                    syncPlayerAudio();
+                    playerRef.current?.playVideo?.();
+                } catch (e) {}
+
+                // Display polite pulse indicator with [Skip Now]
+                setIsLongBuffering(true);
+
+                // Stage 2: Extended grace window (up to 28-30s total) for slow connections
+                watchdogTimerRef.current = setTimeout(() => {
+                    let secondStageMoving = false;
                     try {
-                        if (track.dbId) {
-                            await supabase.from('tracks').delete().eq('id', track.dbId);
-                        } else if (targetVideoId) {
-                            await supabase.from('tracks').delete().eq('youtube_video_id', targetVideoId);
-                        }
-                    } catch (e) {
-                        console.warn('[Watchdog] Purge warning:', e);
-                    }
+                        const pState2 = playerRef.current?.getPlayerState?.();
+                        const pTime2 = playerRef.current?.getCurrentTime?.();
+                        if (pState2 === 1 && pTime2 > 0) secondStageMoving = true;
+                    } catch (e) {}
 
-                    // Blacklist in recent session tracks
-                    if (targetVideoId) {
-                        sessionEngine.state.recentTracks.push(targetVideoId);
-                        sessionEngine.queue = (sessionEngine.queue || []).filter(t => t.id !== targetVideoId && t.youtube_video_id !== targetVideoId);
+                    if (!secondStageMoving) {
+                        console.warn(`[Watchdog ⏱️] Track ${targetVideoId} (${track.title}) timed out after 28s total. Auto-advancing without deleting from DB...`);
+                        setIsLongBuffering(false);
+                        setErrorMessage(`Stream timed out on "${track.title}". Playing next track...`);
+                        loadNextTrack(false);
                     }
-
-                    setErrorMessage(`Silent or stalled stream on "${track.title}". Auto-advancing...`);
-                    loadNextTrack(false);
-                }
-            }, 14000);
+                }, 18000);
+            }, 10000);
         }
     };
 
@@ -886,6 +902,50 @@ function Player({ initialTrack, token }) {
                 </div>
             )}
 
+            {/* POLITE BUFFERING BANNER WITH USER CONTROL */}
+            {isLongBuffering && (
+                <div style={{
+                    background: 'rgba(99, 102, 241, 0.14)',
+                    borderLeft: '4px solid #818cf8',
+                    padding: '0.5rem 1.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.75rem'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.82rem', color: '#c7d2fe' }}>
+                        <span>⏳</span>
+                        <span>Slow connection: buffering audio stream...</span>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            clearWatchdog();
+                            loadNextTrack(false);
+                        }}
+                        style={{
+                            background: 'rgba(99, 102, 241, 0.25)',
+                            border: '1px solid #818cf8',
+                            color: '#e0e7ff',
+                            borderRadius: '6px',
+                            padding: '0.2rem 0.65rem',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            transition: 'background 0.15s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.45)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.25)'}
+                    >
+                        <span>Skip Now</span>
+                        <span>⏭️</span>
+                    </button>
+                </div>
+            )}
+
             {/* 2. CORE AUDIO BODY */}
             <div className="player-body">
                 {/* ROW A: TRACK DETAILS + TRANSPORT CONTROLS + UTILITIES */}
@@ -910,38 +970,36 @@ function Player({ initialTrack, token }) {
                                 )}
                             </span>
                             <h3 className="player-title" title={fullSongTitle}>
-                                {youtubeUrl ? (
-                                    <a
-                                        href={youtubeUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        title={fullSongTitle}
-                                        style={{ color: 'inherit', textDecoration: 'none' }}
-                                    >
-                                        {currentTrack?.title || 'Loading session...'}
-                                        <span style={{ fontSize: '0.72rem', marginLeft: '0.4rem', opacity: 0.5 }}>↗</span>
-                                    </a>
-                                ) : (
-                                    currentTrack?.title || 'Loading session...'
-                                )}
+                                {currentTrack?.title || 'Loading session...'}
                             </h3>
-                            <div className="player-channel">
-                                <span style={{
-                                    fontSize: '0.82rem',
-                                    color: '#cbd5e1',
-                                    fontWeight: '500',
-                                    letterSpacing: '0.01em'
-                                }}>
-                                    {currentTrack?.artist || sessionState?.currentTrack?.artist || currentTrack?.channelTitle || 'MusicMood Engine'}
+                            <div className="player-channel" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0, overflow: 'hidden' }}>
+                                <span
+                                    onClick={() => onOpenArtist && activeArtist && onOpenArtist(activeArtist)}
+                                    style={{
+                                        fontSize: '0.82rem',
+                                        color: '#cbd5e1',
+                                        fontWeight: '500',
+                                        letterSpacing: '0.01em',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        cursor: onOpenArtist && activeArtist ? 'pointer' : 'default',
+                                        minWidth: 0
+                                    }}
+                                    title={fullSongTitle}
+                                    onMouseEnter={(e) => { if (onOpenArtist && activeArtist) e.currentTarget.style.color = '#e2e8f0'; }}
+                                    onMouseLeave={(e) => { if (onOpenArtist && activeArtist) e.currentTarget.style.color = '#cbd5e1'; }}
+                                >
+                                    {activeArtist || 'MusicMood Engine'}
                                 </span>
                                 {currentTrack?.source === 'local_library' && (
-                                    <span style={{ color: '#60a5fa', fontSize: '0.72rem', background: 'rgba(96, 165, 250, 0.12)', padding: '0.05rem 0.35rem', borderRadius: '4px' }}>
+                                    <span style={{ color: '#60a5fa', fontSize: '0.72rem', background: 'rgba(96, 165, 250, 0.12)', padding: '0.05rem 0.35rem', borderRadius: '4px', flexShrink: 0 }}>
                                         📁 Server
                                     </span>
                                 )}
                                 {(currentTrack?.source?.startsWith('jit') || currentTrack?.source === 'jit_player_expansion' || currentTrack?.source === 'jit_local_archive' || currentTrack?.source === 'jit_musicbrainz') && (
-                                    <span style={{ color: '#34d399', fontSize: '0.72rem', fontWeight: '500', background: 'rgba(52, 211, 153, 0.12)', padding: '0.05rem 0.35rem', borderRadius: '4px' }}>
-                                        ⚡ JIT Discovery
+                                    <span style={{ color: '#34d399', fontSize: '0.72rem', fontWeight: '500', background: 'rgba(52, 211, 153, 0.12)', padding: '0.05rem 0.35rem', borderRadius: '4px', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                                        ⚡ JIT
                                     </span>
                                 )}
                             </div>
@@ -1439,8 +1497,21 @@ function Player({ initialTrack, token }) {
                 </div>
             </div>
 
-            {/* STRICTLY PERSISTENT OFF-SCREEN YOUTUBE IFRAME DOM TARGET */}
-            <div style={{ position: 'fixed', bottom: '-9999px', left: '-9999px', width: '240px', height: '240px', opacity: 1, pointerEvents: 'none', zIndex: -100 }}>
+            {/* STRICTLY INVISIBLE AUDIO-ONLY YOUTUBE ENGINE */}
+            <div
+                aria-hidden="true"
+                style={{
+                    position: 'fixed',
+                    top: '-9999px',
+                    left: '-9999px',
+                    width: '1px',
+                    height: '1px',
+                    opacity: 0,
+                    pointerEvents: 'none',
+                    overflow: 'hidden',
+                    zIndex: -9999
+                }}
+            >
                 <div id="musicmood-persistent-player"></div>
             </div>
         </div>

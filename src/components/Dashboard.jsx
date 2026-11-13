@@ -100,6 +100,13 @@ function Dashboard({ token, onLogout }) {
     const showPlaylists = activeTopPanel === 'playlists';
     const showFavorites = activeTopPanel === 'favorites';
     const showArtists = activeTopPanel === 'artists';
+    const [artistToOpen, setArtistToOpen] = useState(null);
+
+    const handleOpenArtist = (artistName) => {
+        if (!artistName) return;
+        setArtistToOpen(artistName);
+        setActiveTopPanel('artists');
+    };
 
     const [activeTrack, setActiveTrack] = useState(null);
     const [isDiscovering, setIsDiscovering] = useState(false);
@@ -562,15 +569,20 @@ function Dashboard({ token, onLogout }) {
                 {/* ARTISTS EXPLORER */}
                 {showArtists && (
                     <ArtistsExplorer
+                        initialArtistName={artistToOpen}
                         onPlayTrack={(track) => {
                             setActiveTrack(track);
                             sessionEngine.playOnDemand(track);
                             // Keep Artists Explorer open during demo auditioning so user doesn't lose context
                             if (!track?.isDemo && track?.source !== 'artist_demo') {
                                 setActiveTopPanel(null);
+                                setArtistToOpen(null);
                             }
                         }}
-                        onClose={() => setActiveTopPanel(null)}
+                        onClose={() => {
+                            setActiveTopPanel(null);
+                            setArtistToOpen(null);
+                        }}
                     />
                 )}
 
@@ -593,7 +605,7 @@ function Dashboard({ token, onLogout }) {
                                 <span>Resolving guard-checked track for <strong>{currentMoodObj?.emoji} {currentMoodObj?.label}</strong>...</span>
                             </div>
                         ) : activeTrack ? (
-                            <Player initialTrack={activeTrack} token={token} />
+                            <Player initialTrack={activeTrack} token={token} onOpenArtist={handleOpenArtist} />
                         ) : (
                             <div style={{ marginTop: '2rem', textAlign: 'center' }}>
                                 <button

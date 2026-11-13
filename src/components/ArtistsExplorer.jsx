@@ -218,7 +218,7 @@ async function loadAllArtists(force = false) {
     return fetchAllPromise;
 }
 
-export default function ArtistsExplorer({ onPlayTrack, onClose }) {
+export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistName }) {
     const [artists, setArtists] = useState(cachedAllArtists || []);
     const [isLoading, setIsLoading] = useState(!cachedAllArtists);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -266,6 +266,20 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             }
         }).catch(() => {});
     }, []);
+
+    // Auto-open artist modal when opened with initialArtistName
+    useEffect(() => {
+        if (initialArtistName && typeof initialArtistName === 'string') {
+            const trimmed = initialArtistName.trim();
+            const normTarget = normalizeArtistKey(trimmed);
+            const found = artists.find(a => normalizeArtistKey(a.name) === normTarget || a.name.toLowerCase() === trimmed.toLowerCase());
+            if (found) {
+                handleSelectArtist(found);
+            } else {
+                handleSelectArtist({ name: trimmed });
+            }
+        }
+    }, [initialArtistName, artists]);
 
     const handlePlayDemo = async (artist, e) => {
         if (e) e.stopPropagation();
