@@ -60,6 +60,21 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.4a` — 2026-11-13
+* **Automated Staged Ingestion Roadmap Architecture (Option C), Strategic Roadmap Sync & Continuous CUE Ingestion:**
+  * **⚖️ Option C: Tiered Hybrid Ingestion Architecture (`ROADMAP.md` Item #19):**
+    * Documented the multi-factor 4-pillar composite scoring index ($0-100\text{ pts}$):
+      * *Library Coherence & Deficit Gap Filling (35%)*: Graph proximity to active anchors + inverse density boost for underrepresented genres ($< 50$ tracks).
+      * *Quality & Audio Authenticity (25%)*: MBID verification, non-generic taxonomy, YouTube Music `- Topic` channel match, and verified duration (2:00–8:00).
+      * *Popularity & Social Demand (25% - Damped Egalitarian)*: Direct user requests ($\min(20, \text{request\_count} \times 10)$) + logarithmic playcount dampening to prevent mainstream pop monopolization.
+      * *AI Gatekeeper & Noise Quarantine (15% + Hard Veto)*: Disqualification for noise tokens (podcast, interview, reaction, karaoke, stems), extreme durations ($< 45\text{s}$ or $> 25\text{m}$), and embed restriction codes (`101`/`150`).
+    * Outlined dual execution engine: PostgreSQL view (`public.v_staged_ingestion_priority`) coupled with scheduled background inflation and session-driven real-time JIT buffer replenishment.
+  * **🗺️ Strategic Roadmap Milestones & Feature Status Sync (`ROADMAP.md`):**
+    * Updated completed status markers for shipped platform features: In-App Master Volume Slider (`v0.8.3`), Web Media Session API (`v0.8.3`), and Decoupled In-App Artist Navigation (`v0.8.4`).
+    * Synchronized Completed Milestones historical ledger from `v0.7.8` through `v0.8.4`.
+  * **💿 Continuous Lossless CUE Catalog Ingestion:**
+    * Autonomous background resolution (`scripts/resolveVideoIds.js --innertube --cue-only`) active, passing 580+ verified lossless album tracks mapped into `public.tracks` and `public.artists`.
+
 ### `v0.8.4` — 2026-11-13
 * **Adaptive Buffering Engine, Zero-Video Audio Lock, Staged Artist Request Hygiene & Fixed Geometry:**
   * **⏳ Adaptive Buffering Engine with User Control (`Player.jsx`):**
