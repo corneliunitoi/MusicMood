@@ -17,8 +17,32 @@ function getResolvedUserId() {
 }
 
 /**
- * Signs in anonymously or via guest fallback.
+ * Fetches staged artist suggestions (potential candidates awaiting catalog ingestion)
  */
+export async function fetchArtistSuggestions(search = '', limit = 100) {
+    try {
+        let query = supabase
+            .from('artist_suggestions')
+            .select('id, name, slug, status, confidence_score, primary_genre_id, source, batch_id, created_at')
+            .order('confidence_score', { ascending: false })
+            .order('name', { ascending: true })
+            .limit(limit);
+
+        if (search && search.trim()) {
+            query = query.ilike('name', `%${search.trim()}%`);
+        }
+
+        const { data, error } = await query;
+        if (error) {
+            console.error('[supabaseService] Error fetching artist_suggestions:', error);
+            return [];
+        }
+        return data || [];
+    } catch (e) {
+        console.error('[supabaseService] Error:', e);
+        return [];
+    }
+}
 export async function signInAsGuest() {
     let { data, error } = await supabase.auth.signInAnonymously();
 
