@@ -11,6 +11,11 @@ on:
         required: false
         type: boolean
         default: false
+      avatar_limit:
+        description: 'Number of artist profile pictures to populate'
+        required: false
+        type: number
+        default: 250
 
 permissions:
   contents: read
@@ -33,6 +38,20 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Heal Staged Artist Genres (Eliminate 'other')
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8' }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "🔍 Running Staged Genre Healing in DRY-RUN mode..."
+            node scripts/healStagedGenres.js --dry-run
+          else
+            echo "🚀 Healing unassigned genres in staged suggestions..."
+            node scripts/healStagedGenres.js
+          fi
 
       - name: Run Reclassification & Flag Healing
         env:
@@ -79,10 +98,11 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
         run: |
+          AVATAR_LIMIT="${{ github.event.inputs.avatar_limit || '250' }}"
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            echo "🔍 Running Avatar Population in DRY-RUN mode..."
-            node scripts/populateArtistAvatars.js --limit=100 --dry-run
+            echo "🔍 Running Avatar Population in DRY-RUN mode (limit: $AVATAR_LIMIT)..."
+            node scripts/populateArtistAvatars.js --limit="$AVATAR_LIMIT" --dry-run
           else
-            echo "🚀 Populating artist profile pictures from open sources..."
-            node scripts/populateArtistAvatars.js --limit=100
+            echo "🚀 Populating artist profile pictures from open sources (limit: $AVATAR_LIMIT)..."
+            node scripts/populateArtistAvatars.js --limit="$AVATAR_LIMIT"
           fi
