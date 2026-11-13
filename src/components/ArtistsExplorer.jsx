@@ -494,17 +494,17 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                 )}
             </div>
 
-            {/* Parent Genre Filter Pills (Zero Subgenre Clutter) */}
+            {/* Parent Genre Filter Pills (All visible on screen without scrolling) */}
             <div
                 className="artist-genre-pills-row"
                 style={{
                     display: 'flex',
-                    gap: '0.4rem',
-                    overflowX: 'auto',
-                    paddingBottom: '0.3rem',
-                    marginBottom: '0.55rem',
-                    scrollbarWidth: 'none',
-                    msOverflowStyle: 'none'
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    marginBottom: '0.65rem',
+                    width: '100%',
+                    boxSizing: 'border-box'
                 }}
             >
                 {PARENT_GENRES.map(genre => {
@@ -518,14 +518,15 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                 color: isActive ? '#ffffff' : '#cbd5e1',
                                 border: isActive ? `1px solid ${genre.color}` : '1px solid rgba(255, 255, 255, 0.1)',
                                 borderRadius: '9999px',
-                                padding: '0.22rem 0.65rem',
-                                fontSize: '0.78rem',
+                                padding: '0.2rem 0.55rem',
+                                fontSize: '0.74rem',
                                 fontWeight: isActive ? '700' : '500',
                                 whiteSpace: 'nowrap',
                                 cursor: 'pointer',
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '0.3rem',
+                                gap: '0.25rem',
+                                flexShrink: 0,
                                 transition: 'all 0.15s'
                             }}
                         >
@@ -742,7 +743,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                         </span>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                         {/* Status Filter Pills */}
                         {['all', 'approved', 'pending'].map(st => (
                             <button
