@@ -1,9 +1,9 @@
-name: Nightly Catalog Maintenance & Discovery Inflation
+name: Hourly Catalog Sanity, Maintenance & Discovery
 
 on:
   schedule:
-    # Runs every night at 03:00 AM UTC
-    - cron: '0 3 * * *'
+    # Runs hourly at minute 30 (temporarily hourly for rapid population & data analysis; switch back to '0 3 * * *' daily later)
+    - cron: '30 * * * *'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -113,4 +113,17 @@ jobs:
           else
             echo "🚀 Populating artist profile pictures from open sources (limit: $AVATAR_LIMIT)..."
             node scripts/populateArtistAvatars.js --limit="$AVATAR_LIMIT"
+          fi
+
+      - name: Reconcile Duplicate Artist Clusters
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "🔍 Running Artist Deduplication in DRY-RUN mode..."
+            node scripts/mergeDuplicateArtists.js
+          else
+            echo "🧼 Reconciling and merging duplicate artist clusters..."
+            node scripts/mergeDuplicateArtists.js --live
           fi
