@@ -19,7 +19,7 @@ on:
         description: 'Number of candidate artists to stage'
         required: true
         type: number
-        default: 100
+        default: 500
       tag:
         description: 'Target genre micro-tag (if source=tag)'
         required: false
@@ -33,7 +33,7 @@ jobs:
   scan-artists:
     name: Scan & Stage Candidate Artists
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
 
     steps:
       - name: Checkout repository
@@ -50,12 +50,14 @@ jobs:
 
       - name: Run Artist Candidate Scanner
         env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
           LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8' }}
         run: |
           SOURCE="${{ github.event.inputs.source || 'auto' }}"
-          COUNT="${{ github.event.inputs.count || '100' }}"
+          COUNT="${{ github.event.inputs.count || '500' }}"
           TAG="${{ github.event.inputs.tag || 'delta blues' }}"
 
           echo "🔍 Scanning artists: source=$SOURCE, count=$COUNT, tag=$TAG..."
