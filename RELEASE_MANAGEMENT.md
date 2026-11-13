@@ -52,7 +52,30 @@ Whenever a release or milestone patch is prepared:
 
 ---
 
+> [!IMPORTANT]
+> **VERSION CEILING LOCK (v0.8.x Stability & Hardening Period):**
+> Do **NOT** bump the project version past `0.8.x` (e.g., do not increment to `0.9.0` or `1.0.0`) until explicitly authorized by the project owner. The entire `v0.8.x` release series is strictly reserved for **stability, reliability, performance hardening, and bug fixes**. Any incremental updates must follow patch/minor notation within `0.8.x` (e.g. `0.8.0a`, `0.8.0b`, `0.8.1`, etc.).
+
+---
+
 ## 📜 Release Changelog
+
+### `v0.8.0` — 2026-11-13
+* **Artist Staging Architecture, Dynamic Library Balancer, Hourly Discovery Engine & UI Staging Explorer:**
+  * **Artist Candidate Staging Area (`public.artist_suggestions`):**
+    * Decoupled artist discovery from track resolution, allowing high-throughput harvesting without audio stream / InnerTube overhead.
+    * Added anti-AI heuristics, first-release-year gating, confidence scoring, and database-level unique constraint on `lower(name)`.
+  * **Dynamic Multi-Genre Library Balancer (`scripts/scanArtistCandidates.js`):**
+    * Dynamically balances the catalog across 8 core pillars (Blues, Country/Americana, Folk & Acoustic, Avant-Garde, Reggae & World, R&B/Soul, Ambient/Chill, Jazz & Fusion) plus KEXP 90.3 FM eclectic live radio curation.
+    * Pre-indexes 13,000+ catalog artists with diacritic, punctuation, and symbol normalization (`normalizeArtistKey`) guaranteeing zero duplicate artists.
+  * **Hourly GitHub Actions Pipeline (`.github/workflows/scan-artists-hourly.yml`):**
+    * Automated top-of-the-hour discovery runs staging 500 balanced candidates with live markdown summary tables rendered directly to `$GITHUB_STEP_SUMMARY`.
+  * **Artists Explorer — "Potential Matches (In Staging)" Section (`ArtistsExplorer.jsx` / `supabaseService.js`):**
+    * Dual live search across verified catalog artists and staged candidates.
+    * Filter candidates by status (`Approved`, `Under Review`), inspect confidence scores and genre pillars.
+    * Added "+ Request Artist" button for listener-driven ingestion prioritization.
+  * **Responsive UI Layout:**
+    * Wrapped all 16 category filter pills and staging filters across rows to fit all screen sizes with zero horizontal scrolling.
 
 ### `v0.7.9` — 2026-11-12
 * **Dynamic Active Genre Steering & Locking, Catalog Scaling Past 11,200 Artists & Comprehensive Architecture Audit:**
