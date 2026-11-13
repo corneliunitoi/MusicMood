@@ -3,6 +3,8 @@ import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import * as musicMetadata from 'music-metadata';
+import { readCueFile, parseCueContent } from './cueParser.js';
+import { fetchAlbumTracks } from './albumTrackResolver.js';
 
 // Load environment variables from .env
 dotenv.config();
@@ -21,6 +23,8 @@ const ITUNES_SEARCH_API = 'https://itunes.apple.com/search';
 // Parse CLI flags and arguments
 const rawArgs = process.argv.slice(2);
 const isRandom = rawArgs.includes('--random') || process.env.npm_config_random === 'true';
+const enableCue = !rawArgs.includes('--no-cue');
+const explodeAllAlbums = rawArgs.includes('--explode-albums') || rawArgs.includes('--external-albums');
 
 let sampleLimit = null;
 const limitArg = rawArgs.find(a => a.startsWith('--limit='));
@@ -61,7 +65,8 @@ const OUTPUT_FILE = path.join(process.cwd(), 'public', `local_library_stats${cus
 const CACHE_DIR = path.join(process.cwd(), 'scripts', 'cache');
 const CACHE_FILE = path.join(CACHE_DIR, 'artist_genre_cache.json');
 
-const VALID_EXTENSIONS = ['.mp3', '.flac', '.m4a', '.wav', '.ogg'];
+// Supported audio formats including Monkey's Audio (.ape) and WavPack (.wv)
+const VALID_EXTENSIONS = ['.mp3', '.flac', '.m4a', '.wav', '.ogg', '.ape', '.wv'];
 
 // Persistent Disk Cache for Artist -> Genre lookups
 const artistGenreCache = new Map();
@@ -272,32 +277,40 @@ async function enrichTrackMetadata(filePath) {
     };
 }
 
-function getAudioFiles(dirPath, arrayOfFiles = []) {
-    let entries;
-    try {
-        entries = fs.readdirSync(dirPath, { withFileTypes: true });
-    } catch (e) {
-        console.error(`Could not read directory ${dirPath}:`, e.message);
-        return arrayOfFiles;
-    }
+function discoverLibraryFiles(dirPath) {
+    const cueFiles = [];
+    const audioFiles = [];
 
-    for (const entry of entries) {
-        const fullPath = path.join(dirPath, entry.name);
+    function traverse(currentDir) {
+        let entries;
         try {
-            if (entry.isDirectory()) {
-                getAudioFiles(fullPath, arrayOfFiles);
-            } else if (entry.isFile()) {
-                const ext = path.extname(entry.name).toLowerCase();
-                if (VALID_EXTENSIONS.includes(ext)) {
-                    arrayOfFiles.push(fullPath);
-                }
-            }
+            entries = fs.readdirSync(currentDir, { withFileTypes: true });
         } catch (e) {
-            // Skip unreadable files/folders
+            console.error(`Could not read directory ${currentDir}:`, e.message);
+            return;
+        }
+
+        for (const entry of entries) {
+            const fullPath = path.join(currentDir, entry.name);
+            try {
+                if (entry.isDirectory()) {
+                    traverse(fullPath);
+                } else if (entry.isFile()) {
+                    const ext = path.extname(entry.name).toLowerCase();
+                    if (ext === '.cue') {
+                        cueFiles.push(fullPath);
+                    } else if (VALID_EXTENSIONS.includes(ext)) {
+                        audioFiles.push(fullPath);
+                    }
+                }
+            } catch (e) {
+                // Skip unreadable files/folders
+            }
         }
     }
 
-    return arrayOfFiles;
+    traverse(dirPath);
+    return { cueFiles, audioFiles };
 }
 
 const itunesToInternalMap = {
@@ -400,9 +413,120 @@ async function runStaticScanner() {
 
     const tScanStart = Date.now();
     process.stdout.write("🔍 Traversing directory structure... ");
-    let audioFiles = getAudioFiles(LIBRARY_PATH);
+    const { cueFiles, audioFiles: rawAudioFiles } = discoverLibraryFiles(LIBRARY_PATH);
     const traverseSec = ((Date.now() - tScanStart) / 1000).toFixed(1);
-    console.log(`Done! Found ${audioFiles.length} audio files in ${traverseSec}s.`);
+    console.log(`Done! Found ${rawAudioFiles.length} audio files and ${cueFiles.length} CUE sheets in ${traverseSec}s.`);
+
+    const explodedAudioContainers = new Set();
+    const explodedTracks = [];
+
+    // 1. Explode albums from CUE sheets
+    if (enableCue && cueFiles.length > 0) {
+        console.log(`\n💿 Exploding albums from ${cueFiles.length} CUE sheets...`);
+        for (const cuePath of cueFiles) {
+            try {
+                const cueDir = path.dirname(cuePath);
+                const cueRaw = readCueFile(cuePath);
+                const parsed = parseCueContent(cueRaw, cueDir);
+
+                if (parsed.resolvedAudioPath) {
+                    explodedAudioContainers.add(path.resolve(parsed.resolvedAudioPath).toLowerCase());
+                }
+                for (const ref of parsed.referencedFiles) {
+                    explodedAudioContainers.add(path.resolve(cueDir, ref).toLowerCase());
+                }
+
+                let tracks = parsed.tracks;
+                const hasPlaceholderTitles = tracks.length > 0 && tracks.every(t => !t.title || /^track\s*\d+$/i.test(t.title));
+
+                // If tracks are missing or placeholders, consult external API
+                if (tracks.length === 0 || hasPlaceholderTitles) {
+                    const artistCand = parsed.albumArtist || extractFromPath(cuePath).artist;
+                    const albumCand = parsed.albumTitle || path.basename(cueDir);
+                    if (artistCand && albumCand) {
+                        const extData = await fetchAlbumTracks(artistCand, albumCand);
+                        if (extData.success && extData.tracks.length > 0) {
+                            tracks = extData.tracks.map(t => ({
+                                trackNumber: t.trackNumber,
+                                title: t.title,
+                                artist: t.artist || artistCand,
+                                album: extData.albumTitle || albumCand,
+                                genre: extData.genre || parsed.albumGenre
+                            }));
+                        }
+                    }
+                }
+
+                let albumGenre = parsed.albumGenre;
+                if (!albumGenre) {
+                    albumGenre = detectGenreFromPath(cuePath);
+                }
+                if (!albumGenre && parsed.albumArtist) {
+                    const cacheKey = parsed.albumArtist.toLowerCase();
+                    if (artistGenreCache.has(cacheKey)) {
+                        albumGenre = artistGenreCache.get(cacheKey);
+                    }
+                }
+                if (!albumGenre) {
+                    albumGenre = 'Rock';
+                }
+
+                for (const t of tracks) {
+                    if (t.title && (t.artist || parsed.albumArtist)) {
+                        explodedTracks.push({
+                            artist: sanitizeForPostgres(t.artist || parsed.albumArtist),
+                            trackName: sanitizeForPostgres(t.title),
+                            genre: albumGenre,
+                            source: 'ko-local:cue'
+                        });
+                    }
+                }
+            } catch (cueErr) {
+                console.warn(`   ⚠️ Warning parsing ${path.basename(cuePath)}:`, cueErr.message);
+            }
+        }
+        console.log(`   ✅ Exploded ${explodedTracks.length} songs from ${cueFiles.length} CUE albums.`);
+    }
+
+    // 2. Filter out audio containers that were exploded via CUE
+    let audioFiles = rawAudioFiles.filter(f => !explodedAudioContainers.has(path.resolve(f).toLowerCase()));
+
+    // 3. Optional: Explode single-image album files without CUE sheets using external API
+    if (explodeAllAlbums) {
+        console.log(`\n🌐 Checking for single-image album containers to explode via external API...`);
+        const remainingStandalone = [];
+        for (const filePath of audioFiles) {
+            try {
+                const stat = fs.statSync(filePath);
+                const parentDir = path.dirname(filePath);
+                const isLarge = stat.size > 60 * 1024 * 1024;
+                const folderName = path.basename(parentDir);
+                const hasAlbumPattern = /\[(ape|flac|wav|album)\]/i.test(folderName) || /\[\d{4}\]/i.test(folderName) || folderName.includes(' - ');
+
+                if (isLarge || hasAlbumPattern) {
+                    const pathData = extractFromPath(filePath);
+                    if (pathData.artist && pathData.title) {
+                        const extRes = await fetchAlbumTracks(pathData.artist, pathData.title);
+                        if (extRes.success && extRes.tracks.length > 0) {
+                            console.log(`   ✨ Exploded "${pathData.artist} - ${pathData.title}" into ${extRes.tracks.length} tracks via ${extRes.source.toUpperCase()}`);
+                            for (const t of extRes.tracks) {
+                                explodedTracks.push({
+                                    artist: sanitizeForPostgres(t.artist || pathData.artist),
+                                    trackName: sanitizeForPostgres(t.title),
+                                    genre: extRes.genre || pathData.genre || 'Rock',
+                                    source: `ko-local:ext-${extRes.source}`
+                                });
+                            }
+                            explodedAudioContainers.add(path.resolve(filePath).toLowerCase());
+                            continue;
+                        }
+                    }
+                }
+            } catch {}
+            remainingStandalone.push(filePath);
+        }
+        audioFiles = remainingStandalone;
+    }
 
     if (isRandom) {
         console.log(`🎲 Shuffling ${audioFiles.length} files for even artist distribution...`);
@@ -423,6 +547,38 @@ async function runStaticScanner() {
     const syncBuffer = [];
     const rejectedTracks = [];
     const SYNC_THRESHOLD = 100;
+
+    // Flush pre-exploded album tracks first
+    if (explodedTracks.length > 0) {
+        console.log(`\n☁️ Syncing ${explodedTracks.length} exploded album tracks to Supabase...`);
+        for (const exp of explodedTracks) {
+            let genre = (exp.genre || 'Rock').trim();
+            if (JUNK_GENRE_PATTERN.test(genre)) {
+                genre = 'Rock';
+            }
+            totalHits++;
+            const mainGenre = itunesToInternalMap[genre] || genre;
+
+            if (!genreStats[mainGenre]) genreStats[mainGenre] = { hits: 0, subStats: {} };
+            genreStats[mainGenre].hits++;
+            genreStats[mainGenre].subStats[genre] = (genreStats[mainGenre].subStats[genre] || 0) + 1;
+
+            syncBuffer.push({
+                artist: sanitizeForPostgres(exp.artist),
+                track_name: sanitizeForPostgres(exp.trackName),
+                genre: sanitizeForPostgres(mainGenre),
+                source: exp.source || 'ko-local:cue'
+            });
+
+            if (syncBuffer.length >= SYNC_THRESHOLD) {
+                const synced = await syncBatchToSupabase(syncBuffer);
+                cloudSynced += synced;
+                syncBuffer.length = 0;
+                persistCacheToDisk();
+                process.stdout.write(`☁️ [${cloudSynced}] `);
+            }
+        }
+    }
 
     for (let i = 0; i < audioFiles.length; i += BATCH_SIZE) {
         try {

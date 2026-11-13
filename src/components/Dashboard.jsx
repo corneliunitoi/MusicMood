@@ -565,7 +565,10 @@ function Dashboard({ token, onLogout }) {
                         onPlayTrack={(track) => {
                             setActiveTrack(track);
                             sessionEngine.playOnDemand(track);
-                            setActiveTopPanel(null);
+                            // Keep Artists Explorer open during demo auditioning so user doesn't lose context
+                            if (!track?.isDemo && track?.source !== 'artist_demo') {
+                                setActiveTopPanel(null);
+                            }
                         }}
                         onClose={() => setActiveTopPanel(null)}
                     />

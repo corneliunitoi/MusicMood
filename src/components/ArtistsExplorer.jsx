@@ -256,7 +256,8 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                 artist: artist.name,
                 genre: artist.primary_genre_id || 'rock',
                 thumbnail: `https://i.ytimg.com/vi/${artist.demo_youtube_id}/hqdefault.jpg`,
-                source: 'artist_demo'
+                source: 'artist_demo',
+                isDemo: true
             };
             if (sessionEngine.playOnDemand) {
                 sessionEngine.playOnDemand(playable, false);
@@ -284,7 +285,8 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                     artist: artist.name,
                     genre: artist.primary_genre_id || 'rock',
                     thumbnail: `https://i.ytimg.com/vi/${data.demo_youtube_id}/hqdefault.jpg`,
-                    source: 'artist_demo'
+                    source: 'artist_demo',
+                    isDemo: true
                 };
                 if (sessionEngine.playOnDemand) {
                     sessionEngine.playOnDemand(playable, false);
@@ -922,7 +924,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                             title={artist.demo_track_title ? `Try song: "${artist.demo_track_title}"` : `Demo ${artist.name}`}
                                         >
                                             <span>{demoPlayingId === artist.id ? '🔊' : '▶'}</span>
-                                            <span>Try</span>
+                                            <span>{demoPlayingId === artist.id ? 'Playing' : 'Try'}</span>
                                         </button>
                                         <button
                                             onClick={(e) => handleToggleRequest(artist, e)}
