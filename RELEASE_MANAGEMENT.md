@@ -60,6 +60,25 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.0a` — 2026-11-13
+* **On-Demand Player Subgenre Locking, 100% Staged Genre Normalization, 2-Tier Open-License Artist Avatars & Nightly Pipeline Automation:**
+  * **On-Demand Player Subgenre Locking (`sessionStateMachine.js` / `Player.jsx` / `Dashboard.jsx`):**
+    * Added `sessionEngine.playOnDemand(track)`: when a track is manually clicked in Artists Explorer, Favorites, or Playlists, it normalizes the track's subgenre via `normalizeGenre()`, anchors `this.state.activeGenre` to that specific node, and flushes the stale buffered queue so the player firmly stays on that requested subgenre.
+    * Added instant local synchronization in `Player.jsx` ensuring the active genre dropdown updates with 0ms lag.
+    * Preserved custom playlist queue support when launching Artist Radio.
+  * **Elimination of "Other" Genre Across Discovery & Staging (`scanArtistCandidates.js` / `ArtistsExplorer.jsx` / `healStagedGenres.js`):**
+    * Healed 100% of the 1,080 staged artist suggestions in `public.artist_suggestions`, replacing all unassigned and "other" categories with authentic parent genres.
+    * Updated KEXP live scanner to resolve top Last.fm artist tags and default un-tagged acts to `alt_rock` instead of `null`.
+    * Updated Potential Matches UI in `ArtistsExplorer.jsx` to map candidates through `getParentGenre()`, permanently removing the "Other" badge.
+  * **2-Tier Open-License Artist Profile Pictures (`populateArtistAvatars.js` / `avatarService.js`):**
+    * Implemented strict legal hierarchy: Tier 1 Wikipedia / Wikimedia Commons (Creative Commons CC-BY / Public Domain), Tier 2 Deezer Promotional Press API (for acts without Wikipedia biographies), and Tier 3 Procedural Gradient Initials.
+    * Populated 950+ catalog artists directly in Supabase (`public.artists.avatar_url`).
+    * Implemented smart artist name decomposition (cleaning inverted comma names, corrupted diacritics, and collaborative artist pairs) ensuring all artists with $\ge 20$ tracks have high-resolution profile pictures.
+    * Added client-side real-time on-demand avatar resolution in `avatarService.js`: viewing or clicking any blank artist in the UI resolves and renders their picture on the fly and saves it to Supabase.
+  * **Automated Nightly Maintenance Workflow (`.github/workflows/reconcile-flags.yml`):**
+    * Added automated nightly staged genre healing and dynamic avatar population (250 artists/night) running at 03:00 UTC.
+    * Supported on-demand dispatch with configurable `avatar_limit` in the GitHub Actions UI.
+
 ### `v0.8.0` — 2026-11-13
 * **Artist Staging Architecture, Dynamic Library Balancer, Hourly Discovery Engine & UI Staging Explorer:**
   * **Artist Candidate Staging Area (`public.artist_suggestions`):**
