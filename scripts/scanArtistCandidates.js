@@ -32,12 +32,19 @@ function getArg(prefix, defaultVal) {
     return match ? match.split('=')[1] : defaultVal;
 }
 
-const SOURCE = getArg('--source=', 'kexp').toLowerCase();
-const TARGET_TAG = getArg('--tag=', 'blues');
+const SOURCE = getArg('--source=', 'auto').toLowerCase();
+const TARGET_TAG = getArg('--tag=', null);
 const TARGET_COUNT = parseInt(getArg('--count=', '100'), 10);
 const BATCH_ID = getArg('--batch=', `${SOURCE}-artists-${new Date().toISOString().slice(0, 10)}`);
 const IS_DRY_RUN = args.includes('--dry-run');
 const API_KEY = process.env.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8';
+
+const ROTATING_TAGS = [
+    'delta blues', 'chicago blues', 'electric blues', 'acoustic blues',
+    'outlaw country', 'americana', 'bluegrass', 'traditional country',
+    'traditional folk', 'contemporary folk', 'celtic folk', 'acoustic folk',
+    'avant-garde', 'experimental rock', 'musique concrete', 'no wave'
+];
 
 const TRUSTED_LABELS = new Set([
     'ecm', 'blue note', 'warp', '4ad', 'sub pop', 'ninja tune', 'daptone',
@@ -71,7 +78,7 @@ async function fetchKexpCandidateArtists(targetCount) {
     const limit = 100;
     let page = 1;
 
-    while (candidates.size < targetCount && page <= 15) {
+    while (candidates.size < targetCount && page <= 40) {
         process.stdout.write(`   Fetching KEXP page ${page}... `);
         const url = `https://api.kexp.org/v2/plays/?limit=${limit}&offset=${offset}`;
         try {
@@ -145,12 +152,29 @@ async function run() {
     console.log(`   Execution:     ${IS_DRY_RUN ? 'DRY RUN (Preview Only)' : 'LIVE STAGING WRITES'}`);
     console.log('================================================================\n');
 
-    // 1. Fetch raw candidates
+    // 1. Determine active source
+    let resolvedSource = SOURCE;
+    let resolvedTag = TARGET_TAG;
+
+    if (SOURCE === 'auto') {
+        const hour = new Date().getUTCHours();
+        if (hour % 2 === 0) {
+            resolvedSource = 'kexp';
+        } else {
+            resolvedSource = 'tag';
+            const tagIdx = Math.floor(hour / 2) % ROTATING_TAGS.length;
+            resolvedTag = ROTATING_TAGS[tagIdx];
+        }
+    }
+
+    console.log(`   Active Mode:   ${resolvedSource === 'kexp' ? 'KEXP Seattle Live Human Curation' : `Targeted Micro-Tag: "${resolvedTag}"`}`);
+
+    // 2. Fetch raw candidates
     let candidates = [];
-    if (SOURCE === 'kexp') {
+    if (resolvedSource === 'kexp') {
         candidates = await fetchKexpCandidateArtists(TARGET_COUNT);
     } else {
-        candidates = await fetchTagCandidateArtists(TARGET_TAG, TARGET_COUNT);
+        candidates = await fetchTagCandidateArtists(resolvedTag || 'delta blues', TARGET_COUNT);
     }
 
     console.log(`\n✓ Assembled ${candidates.length} candidate artists. Verifying against catalog...\n`);
