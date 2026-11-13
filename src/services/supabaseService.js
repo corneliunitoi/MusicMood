@@ -23,7 +23,8 @@ export async function fetchArtistSuggestions(search = '', limit = 100) {
     try {
         let query = supabase
             .from('artist_suggestions')
-            .select('id, name, slug, status, confidence_score, primary_genre_id, source, batch_id, created_at')
+            .select('id, name, slug, status, confidence_score, primary_genre_id, source, batch_id, created_at, is_requested, request_count')
+            .order('request_count', { ascending: false })
             .order('confidence_score', { ascending: false })
             .order('name', { ascending: true })
             .limit(limit);
@@ -41,6 +42,25 @@ export async function fetchArtistSuggestions(search = '', limit = 100) {
     } catch (e) {
         console.error('[supabaseService] Error:', e);
         return [];
+    }
+}
+
+/**
+ * Submits a live database request for a staged artist to be prioritized for catalog ingestion
+ */
+export async function submitArtistRequest(artistId) {
+    try {
+        const { data, error } = await supabase.rpc('request_staged_artist', {
+            p_artist_id: artistId
+        });
+        if (error) {
+            console.error('[supabaseService] Error submitting artist request:', error);
+            return { success: false, error: error.message };
+        }
+        return data || { success: true };
+    } catch (e) {
+        console.error('[supabaseService] Error requesting artist:', e);
+        return { success: false, error: e.message };
     }
 }
 export async function signInAsGuest() {

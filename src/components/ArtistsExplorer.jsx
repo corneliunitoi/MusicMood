@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { supabase, fetchArtistSuggestions } from '../services/supabaseService';
+import { supabase, fetchArtistSuggestions, submitArtistRequest } from '../services/supabaseService';
 import { GENRE_NODES } from '../services/tasteGraph';
 import { sessionEngine } from '../services/sessionStateMachine';
 
@@ -182,13 +182,16 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
         }
     });
 
-    const handleToggleRequest = (artist, e) => {
+    const handleToggleRequest = async (artist, e) => {
         if (e) e.stopPropagation();
+        const key = artist.id || artist.name;
+        const currentlyRequested = !!requestedArtists[key] || !!artist.is_requested;
+
+        // Optimistic UI state update
         setRequestedArtists(prev => {
-            const key = artist.id || artist.name;
             const updated = {
                 ...prev,
-                [key]: !prev[key]
+                [key]: !currentlyRequested
             };
             try {
                 localStorage.setItem('musicmood_requested_artists', JSON.stringify(updated));
@@ -197,6 +200,28 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             }
             return updated;
         });
+
+        // Update in-memory staged artist counts immediately
+        setStagedArtists(prev => prev.map(a => {
+            if ((a.id && a.id === artist.id) || a.name === artist.name) {
+                return {
+                    ...a,
+                    is_requested: !currentlyRequested,
+                    request_count: Math.max(0, (a.request_count || 0) + (currentlyRequested ? -1 : 1)),
+                    status: !currentlyRequested ? 'approved' : a.status
+                };
+            }
+            return a;
+        }));
+
+        // Persist live request directly to Supabase
+        if (!currentlyRequested && artist.id) {
+            try {
+                await submitArtistRequest(artist.id);
+            } catch (err) {
+                console.error('[ArtistsExplorer] Failed to submit artist request to Supabase:', err);
+            }
+        }
     };
 
     // Fetch staged suggestions on mount and when searchQuery changes
@@ -321,6 +346,8 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                 status: a.status,
                 confidence_score: a.confidence_score,
                 source: a.source,
+                is_requested: a.is_requested || !!requestedArtists[a.id || a.name],
+                request_count: a.request_count || 0,
                 track_count: 0
             }));
             if (query) {
@@ -715,7 +742,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                         }}
                                         title={isRequested ? 'Click to cancel request' : 'Request this artist to be prioritized for catalog ingestion'}
                                     >
-                                        {isRequested ? '✓ Requested' : '+ Request'}
+                                        {isRequested ? '✓ Requested' : '+ Request'}{artist.request_count > 0 ? ` (${artist.request_count})` : ''}
                                     </button>
                                 ) : (
                                     <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
