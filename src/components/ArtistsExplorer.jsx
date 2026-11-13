@@ -227,7 +227,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
     const [artistTracks, setArtistTracks] = useState([]);
     const [isLoadingTracks, setIsLoadingTracks] = useState(false);
     const [avatarOverrides, setAvatarOverrides] = useState({});
-    const [visibleCount, setVisibleCount] = useState(60);
+    const [visibleCount, setVisibleCount] = useState(250);
 
     // Potential matches (Staged Candidates)
     const [stagedArtists, setStagedArtists] = useState([]);
@@ -374,7 +374,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
         setIsLoadingStaged(true);
 
         const timer = setTimeout(async () => {
-            const results = await fetchArtistSuggestions(searchQuery, 60, 0);
+            const results = await fetchArtistSuggestions(searchQuery, 250, 0);
             if (isMounted) {
                 setStagedArtists(results);
                 setIsLoadingStaged(false);
@@ -387,10 +387,10 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
         };
     }, [searchQuery]);
 
-    // Auto-refill staged candidates if user requests/dismisses many and list shrinks below 20
+    // Auto-refill staged candidates if user requests/dismisses many and list shrinks below 100
     useEffect(() => {
-        if (selectedGenre === 'potential' && stagedArtists.length > 0 && stagedArtists.length < 25 && !isLoadingStaged) {
-            fetchArtistSuggestions(searchQuery, 30, stagedArtists.length).then(results => {
+        if (selectedGenre === 'potential' && stagedArtists.length > 0 && stagedArtists.length < 100 && !isLoadingStaged) {
+            fetchArtistSuggestions(searchQuery, 100, stagedArtists.length).then(results => {
                 setStagedArtists(prev => {
                     const existingKeys = new Set(prev.map(a => a.id || a.name));
                     const newItems = results.filter(r => !existingKeys.has(r.id || r.name));
@@ -597,12 +597,12 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
     const handleGridScroll = (e) => {
         const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
         if (scrollTop + clientHeight >= scrollHeight - 80) {
-            setVisibleCount(prev => Math.min(prev + 40, filteredArtists.length));
+            setVisibleCount(prev => Math.min(prev + 100, filteredArtists.length));
 
             // Infinite autoload for Potential Matches when scrolling near bottom
             if (selectedGenre === 'potential' && !isLoadingMoreStaged && !isLoadingStaged) {
                 setIsLoadingMoreStaged(true);
-                fetchArtistSuggestions(searchQuery, 40, stagedArtists.length).then(more => {
+                fetchArtistSuggestions(searchQuery, 100, stagedArtists.length).then(more => {
                     if (more && more.length > 0) {
                         setStagedArtists(prev => {
                             const seen = new Set(prev.map(p => p.id || p.name));

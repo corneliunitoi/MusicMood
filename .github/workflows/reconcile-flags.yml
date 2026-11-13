@@ -95,10 +95,10 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             echo "🔍 Running Staged Artist Ingestion in DRY-RUN mode..."
-            node scripts/inflateStagedArtists.js --requested-only --limit=15 --tracks=5 --dry-run
+            node scripts/inflateStagedArtists.js --requested-only --limit=15 --tracks=10 --dry-run
           else
             echo "🚀 Ingesting user-requested staged artists into permanent catalog..."
-            node scripts/inflateStagedArtists.js --requested-only --limit=15 --tracks=5
+            node scripts/inflateStagedArtists.js --requested-only --limit=15 --tracks=10
           fi
 
       - name: Ingest Local Lossless CUE Tracks to Catalog
@@ -119,10 +119,10 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             echo "🔍 Running Related Artist Discovery in DRY-RUN mode..."
-            node scripts/inflateRelatedArtists.js --dry-run --anchors=5 --similar=3 --tracks=5
+            node scripts/inflateRelatedArtists.js --dry-run --anchors=5 --similar=3 --tracks=10
           else
             echo "🚀 Ingesting related artists for top upvotes..."
-            node scripts/inflateRelatedArtists.js --anchors=5 --similar=3 --tracks=5
+            node scripts/inflateRelatedArtists.js --anchors=5 --similar=3 --tracks=10
           fi
 
       - name: Populate Missing Artist Avatars (Open-License)

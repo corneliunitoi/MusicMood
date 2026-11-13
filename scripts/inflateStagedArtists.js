@@ -32,7 +32,7 @@ function getArg(prefix, defaultVal) {
 const BATCH_ID = getArg('--batch=', null);
 const STATUS = getArg('--status=', 'approved');
 const LIMIT = parseInt(getArg('--limit=', '50'), 10);
-const TRACKS_PER_ARTIST = parseInt(getArg('--tracks=', '5'), 10);
+const TRACKS_PER_ARTIST = parseInt(getArg('--tracks=', '10'), 10);
 const IS_DRY_RUN = args.includes('--dry-run');
 const API_KEY = process.env.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8';
 

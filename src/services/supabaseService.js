@@ -19,7 +19,7 @@ function getResolvedUserId() {
 /**
  * Fetches staged artist suggestions (potential candidates awaiting catalog ingestion)
  */
-export async function fetchArtistSuggestions(search = '', limit = 60, offset = 0) {
+export async function fetchArtistSuggestions(search = '', limit = 250, offset = 0) {
     try {
         let query = supabase
             .from('artist_suggestions')
