@@ -3,10 +3,11 @@ import { supabase, fetchArtistSuggestions } from '../services/supabaseService';
 import { GENRE_NODES } from '../services/tasteGraph';
 import { sessionEngine } from '../services/sessionStateMachine';
 
-// 14 High-Level Parent Genre Families (Zero subgenre clutter) + Latest Ingestion Category
+// 14 High-Level Parent Genre Families (Zero subgenre clutter) + Latest Ingestion & Staging Categories
 const PARENT_GENRES = [
     { id: 'all', label: 'All Artists', emoji: '👥', color: '#6366f1' },
     { id: 'latest', label: 'Latest Added', emoji: '✨', color: '#10b981' },
+    { id: 'potential', label: 'Potential Matches', emoji: '⏳', color: '#8b5cf6' },
     { id: 'rock', label: 'Rock', emoji: '🎸', color: '#ef4444' },
     { id: 'metal', label: 'Metal', emoji: '🤘', color: '#8b5cf6' },
     { id: 'electronic', label: 'Electronic', emoji: '🎛️', color: '#06b6d4' },
@@ -172,8 +173,6 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
     // Potential matches (Staged Candidates)
     const [stagedArtists, setStagedArtists] = useState([]);
     const [isLoadingStaged, setIsLoadingStaged] = useState(false);
-    const [stagedStatusFilter, setStagedStatusFilter] = useState('all'); // 'all', 'approved', 'pending'
-    const [isStagedExpanded, setIsStagedExpanded] = useState(true);
     const [requestedArtists, setRequestedArtists] = useState(() => {
         try {
             const saved = localStorage.getItem('musicmood_requested_artists');
@@ -183,7 +182,8 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
         }
     });
 
-    const handleToggleRequest = (artist) => {
+    const handleToggleRequest = (artist, e) => {
+        if (e) e.stopPropagation();
         setRequestedArtists(prev => {
             const key = artist.id || artist.name;
             const updated = {
@@ -192,8 +192,8 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             };
             try {
                 localStorage.setItem('musicmood_requested_artists', JSON.stringify(updated));
-            } catch (e) {
-                console.warn('[ArtistsExplorer] Failed to save requested artists:', e);
+            } catch (err) {
+                console.warn('[ArtistsExplorer] Failed to save requested artists:', err);
             }
             return updated;
         });
@@ -205,7 +205,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
         setIsLoadingStaged(true);
 
         const timer = setTimeout(async () => {
-            const results = await fetchArtistSuggestions(searchQuery, 100);
+            const results = await fetchArtistSuggestions(searchQuery, 300);
             if (isMounted) {
                 setStagedArtists(results);
                 setIsLoadingStaged(false);
@@ -311,7 +311,25 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
     const filteredArtists = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
 
-        // 1. "Latest Added" Category: strictly the 50 most recently created/ingested artists
+        // 1. "Potential Matches" Tab: artists currently sitting in staging awaiting ingestion
+        if (selectedGenre === 'potential') {
+            const mapped = stagedArtists.map(a => ({
+                id: a.id,
+                name: a.name,
+                primary_genre_id: a.primary_genre_id || 'other',
+                is_staged: true,
+                status: a.status,
+                confidence_score: a.confidence_score,
+                source: a.source,
+                track_count: 0
+            }));
+            if (query) {
+                return mapped.filter(a => a.name.toLowerCase().includes(query) || (a.primary_genre_id && a.primary_genre_id.toLowerCase().includes(query)));
+            }
+            return mapped;
+        }
+
+        // 2. "Latest Added" Category: strictly the 50 most recently created/ingested artists
         if (selectedGenre === 'latest') {
             const latestSorted = [...artists]
                 .filter(a => a.created_at || a.last_inflated_at)
@@ -331,7 +349,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             return latestSorted;
         }
 
-        // 2. Standard Genre Filtering
+        // 3. Standard Genre Filtering
         return artists.filter(artist => {
             const parent = getParentGenre(artist.primary_genre_id);
             if (selectedGenre !== 'all' && parent !== selectedGenre) {
@@ -342,21 +360,12 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             }
             return true;
         });
-    }, [artists, selectedGenre, searchQuery]);
+    }, [artists, stagedArtists, selectedGenre, searchQuery]);
 
     // Paginated slice for smooth 60fps rendering
     const displayedArtists = useMemo(() => {
         return filteredArtists.slice(0, visibleCount);
     }, [filteredArtists, visibleCount]);
-
-    // Filtered staged artists by status filter
-    const filteredStagedArtists = useMemo(() => {
-        return stagedArtists.filter(a => {
-            if (stagedStatusFilter === 'approved' && a.status !== 'approved' && (a.confidence_score || 0) < 90) return false;
-            if (stagedStatusFilter === 'pending' && a.status === 'approved' && (a.confidence_score || 0) >= 90) return false;
-            return true;
-        });
-    }, [stagedArtists, stagedStatusFilter]);
 
     const handleGridScroll = (e) => {
         const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
@@ -403,14 +412,15 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                 }
             `}</style>
 
-            {/* Header with Search and Close */}
+            {/* Header with Title, Count, Sync & Close */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.55rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                     <h2 style={{ margin: 0, fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#f8fafc' }}>
-                        <span>👤</span> Catalog Artists
+                        <span>{selectedGenre === 'potential' ? '⏳' : '👤'}</span>
+                        <span>{selectedGenre === 'potential' ? 'Potential Matches' : 'Catalog Artists'}</span>
                     </h2>
                     <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                        ({artists.length.toLocaleString()} verified artists)
+                        ({selectedGenre === 'potential' ? `${stagedArtists.length ? stagedArtists.length.toLocaleString() : '1,500+'} staged candidates` : `${artists.length.toLocaleString()} verified artists`})
                     </span>
                     <button
                         onClick={handleForceRefresh}
@@ -461,7 +471,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search artist name (e.g., Pink Floyd, Miles Davis, Chopin, Tipper)..."
+                    placeholder={selectedGenre === 'potential' ? "Search potential matches sitting in staging..." : "Search artist name (e.g., Pink Floyd, Miles Davis, Chopin, Tipper)..."}
                     style={{
                         width: '100%',
                         padding: '0.45rem 1rem 0.45rem 2.4rem',
@@ -562,35 +572,12 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                     border: '1px dashed rgba(255, 255, 255, 0.15)'
                 }}>
                     <div style={{ fontSize: '1.75rem', marginBottom: '0.35rem' }}>🔍</div>
-                    <h3 style={{ margin: '0 0 0.35rem 0', color: '#f8fafc', fontSize: '1rem' }}>No matching artists found</h3>
+                    <h3 style={{ margin: '0 0 0.35rem 0', color: '#f8fafc', fontSize: '1rem' }}>
+                        {selectedGenre === 'potential' ? 'No matching staged candidates found' : 'No matching artists found'}
+                    </h3>
                     <p style={{ margin: '0 auto 0.75rem auto', maxWidth: '420px', color: '#94a3b8', fontSize: '0.8rem' }}>
-                        We couldn&apos;t find &ldquo;{searchQuery}&rdquo; in your currently indexed local/cloud library.
+                        We couldn&apos;t find &ldquo;{searchQuery}&rdquo; in this category.
                     </p>
-                    {filteredStagedArtists.length > 0 ? (
-                        <div style={{
-                            display: 'inline-block',
-                            background: 'rgba(52, 211, 153, 0.15)',
-                            border: '1px solid rgba(52, 211, 153, 0.35)',
-                            borderRadius: '8px',
-                            padding: '0.4rem 0.85rem',
-                            fontSize: '0.78rem',
-                            color: '#6ee7b7'
-                        }}>
-                            ✨ Found {filteredStagedArtists.length} potential match(es) in Staging! See below to request ingestion.
-                        </div>
-                    ) : (
-                        <div style={{
-                            display: 'inline-block',
-                            background: 'rgba(99, 102, 241, 0.15)',
-                            border: '1px solid rgba(99, 102, 241, 0.35)',
-                            borderRadius: '8px',
-                            padding: '0.4rem 0.85rem',
-                            fontSize: '0.76rem',
-                            color: '#c7d2fe'
-                        }}>
-                            💡 Discovered candidate artists appear in Staging below. You can request artists to be prioritized!
-                        </div>
-                    )}
                 </div>
             ) : (
                 <div
@@ -600,23 +587,32 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
                         gap: '0.65rem',
-                        maxHeight: '286px',
+                        maxHeight: '340px',
                         overflowY: 'auto',
                         paddingRight: '0.35rem'
                     }}
                 >
                     {displayedArtists.map(artist => {
                         const parent = getParentGenre(artist.primary_genre_id);
-                        const genreObj = PARENT_GENRES.find(p => p.id === parent) || PARENT_GENRES[1];
+                        const genreObj = PARENT_GENRES.find(p => p.id === parent) || PARENT_GENRES[0];
                         const hasAvatar = artist.avatar_url && avatarOverrides[artist.name] !== 'FALLBACK';
+                        const isRequested = !!requestedArtists[artist.id || artist.name];
+                        const isStaged = !!artist.is_staged;
+                        const isApproved = artist.status === 'approved' || (artist.confidence_score || 0) >= 90;
 
                         return (
                             <div
                                 key={artist.id || artist.name}
-                                onClick={() => handleSelectArtist(artist)}
+                                onClick={() => {
+                                    if (isStaged) {
+                                        handleToggleRequest(artist);
+                                    } else {
+                                        handleSelectArtist(artist);
+                                    }
+                                }}
                                 style={{
-                                    background: 'rgba(30, 41, 59, 0.6)',
-                                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                                    background: isRequested ? 'rgba(99, 102, 241, 0.18)' : 'rgba(30, 41, 59, 0.6)',
+                                    border: isRequested ? '1px solid #818cf8' : '1px solid rgba(255, 255, 255, 0.08)',
                                     borderRadius: '10px',
                                     padding: '0.65rem 0.5rem',
                                     display: 'flex',
@@ -631,12 +627,12 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                 onMouseEnter={(e) => {
                                     e.currentTarget.style.transform = 'translateY(-2px)';
                                     e.currentTarget.style.background = 'rgba(51, 65, 85, 0.7)';
-                                    e.currentTarget.style.borderColor = genreObj.color;
+                                    e.currentTarget.style.borderColor = isStaged ? '#818cf8' : genreObj.color;
                                 }}
                                 onMouseLeave={(e) => {
                                     e.currentTarget.style.transform = 'none';
-                                    e.currentTarget.style.background = 'rgba(30, 41, 59, 0.6)';
-                                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                                    e.currentTarget.style.background = isRequested ? 'rgba(99, 102, 241, 0.18)' : 'rgba(30, 41, 59, 0.6)';
+                                    e.currentTarget.style.borderColor = isRequested ? '#818cf8' : 'rgba(255, 255, 255, 0.08)';
                                 }}
                             >
                                 {/* Profile Picture / Avatar */}
@@ -646,7 +642,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                     borderRadius: '50%',
                                     overflow: 'hidden',
                                     marginBottom: '0.45rem',
-                                    border: `2px solid ${genreObj.color}`,
+                                    border: `2px solid ${isStaged ? (isApproved ? '#10b981' : '#f59e0b') : genreObj.color}`,
                                     boxShadow: `0 0 10px ${genreObj.color}33`,
                                     background: `linear-gradient(135deg, ${genreObj.color}44, #0f172a)`,
                                     display: 'flex',
@@ -663,7 +659,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                         />
                                     ) : (
                                         <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#f8fafc', letterSpacing: '0.5px' }}>
-                                            {getInitials(artist.name)}
+                                            {isStaged ? (isApproved ? '🟢' : '🟡') : getInitials(artist.name)}
                                         </span>
                                     )}
                                 </div>
@@ -697,211 +693,40 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                     marginBottom: '0.25rem'
                                 }}>
                                     <span>{genreObj.emoji}</span>
-                                    <span>{genreObj.label}</span>
+                                    <span>{isStaged && artist.primary_genre_id ? artist.primary_genre_id : genreObj.label}</span>
                                 </div>
 
-                                {/* Track Count */}
-                                <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-                                    {artist.track_count} tracks
-                                </span>
+                                {/* Track Count or Request Button */}
+                                {isStaged ? (
+                                    <button
+                                        onClick={(e) => handleToggleRequest(artist, e)}
+                                        style={{
+                                            marginTop: '0.2rem',
+                                            width: '100%',
+                                            padding: '0.2rem 0.45rem',
+                                            borderRadius: '5px',
+                                            border: isRequested ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.15)',
+                                            background: isRequested ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                                            color: isRequested ? '#34d399' : '#cbd5e1',
+                                            fontSize: '0.68rem',
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.15s'
+                                        }}
+                                        title={isRequested ? 'Click to cancel request' : 'Request this artist to be prioritized for catalog ingestion'}
+                                    >
+                                        {isRequested ? '✓ Requested' : '+ Request'}
+                                    </button>
+                                ) : (
+                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                        {artist.track_count} tracks
+                                    </span>
+                                )}
                             </div>
                         );
                     })}
                 </div>
             )}
-
-            {/* POTENTIAL MATCHES (IN STAGING) SECTION */}
-            <div style={{
-                marginTop: '1.15rem',
-                paddingTop: '0.95rem',
-                borderTop: '1px solid rgba(255, 255, 255, 0.1)'
-            }}>
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: '0.5rem',
-                    flexWrap: 'wrap',
-                    gap: '0.5rem'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '1rem' }}>⏳</span>
-                        <h3 style={{ margin: 0, fontSize: '0.96rem', color: '#e2e8f0', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <span>Potential Matches</span>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#94a3b8' }}>(In Staging)</span>
-                        </h3>
-                        <span style={{
-                            fontSize: '0.7rem',
-                            background: 'rgba(99, 102, 241, 0.2)',
-                            color: '#c7d2fe',
-                            border: '1px solid rgba(99, 102, 241, 0.35)',
-                            borderRadius: '9999px',
-                            padding: '0.1rem 0.5rem',
-                            fontWeight: '600'
-                        }}>
-                            {filteredStagedArtists.length} candidate{filteredStagedArtists.length === 1 ? '' : 's'}
-                        </span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                        {/* Status Filter Pills */}
-                        {['all', 'approved', 'pending'].map(st => (
-                            <button
-                                key={st}
-                                onClick={() => setStagedStatusFilter(st)}
-                                style={{
-                                    background: stagedStatusFilter === st ? 'rgba(99, 102, 241, 0.3)' : 'rgba(30, 41, 59, 0.5)',
-                                    border: stagedStatusFilter === st ? '1px solid #818cf8' : '1px solid rgba(255, 255, 255, 0.08)',
-                                    color: stagedStatusFilter === st ? '#ffffff' : '#94a3b8',
-                                    borderRadius: '6px',
-                                    padding: '0.15rem 0.5rem',
-                                    fontSize: '0.72rem',
-                                    cursor: 'pointer',
-                                    textTransform: 'capitalize'
-                                }}
-                            >
-                                {st === 'approved' ? '🟢 Approved' : st === 'pending' ? '🟡 Under Review' : 'All Staged'}
-                            </button>
-                        ))}
-
-                        {/* Toggle Collapse */}
-                        <button
-                            onClick={() => setIsStagedExpanded(prev => !prev)}
-                            style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: '#94a3b8',
-                                fontSize: '0.78rem',
-                                cursor: 'pointer',
-                                padding: '0.2rem 0.4rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.2rem'
-                            }}
-                        >
-                            {isStagedExpanded ? '▲ Hide' : '▼ Show'}
-                        </button>
-                    </div>
-                </div>
-
-                <p style={{ margin: '0 0 0.65rem 0', fontSize: '0.75rem', color: '#94a3b8', lineHeight: '1.4' }}>
-                    Artists discovered by our curation scanners, awaiting catalog track resolution. Search candidates or request an artist to be prioritized for ingestion.
-                </p>
-
-                {isStagedExpanded && (
-                    <>
-                        {isLoadingStaged ? (
-                            <div style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8', fontSize: '0.8rem' }}>
-                                <span className="spinner" style={{ display: 'inline-block', width: '1.25rem', height: '1.25rem', marginBottom: '0.35rem' }}></span>
-                                <div>Checking staging area...</div>
-                            </div>
-                        ) : filteredStagedArtists.length === 0 ? (
-                            <div style={{
-                                padding: '1.25rem',
-                                textAlign: 'center',
-                                background: 'rgba(30, 41, 59, 0.25)',
-                                borderRadius: '8px',
-                                border: '1px dashed rgba(255, 255, 255, 0.1)',
-                                color: '#94a3b8',
-                                fontSize: '0.78rem'
-                            }}>
-                                No staged candidates found {searchQuery ? `matching "${searchQuery}"` : ''}.
-                            </div>
-                        ) : (
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
-                                gap: '0.55rem',
-                                maxHeight: '230px',
-                                overflowY: 'auto',
-                                paddingRight: '0.35rem'
-                            }}>
-                                {filteredStagedArtists.map(artist => {
-                                    const isRequested = !!requestedArtists[artist.id || artist.name];
-                                    const isApproved = artist.status === 'approved' || (artist.confidence_score || 0) >= 90;
-                                    const parent = getParentGenre(artist.primary_genre_id);
-                                    const genreObj = PARENT_GENRES.find(p => p.id === parent) || PARENT_GENRES[0];
-
-                                    return (
-                                        <div
-                                            key={artist.id || artist.name}
-                                            style={{
-                                                background: isRequested ? 'rgba(99, 102, 241, 0.18)' : 'rgba(30, 41, 59, 0.5)',
-                                                border: isRequested ? '1px solid rgba(99, 102, 241, 0.45)' : '1px solid rgba(255, 255, 255, 0.08)',
-                                                borderRadius: '8px',
-                                                padding: '0.55rem 0.65rem',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                justifyContent: 'space-between',
-                                                gap: '0.45rem',
-                                                transition: 'all 0.15s'
-                                            }}
-                                        >
-                                            <div>
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                                                    <span style={{
-                                                        fontSize: '0.65rem',
-                                                        color: isApproved ? '#34d399' : '#f59e0b',
-                                                        background: isApproved ? 'rgba(52, 211, 153, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                                                        borderRadius: '4px',
-                                                        padding: '0.1rem 0.35rem',
-                                                        fontWeight: '600'
-                                                    }}>
-                                                        {isApproved ? '🟢 Auto-Approved' : '🟡 In Staging'}
-                                                    </span>
-                                                    <span style={{ fontSize: '0.65rem', color: '#64748b' }} title={`Source: ${artist.source}`}>
-                                                        {artist.confidence_score ? `${artist.confidence_score}% score` : 'Staged'}
-                                                    </span>
-                                                </div>
-
-                                                <div style={{
-                                                    fontSize: '0.84rem',
-                                                    fontWeight: '600',
-                                                    color: '#f8fafc',
-                                                    whiteSpace: 'nowrap',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis'
-                                                }} title={artist.name}>
-                                                    {artist.name}
-                                                </div>
-
-                                                <div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '0.15rem' }}>
-                                                    <span style={{ color: genreObj.color, fontWeight: '500' }}>
-                                                        {genreObj.emoji} {artist.primary_genre_id || genreObj.label}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <button
-                                                onClick={() => handleToggleRequest(artist)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '0.25rem 0.5rem',
-                                                    borderRadius: '5px',
-                                                    border: isRequested ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.15)',
-                                                    background: isRequested ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                                                    color: isRequested ? '#34d399' : '#cbd5e1',
-                                                    fontSize: '0.72rem',
-                                                    fontWeight: '600',
-                                                    cursor: 'pointer',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    gap: '0.3rem',
-                                                    transition: 'all 0.15s'
-                                                }}
-                                                title={isRequested ? 'Click to cancel request' : 'Request this artist to be prioritized for catalog ingestion'}
-                                            >
-                                                {isRequested ? '✓ Ingestion Requested' : '+ Request Artist'}
-                                            </button>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </>
-                )}
-            </div>
 
             {/* ARTIST TRACK DETAILS MODAL */}
             {selectedArtist && (
