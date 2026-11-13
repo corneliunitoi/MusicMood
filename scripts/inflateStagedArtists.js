@@ -144,7 +144,17 @@ async function run() {
     let query = supabase
         .from('artist_suggestions')
         .select('*')
-        .eq('status', STATUS)
+        .neq('status', 'inflated');
+
+    if (args.includes('--requested-only')) {
+        query = query.eq('is_requested', true);
+    } else {
+        query = query.or('is_requested.eq.true,status.eq.approved');
+    }
+
+    query = query
+        .order('is_requested', { ascending: false })
+        .order('last_requested_at', { ascending: false, nullsFirst: false })
         .order('confidence_score', { ascending: false })
         .limit(LIMIT);
 

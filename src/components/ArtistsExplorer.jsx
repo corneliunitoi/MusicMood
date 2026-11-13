@@ -232,6 +232,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
     // Potential matches (Staged Candidates)
     const [stagedArtists, setStagedArtists] = useState([]);
     const [isLoadingStaged, setIsLoadingStaged] = useState(false);
+    const [isLoadingMoreStaged, setIsLoadingMoreStaged] = useState(false);
     const [demoPlayingId, setDemoPlayingId] = useState(null);
     const [dismissingIds, setDismissingIds] = useState(new Set());
     const [requestedArtists, setRequestedArtists] = useState(() => {
@@ -316,9 +317,22 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             });
         }
 
-        // After a brief 350ms confirmation flash, remove from candidate list to make room for fresh ones
+        // After a brief 350ms confirmation flash, remove from candidate list and autoload replacement
         setTimeout(() => {
-            setStagedArtists(prev => prev.filter(a => (a.id || a.name) !== key));
+            setStagedArtists(prev => {
+                const updated = prev.filter(a => (a.id || a.name) !== key);
+                // Autoload replacement from Supabase to refill the list
+                fetchArtistSuggestions(searchQuery, 2, updated.length).then(more => {
+                    if (more && more.length > 0) {
+                        setStagedArtists(current => {
+                            const seen = new Set(current.map(c => c.id || c.name));
+                            const fresh = more.filter(m => !seen.has(m.id || m.name));
+                            return [...current, ...fresh];
+                        });
+                    }
+                }).catch(() => {});
+                return updated;
+            });
             setDismissingIds(prev => {
                 const next = new Set(prev);
                 next.delete(key);
@@ -331,8 +345,20 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
         if (e) e.stopPropagation();
         const key = artist.id || artist.name;
 
-        // Instantly dismiss from local view
-        setStagedArtists(prev => prev.filter(a => (a.id || a.name) !== key));
+        // Instantly dismiss from local view and autoload replacement
+        setStagedArtists(prev => {
+            const updated = prev.filter(a => (a.id || a.name) !== key);
+            fetchArtistSuggestions(searchQuery, 2, updated.length).then(more => {
+                if (more && more.length > 0) {
+                    setStagedArtists(current => {
+                        const seen = new Set(current.map(c => c.id || c.name));
+                        const fresh = more.filter(m => !seen.has(m.id || m.name));
+                        return [...current, ...fresh];
+                    });
+                }
+            }).catch(() => {});
+            return updated;
+        });
 
         // Persist rejection to Supabase so it's permanently filtered out
         if (artist.id) {
@@ -348,7 +374,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
         setIsLoadingStaged(true);
 
         const timer = setTimeout(async () => {
-            const results = await fetchArtistSuggestions(searchQuery, 150);
+            const results = await fetchArtistSuggestions(searchQuery, 60, 0);
             if (isMounted) {
                 setStagedArtists(results);
                 setIsLoadingStaged(false);
@@ -363,8 +389,8 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
 
     // Auto-refill staged candidates if user requests/dismisses many and list shrinks below 20
     useEffect(() => {
-        if (selectedGenre === 'potential' && stagedArtists.length > 0 && stagedArtists.length < 20 && !isLoadingStaged) {
-            fetchArtistSuggestions(searchQuery, 100).then(results => {
+        if (selectedGenre === 'potential' && stagedArtists.length > 0 && stagedArtists.length < 25 && !isLoadingStaged) {
+            fetchArtistSuggestions(searchQuery, 30, stagedArtists.length).then(results => {
                 setStagedArtists(prev => {
                     const existingKeys = new Set(prev.map(a => a.id || a.name));
                     const newItems = results.filter(r => !existingKeys.has(r.id || r.name));
@@ -570,8 +596,23 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
 
     const handleGridScroll = (e) => {
         const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-        if (scrollTop + clientHeight >= scrollHeight - 60) {
+        if (scrollTop + clientHeight >= scrollHeight - 80) {
             setVisibleCount(prev => Math.min(prev + 40, filteredArtists.length));
+
+            // Infinite autoload for Potential Matches when scrolling near bottom
+            if (selectedGenre === 'potential' && !isLoadingMoreStaged && !isLoadingStaged) {
+                setIsLoadingMoreStaged(true);
+                fetchArtistSuggestions(searchQuery, 40, stagedArtists.length).then(more => {
+                    if (more && more.length > 0) {
+                        setStagedArtists(prev => {
+                            const seen = new Set(prev.map(p => p.id || p.name));
+                            const fresh = more.filter(m => !seen.has(m.id || m.name));
+                            return [...prev, ...fresh];
+                        });
+                    }
+                    setIsLoadingMoreStaged(false);
+                }).catch(() => setIsLoadingMoreStaged(false));
+            }
         }
     };
 

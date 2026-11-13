@@ -19,7 +19,7 @@ function getResolvedUserId() {
 /**
  * Fetches staged artist suggestions (potential candidates awaiting catalog ingestion)
  */
-export async function fetchArtistSuggestions(search = '', limit = 150) {
+export async function fetchArtistSuggestions(search = '', limit = 60, offset = 0) {
     try {
         let query = supabase
             .from('artist_suggestions')
@@ -29,7 +29,7 @@ export async function fetchArtistSuggestions(search = '', limit = 150) {
             .eq('is_requested', false)
             .order('confidence_score', { ascending: false })
             .order('name', { ascending: true })
-            .limit(limit);
+            .range(offset, offset + limit - 1);
 
         if (search && search.trim()) {
             query = query.ilike('name', `%${search.trim()}%`);
