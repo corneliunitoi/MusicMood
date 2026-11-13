@@ -21,7 +21,15 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
-import { normalizeGenre, ARTIST_CANONICAL_GENRES, VALID_GENRE_IDS } from '../src/services/genreNormalizer.js';
+import {
+    normalizeGenre,
+    sanitizeSecondaryTags,
+    CLASSICAL_GENRES,
+    PURE_JAZZ_GENRES,
+    PURE_BLUES_GENRES,
+    ARTIST_CANONICAL_GENRES,
+    VALID_GENRE_IDS
+} from '../src/services/genreNormalizer.js';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
@@ -164,34 +172,6 @@ const EXTENDED_ARTIST_MAP = {
     'iron maiden': 'heavy_metal',
     'dream theater': 'prog_metal'
 };
-
-// Toxic secondary tags map
-const TOXIC_TAGS_MAP = {
-    classical_family: new Set(['rock', 'hip_hop', 'boom_bap', 'heavy_metal', 'metal', 'hard_rock', 'punk_rock', 'pop']),
-    jazz_pure: new Set(['rock', 'pop', 'punk_rock', 'heavy_metal']),
-    cinematic: new Set(['hip_hop', 'boom_bap', 'rock', 'metal']),
-    blues_pure: new Set(['rock', 'pop'])
-};
-
-const CLASSICAL_GENRES = new Set(['classical', 'baroque', 'romantic', 'classical_period', 'chamber_music', 'opera', 'neo_classical', 'contemporary_classical']);
-const PURE_JAZZ_GENRES = new Set(['jazz', 'cool_jazz', 'bebop_jazz', 'modal_jazz', 'big_band']);
-const PURE_BLUES_GENRES = new Set(['blues', 'chicago_blues', 'delta_blues', 'electric_blues', 'soul_blues']);
-
-function sanitizeSecondaryTags(primaryGenre, secondaryTags = []) {
-    if (!Array.isArray(secondaryTags) || secondaryTags.length === 0) return [];
-    let toxicSet = null;
-    if (CLASSICAL_GENRES.has(primaryGenre)) toxicSet = TOXIC_TAGS_MAP.classical_family;
-    else if (primaryGenre === 'cinematic_orchestral') toxicSet = TOXIC_TAGS_MAP.cinematic;
-    else if (PURE_JAZZ_GENRES.has(primaryGenre)) toxicSet = TOXIC_TAGS_MAP.jazz_pure;
-    else if (PURE_BLUES_GENRES.has(primaryGenre)) toxicSet = TOXIC_TAGS_MAP.blues_pure;
-
-    const cleaned = secondaryTags.filter(tag => {
-        if (!tag || tag === primaryGenre) return false;
-        if (toxicSet && toxicSet.has(tag)) return false;
-        return VALID_GENRE_IDS.has(tag);
-    });
-    return Array.from(new Set(cleaned));
-}
 
 // ============================================================================
 // PHASE 1: Resolve User Flags & Clean Up Staging Table

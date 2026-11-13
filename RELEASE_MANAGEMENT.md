@@ -60,6 +60,26 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.3` — 2026-11-13
+* **In-App Master Volume Slider, Web Media Session API, Player QoL Improvements & Dynamic Tag Sanitization:**
+  * **🔊 In-App Master Volume Slider & Mute Toggle (`Player.jsx`):**
+    * Added a dedicated, glassmorphic Volume slider (`100px`, cyan `#06b6d4`) alongside a shortened Energy slider (`110px`, purple `#a855f7`) in the playback steering panel.
+    * Integrated persistent mute toggle (`🔇` / `🔊`) with cross-session `localStorage` persistence (`musicmood_volume`, `musicmood_muted`).
+    * Replaced all hardcoded `setVolume(100)` occurrences with synchronized audio helper `syncPlayerAudio()`.
+  * **📱 Web Media Session API Integration (`Player.jsx`):**
+    * Connected browser `navigator.mediaSession` with rich track metadata, high-resolution YouTube artwork, and playback state (`playing`, `paused`, `none`).
+    * Added hardware / lock screen / notification shade transport action handlers (`play`, `pause`, `previoustrack`, `nexttrack`, `seekto`).
+    * Synchronized Media Session position state (`duration`, `playbackRate`, `position`).
+  * **🎧 Player Quality-of-Life & Navigation Hardening (`Player.jsx`):**
+    * **Full Song Title Tooltip:** Added native browser tooltip (`title={fullSongTitle}`) to track titles in the player to view lengthy track names without truncation.
+    * **Decoupled Internal Navigation:** Clicking artist name navigates in-app to the artist's catalog in `ArtistsExplorer`, reserving the YouTube pill button exclusively for opening external YouTube videos.
+    * **Airy Player Layout Integrity:** Maintained original single-row player layout and eliminated accidental scrubber duplication.
+  * **🛡️ Toxic Secondary Tag Sanitization & Normalizer Centralization (`genreNormalizer.js` / `reclassifyCatalog.js` / `resolveVideoIds.js`):**
+    * Centralized `sanitizeSecondaryTags()` in `genreNormalizer.js` with cross-genre contamination guard (`TOXIC_TAGS_MAP`).
+    * Prevented classical, jazz, and blues tracks from inheriting conflicting secondary tags (e.g. rock, hip-hop, pop) during background CUE and metadata ingestion.
+  * **🧭 Roadmap Item #18 Added (`ROADMAP.md`):**
+    * Logged Universal Sonic Profiler redesign proposal to transform Onboarding Step 2 into an intuitive harmonic bridge linking Step 1's Sound Polygon to Step 3's 6 Core Mood Homes.
+
 ### `v0.8.2` — 2026-11-13
 * **Feature Freeze Milestone, Strict Genre Anchoring, Playback Fluctuation Elimination & Lossless CUE Pipeline:**
   * **Feature Freeze & Stabilization Focus:**

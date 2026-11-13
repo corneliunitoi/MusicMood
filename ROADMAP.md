@@ -200,6 +200,24 @@ This document outlines prioritized enhancements, user experience improvements, a
 * **Scope & Implementation:**
   * In `FavoritesModal.jsx` and `ArtistsExplorer.jsx`, automatically dismiss or collapse the modal/drawer when a listener clicks "▶ Play" on a song, immediately revealing the main player and visualization.
 
+### 18. 🧭 Universal Sonic Profiler: Redesign Step 2 Onboarding as Natural Harmonic Bridge
+* **Feedback Origin:** *User Feedback (Nov 13)*: *"emotional reflexes screen doesn't make much sense : (onboarding screen 2) - it needs to be a natural progression of step 1 (the star checker) and lead you into step 3 genre home for each state"*.
+* **The Disconnect:**
+  * **Step 1 (The Sonic Star)** sculpts the listener's broad acoustic identity across 6 poles (Rock, Electronic, Hip-Hop, Jazz, Folk, Classical) yielding an active flavor archetype.
+  * **Step 2 (Current State)** abruptly drops into fragmented, isolated settings: a binary question for Sadness, a binary question for Focus, followed by negative Dealbreakers and an Anti-AI toggle. It fails to convey *why* these matter or how they connect to the polygon.
+  * **Step 3 (6 Core Mood Homes)** suddenly presents 6 distinct headspaces (Focus, Chill, Energetic, Happy, Sad, Party) with generic home suggestions rather than smart, tailored predictions derived from the journey.
+* **Proposed Architecture & UX Bridge:**
+  * **1. Part A — Acoustic Texture Dynamic (Echoes Step 1):**
+    * *Texture Bias:* How does your radar manifest in production? (e.g., Organic / Acoustic vs. Synthetic / Electronic).
+    * *Lyrical Density:* Instrumental Focus vs. Lyrical / Vocal Storytelling across all sessions.
+  * **2. Part B — Mood & Energy Responses (Directly Pre-Populates Step 3):**
+    * *High Kinetic Drive (Prepares Energetic & Party):* Groove / Dance (House, Funk, Pop) vs. Raw Intensity (Heavy Metal, Hard Rock, DnB).
+    * *Low Restorative State (Prepares Chill, Focus & Sad):* Atmospheric Catharsis (Deep, Minor-Key, Ambient/Post-Rock) vs. Gentle Uplift (Warm, Organic, Folk/Neo-Soul).
+  * **3. Part C — Guardrails Footer (Clean & Docked):**
+    * Move the Dealbreaker Shield and Anti-AI Music Gatekeeper into a sleek, secondary "Sonic Guardrails" collapsible bar or compact footer tray so negative filters do not dominate the emotional onboarding narrative.
+  * **4. Algorithmic Prediction Engine for Step 3:**
+    * Combine Step 1's Radar Pole weights with Step 2's Energy & Catharsis reflexes to compute exact, personalized home recommendations for all 6 moods in Step 3 (e.g., A Rock fan who chooses "Atmospheric Catharsis" gets `post_rock` or `doom_metal` predicted for Sad; an Electronic fan who chooses "Groove" gets `house` or `synthwave` for Party).
+
 ---
 
 ## 📈 Completed Milestones

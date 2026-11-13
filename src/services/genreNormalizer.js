@@ -867,3 +867,31 @@ export function inspectPlaylistCandidate(track) {
         isAi
     };
 }
+
+// Toxic secondary tags map to prevent cross-genre contamination
+export const TOXIC_TAGS_MAP = {
+    classical_family: new Set(['rock', 'hip_hop', 'boom_bap', 'heavy_metal', 'metal', 'hard_rock', 'punk_rock', 'pop']),
+    jazz_pure: new Set(['rock', 'pop', 'punk_rock', 'heavy_metal']),
+    cinematic: new Set(['hip_hop', 'boom_bap', 'rock', 'metal']),
+    blues_pure: new Set(['rock', 'pop'])
+};
+
+export const CLASSICAL_GENRES = new Set(['classical', 'baroque', 'romantic', 'classical_period', 'chamber_music', 'opera', 'neo_classical', 'contemporary_classical']);
+export const PURE_JAZZ_GENRES = new Set(['jazz', 'cool_jazz', 'bebop_jazz', 'modal_jazz', 'big_band']);
+export const PURE_BLUES_GENRES = new Set(['blues', 'chicago_blues', 'delta_blues', 'electric_blues', 'soul_blues']);
+
+export function sanitizeSecondaryTags(primaryGenre, secondaryTags = []) {
+    if (!Array.isArray(secondaryTags) || secondaryTags.length === 0) return [];
+    let toxicSet = null;
+    if (CLASSICAL_GENRES.has(primaryGenre)) toxicSet = TOXIC_TAGS_MAP.classical_family;
+    else if (primaryGenre === 'cinematic_orchestral') toxicSet = TOXIC_TAGS_MAP.cinematic;
+    else if (PURE_JAZZ_GENRES.has(primaryGenre)) toxicSet = TOXIC_TAGS_MAP.jazz_pure;
+    else if (PURE_BLUES_GENRES.has(primaryGenre)) toxicSet = TOXIC_TAGS_MAP.blues_pure;
+
+    const cleaned = secondaryTags.filter(tag => {
+        if (!tag || tag === primaryGenre) return false;
+        if (toxicSet && toxicSet.has(tag)) return false;
+        return VALID_GENRE_IDS.has(tag);
+    });
+    return Array.from(new Set(cleaned));
+}

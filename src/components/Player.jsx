@@ -81,6 +81,86 @@ function Player({ initialTrack, token }) {
     const displayTime = isSeeking ? seekTime : currentTime;
     const progressPercent = duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0;
 
+    // Master Volume & Audio Control state
+    const [volume, setVolumeState] = useState(() => {
+        try {
+            const saved = localStorage.getItem('musicmood_volume');
+            if (saved !== null) {
+                const parsed = parseInt(saved, 10);
+                if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) return parsed;
+            }
+        } catch {
+            /* ignore storage read error */
+        }
+        return 100;
+    });
+    const [isMuted, setIsMuted] = useState(() => {
+        try {
+            return localStorage.getItem('musicmood_muted') === 'true';
+        } catch {
+            return false;
+        }
+    });
+
+    const volumeRef = useRef(volume);
+    const isMutedRef = useRef(isMuted);
+
+    useEffect(() => {
+        volumeRef.current = volume;
+    }, [volume]);
+
+    useEffect(() => {
+        isMutedRef.current = isMuted;
+    }, [isMuted]);
+
+    const syncPlayerAudio = (targetPlayer = playerRef.current) => {
+        if (!targetPlayer) return;
+        try {
+            if (isMutedRef.current) {
+                if (typeof targetPlayer.mute === 'function') targetPlayer.mute();
+            } else {
+                if (typeof targetPlayer.unMute === 'function') targetPlayer.unMute();
+                if (typeof targetPlayer.setVolume === 'function') targetPlayer.setVolume(volumeRef.current);
+            }
+        } catch (e) {
+            console.warn('[HardenedPlayer] Volume/mute sync exception:', e);
+        }
+    };
+
+    const handleVolumeChange = (e) => {
+        const newVol = parseInt(e.target.value, 10);
+        setVolumeState(newVol);
+        volumeRef.current = newVol;
+        try {
+            localStorage.setItem('musicmood_volume', String(newVol));
+        } catch {
+            /* ignore storage write error */
+        }
+
+        if (newVol > 0 && isMutedRef.current) {
+            setIsMuted(false);
+            isMutedRef.current = false;
+            try {
+                localStorage.setItem('musicmood_muted', 'false');
+            } catch {
+                /* ignore storage write error */
+            }
+        }
+        syncPlayerAudio();
+    };
+
+    const handleToggleMute = () => {
+        const nextMuted = !isMuted;
+        setIsMuted(nextMuted);
+        isMutedRef.current = nextMuted;
+        try {
+            localStorage.setItem('musicmood_muted', String(nextMuted));
+        } catch {
+            /* ignore storage write error */
+        }
+        syncPlayerAudio();
+    };
+
     const playerRef = useRef(null);
     const isPlayerReadyRef = useRef(false);
     const isTransitioningRef = useRef(false);
@@ -99,6 +179,10 @@ function Player({ initialTrack, token }) {
         ? currentTrack.youtube_video_id
         : (currentTrack?.id && currentTrack.id.length === 11 ? currentTrack.id : null);
     const youtubeUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : null;
+    const activeArtist = currentTrack?.artist || sessionState?.currentTrack?.artist || currentTrack?.channelTitle || '';
+    const fullSongTitle = currentTrack?.title
+        ? `${currentTrack.title}${activeArtist ? ` — ${activeArtist}` : ''}`
+        : 'Loading session...';
 
     const handleCopyLink = () => {
         if (!youtubeUrl) return;
@@ -187,10 +271,7 @@ function Player({ initialTrack, token }) {
                     onReady: (event) => {
                         console.log('[HardenedPlayer] YouTube Player Ready & Locked.');
                         isPlayerReadyRef.current = true;
-                        try {
-                            event.target.unMute();
-                            event.target.setVolume(100);
-                        } catch (e) {}
+                        syncPlayerAudio(event.target);
                         if (currentTrackRef.current) {
                             playTrackImmediately(currentTrackRef.current);
                         }
@@ -203,8 +284,7 @@ function Player({ initialTrack, token }) {
                             setIsPlaying(true);
                             setErrorMessage(null);
                             try {
-                                if (event.target.isMuted()) event.target.unMute();
-                                event.target.setVolume(100);
+                                syncPlayerAudio(event.target);
                                 const dur = event.target.getDuration();
                                 if (dur > 0) setDuration(dur);
                                 const cur = event.target.getCurrentTime();
@@ -221,8 +301,7 @@ function Player({ initialTrack, token }) {
                         if (event.data === 5 || event.data === -1) {
                             // Aggressively trigger playback if YouTube put track in CUED or UNSTARTED state
                             try {
-                                event.target.unMute();
-                                event.target.setVolume(100);
+                                syncPlayerAudio(event.target);
                                 event.target.playVideo();
                             } catch (e) {}
                         }
@@ -344,12 +423,7 @@ function Player({ initialTrack, token }) {
 
         if (playerRef.current && isPlayerReadyRef.current && typeof playerRef.current.loadVideoById === 'function') {
             console.log(`[HardenedPlayer] Loading video ID via persistent player: ${targetVideoId} (${track.title})`);
-            try {
-                if (typeof playerRef.current.unMute === 'function') playerRef.current.unMute();
-                if (typeof playerRef.current.setVolume === 'function') playerRef.current.setVolume(100);
-            } catch (e) {
-                console.warn('[HardenedPlayer] Volume/unmute exception:', e);
-            }
+            syncPlayerAudio(playerRef.current);
 
             playerRef.current.loadVideoById({
                 videoId: targetVideoId,
@@ -481,6 +555,128 @@ function Player({ initialTrack, token }) {
             await loadNextTrack(false);
         }
     };
+
+    // Keep function refs updated for Media Session API callbacks
+    const loadNextTrackRef = useRef(loadNextTrack);
+    loadNextTrackRef.current = loadNextTrack;
+
+    const handlePreviousTrackRef = useRef(handlePreviousTrack);
+    handlePreviousTrackRef.current = handlePreviousTrack;
+
+    const togglePlayRef = useRef(togglePlay);
+    togglePlayRef.current = togglePlay;
+
+    // Web Media Session API: Track Metadata and Artwork
+    useEffect(() => {
+        if (typeof window === 'undefined' || !('mediaSession' in navigator) || !window.MediaMetadata) return;
+
+        if (currentTrack) {
+            const trackTitle = currentTrack.title || 'MusicMood Flow';
+            const trackArtist = currentTrack.artist || currentTrack.channelTitle || 'MusicMood Engine';
+            const moodLabel = sessionState?.currentMood
+                ? sessionState.currentMood.charAt(0).toUpperCase() + sessionState.currentMood.slice(1)
+                : (GENRE_NODES[sessionState?.activeGenre]?.label || 'Flow');
+            const targetVid = (currentTrack?.youtube_video_id && currentTrack.youtube_video_id.length === 11)
+                ? currentTrack.youtube_video_id
+                : (currentTrack?.id && currentTrack.id.length === 11 ? currentTrack.id : null);
+            const thumb = currentTrack.thumbnail || (targetVid ? `https://img.youtube.com/vi/${targetVid}/hqdefault.jpg` : '/genres.svg');
+
+            try {
+                navigator.mediaSession.metadata = new window.MediaMetadata({
+                    title: trackTitle,
+                    artist: trackArtist,
+                    album: `MusicMood • ${moodLabel}`,
+                    artwork: [
+                        { src: thumb, sizes: '96x96', type: 'image/jpeg' },
+                        { src: thumb, sizes: '128x128', type: 'image/jpeg' },
+                        { src: thumb, sizes: '192x192', type: 'image/jpeg' },
+                        { src: thumb, sizes: '256x256', type: 'image/jpeg' },
+                        { src: thumb, sizes: '512x512', type: 'image/jpeg' }
+                    ]
+                });
+            } catch (e) {
+                console.warn('[Player] MediaSession metadata error:', e);
+            }
+        }
+    }, [currentTrack, sessionState?.currentMood, sessionState?.activeGenre]);
+
+    // Web Media Session API: Playback State
+    useEffect(() => {
+        if (typeof window === 'undefined' || !('mediaSession' in navigator)) return;
+        try {
+            navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+        } catch {
+            /* ignore unsupported */
+        }
+    }, [isPlaying]);
+
+    // Web Media Session API: Position State
+    useEffect(() => {
+        if (typeof window === 'undefined' || !('mediaSession' in navigator) || typeof navigator.mediaSession.setPositionState !== 'function') return;
+        if (duration > 0 && currentTime >= 0 && currentTime <= duration) {
+            try {
+                navigator.mediaSession.setPositionState({
+                    duration: Math.max(0, duration),
+                    playbackRate: 1,
+                    position: Math.min(Math.max(0, currentTime), duration)
+                });
+            } catch {
+                /* ignore unsupported */
+            }
+        }
+    }, [currentTime, duration]);
+
+    // Web Media Session API: Transport Action Handlers (Play, Pause, Next, Previous, Seek)
+    useEffect(() => {
+        if (typeof window === 'undefined' || !('mediaSession' in navigator)) return;
+
+        const actionHandlers = [
+            ['play', () => {
+                if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+                    playerRef.current.playVideo();
+                } else {
+                    togglePlayRef.current?.();
+                }
+            }],
+            ['pause', () => {
+                if (playerRef.current && typeof playerRef.current.pauseVideo === 'function') {
+                    playerRef.current.pauseVideo();
+                } else {
+                    togglePlayRef.current?.();
+                }
+            }],
+            ['previoustrack', () => {
+                handlePreviousTrackRef.current?.();
+            }],
+            ['nexttrack', () => {
+                loadNextTrackRef.current?.(true);
+            }],
+            ['seekto', (details) => {
+                if (details.seekTime != null && playerRef.current && typeof playerRef.current.seekTo === 'function') {
+                    playerRef.current.seekTo(details.seekTime, true);
+                    setCurrentTime(details.seekTime);
+                }
+            }]
+        ];
+
+        for (const [action, handler] of actionHandlers) {
+            try {
+                navigator.mediaSession.setActionHandler(action, handler);
+            } catch {
+                /* ignore unsupported action */
+            }
+        }
+
+        return () => {
+            for (const [action] of actionHandlers) {
+                try {
+                    navigator.mediaSession.setActionHandler(action, null);
+                } catch {
+                    /* ignore cleanup */
+                }
+            }
+        };
+    }, []);
 
     const currentTrackKey = currentTrack?.id || currentTrack?.youtube_video_id;
     const isCurrentUpvoted = Boolean(currentTrackKey && upvotedTrackIds.has(currentTrackKey));
@@ -713,13 +909,13 @@ function Player({ initialTrack, token }) {
                                     </span>
                                 )}
                             </span>
-                            <h3 className="player-title" title={currentTrack?.title || ''}>
+                            <h3 className="player-title" title={fullSongTitle}>
                                 {youtubeUrl ? (
                                     <a
                                         href={youtubeUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        title="Open track on YouTube (New Tab)"
+                                        title={fullSongTitle}
                                         style={{ color: 'inherit', textDecoration: 'none' }}
                                     >
                                         {currentTrack?.title || 'Loading session...'}
@@ -1133,17 +1329,61 @@ function Player({ initialTrack, token }) {
 
             {/* 4. REAL-TIME SESSION STEERING CONTROLS */}
             <div className="player-steering-panel">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: '200px', flex: '1 1 200px' }}>
-                    <span style={{ color: '#94a3b8', whiteSpace: 'nowrap' }}>⚡ Energy:</span>
-                    <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        value={sessionState.energyLevel}
-                        onChange={(e) => sessionEngine.setEnergy(parseFloat(e.target.value))}
-                        style={{ accentColor: '#a855f7', cursor: 'pointer', flex: 1 }}
-                    />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
+                    {/* Shorter Energy Slider (Purple / Violet) */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                        <span style={{ color: '#94a3b8', whiteSpace: 'nowrap' }}>⚡ Energy:</span>
+                        <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={sessionState.energyLevel}
+                            onChange={(e) => sessionEngine.setEnergy(parseFloat(e.target.value))}
+                            style={{
+                                accentColor: '#a855f7',
+                                cursor: 'pointer',
+                                width: '110px'
+                            }}
+                            title={`Target Energy: ${Math.round(sessionState.energyLevel * 100)}%`}
+                        />
+                    </div>
+
+                    {/* Master Volume Slider (Cyan / Blue Hue) */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <button
+                            type="button"
+                            onClick={handleToggleMute}
+                            aria-label={isMuted ? "Unmute" : "Mute"}
+                            title={isMuted ? "Unmute" : `Mute (Volume: ${volume}%)`}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                color: isMuted ? '#f87171' : '#38bdf8',
+                                fontSize: '0.95rem'
+                            }}
+                        >
+                            {isMuted || volume === 0 ? '🔇' : volume < 50 ? '🔉' : '🔊'}
+                        </button>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={isMuted ? 0 : volume}
+                            onChange={handleVolumeChange}
+                            aria-label="Master volume"
+                            title={`Master Volume: ${isMuted ? 0 : volume}%`}
+                            style={{
+                                accentColor: '#06b6d4',
+                                cursor: 'pointer',
+                                width: '100px'
+                            }}
+                        />
+                    </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
-import { normalizeGenre, isSongCandidate } from '../src/services/genreNormalizer.js';
+import { normalizeGenre, isSongCandidate, sanitizeSecondaryTags } from '../src/services/genreNormalizer.js';
 import { fetchMusicBrainzArtistGenres } from '../src/services/musicBrainzService.js';
 
 // Load environment variables from .env
@@ -541,7 +541,7 @@ async function startResolver() {
                 const artistInfo = await getOrCreateArtistMetadata(finalArtist, finalGenre);
                 const artistId = artistInfo?.id || null;
                 const effectivePrimary = artistInfo?.primaryGenre || finalGenre;
-                const effectiveSecondary = artistInfo?.secondaryGenres || [];
+                const effectiveSecondary = sanitizeSecondaryTags(effectivePrimary, artistInfo?.secondaryGenres || []);
 
                 // 2. Update local_metadata
                 await supabase
