@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase, fetchArtistSuggestions, submitArtistRequest, rejectArtistSuggestion } from '../services/supabaseService';
 import { GENRE_NODES } from '../services/tasteGraph';
 import { sessionEngine } from '../services/sessionStateMachine';
@@ -1032,7 +1033,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
             )}
 
             {/* ARTIST TRACK DETAILS MODAL */}
-            {selectedArtist && (
+            {selectedArtist && typeof document !== 'undefined' && createPortal(
                 <div style={{
                     position: 'fixed',
                     top: 0,
@@ -1041,11 +1042,12 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                     bottom: 0,
                     background: 'rgba(0, 0, 0, 0.75)',
                     backdropFilter: 'blur(8px)',
-                    zIndex: 1000,
+                    WebkitBackdropFilter: 'blur(8px)',
+                    zIndex: 99999,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    padding: '1rem'
+                    padding: '1.25rem'
                 }} onClick={() => setSelectedArtist(null)}>
                     <div style={{
                         background: '#0f172a',
@@ -1053,20 +1055,21 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                         borderRadius: '16px',
                         width: '100%',
                         maxWidth: '650px',
-                        maxHeight: '85vh',
+                        height: 'min(520px, 80vh)',
                         display: 'flex',
                         flexDirection: 'column',
                         overflow: 'hidden',
-                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.85)'
                     }} onClick={(e) => e.stopPropagation()}>
                         {/* Modal Header */}
                         <div style={{
-                            padding: '1.25rem 1.5rem',
+                            padding: '1.1rem 1.4rem',
                             borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            background: 'rgba(30, 41, 59, 0.5)'
+                            background: 'rgba(30, 41, 59, 0.6)',
+                            flexShrink: 0
                         }}>
                             {(() => {
                                 const effectiveSelectedAvatar = selectedArtist && avatarOverrides[selectedArtist.name] !== 'FALLBACK'
@@ -1116,7 +1119,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                         </div>
 
                         {/* Tracks List */}
-                        <div style={{ padding: '1rem 1.5rem', overflowY: 'auto', flex: 1 }}>
+                        <div style={{ padding: '0.85rem 1.25rem', overflowY: 'auto', flex: 1, minHeight: 0 }}>
                             {isLoadingTracks ? (
                                 <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                                     <span className="spinner" style={{ display: 'inline-block', width: '1.5rem', height: '1.5rem', marginBottom: '0.5rem' }}></span>
@@ -1186,11 +1189,12 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                         {/* Modal Footer with Play All */}
                         {artistTracks.length > 0 && onPlayTrack && (
                             <div style={{
-                                padding: '1rem 1.5rem',
+                                padding: '0.85rem 1.4rem',
                                 borderTop: '1px solid rgba(255, 255, 255, 0.1)',
                                 display: 'flex',
                                 justifyContent: 'flex-end',
-                                background: 'rgba(30, 41, 59, 0.3)'
+                                background: 'rgba(30, 41, 59, 0.3)',
+                                flexShrink: 0
                             }}>
                                 <button
                                     onClick={handlePlayArtistRadio}
@@ -1214,7 +1218,8 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                             </div>
                         )}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </section>
     );
