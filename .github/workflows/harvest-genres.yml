@@ -1,0 +1,72 @@
+name: Targeted Genre Inflation Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      genre:
+        description: 'Target genre (blues, country, folk_acoustic, avant_garde, or all)'
+        required: true
+        type: choice
+        options:
+          - all
+          - blues
+          - country
+          - folk_acoustic
+          - avant_garde
+        default: 'all'
+      count:
+        description: 'Number of artists to ingest per genre'
+        required: true
+        type: number
+        default: 200
+      tracks:
+        description: 'Iconic tracks per artist'
+        required: true
+        type: number
+        default: 5
+      dry_run:
+        description: 'Dry run mode (audit only, no database writes)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  harvest-genre:
+    name: Harvest Targeted Genre Artists
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Targeted Genre Inflation
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8' }}
+        run: |
+          GENRE=${{ github.event.inputs.genre || 'all' }}
+          COUNT=${{ github.event.inputs.count || 200 }}
+          TRACKS=${{ github.event.inputs.tracks || 5 }}
+          DRY_RUN=${{ github.event.inputs.dry_run }}
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "🔍 Running in DRY-RUN mode for $GENRE ($COUNT artists, $TRACKS tracks each)..."
+            node scripts/harvestGenreArtists.js --genre=$GENRE --count=$COUNT --tracks=$TRACKS --dry-run
+          else
+            echo "🚀 Running LIVE into Supabase for $GENRE ($COUNT artists, $TRACKS tracks each)..."
+            node scripts/harvestGenreArtists.js --genre=$GENRE --count=$COUNT --tracks=$TRACKS
+          fi
