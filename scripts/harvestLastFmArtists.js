@@ -87,7 +87,8 @@ async function resolveInnertube(artist, trackName) {
                 'Origin': 'https://music.youtube.com',
                 'Referer': 'https://music.youtube.com/'
             },
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(8000)
         });
 
         if (!res.ok) return null;
@@ -131,7 +132,7 @@ async function resolveInnertube(artist, trackName) {
 async function fetchArtistTags(artistName) {
     try {
         const url = `https://ws.audioscrobbler.com/2.0/?method=artist.gettoptags&artist=${encodeURIComponent(artistName)}&api_key=${API_KEY}&format=json`;
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
         if (!res.ok) return [];
         const data = await res.json();
         const tags = data.toptags?.tag || [];
@@ -147,7 +148,7 @@ async function fetchArtistTags(artistName) {
 async function fetchTopTracksFromLastFm(artistName, limit = 20) {
     try {
         const url = `https://ws.audioscrobbler.com/2.0/?method=artist.gettoptracks&artist=${encodeURIComponent(artistName)}&api_key=${API_KEY}&format=json&limit=${limit}`;
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
         if (!res.ok) return [];
         const data = await res.json();
         const tracks = data.toptracks?.track || [];
@@ -169,7 +170,7 @@ async function fetchTopTracksFromLastFm(artistName, limit = 20) {
 async function fetchTopSongsFromITunes(artistName) {
     try {
         const url = `https://itunes.apple.com/search?term=${encodeURIComponent(artistName)}&entity=song&limit=25`;
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
         if (!res.ok) return [];
         const data = await res.json();
         if (!data.results || !Array.isArray(data.results)) return [];
