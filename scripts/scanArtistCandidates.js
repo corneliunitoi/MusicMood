@@ -344,6 +344,16 @@ function escapeMd(text) {
     return text.replace(/\|/g, '\\|');
 }
 
+function slugify(name) {
+    if (!name) return 'artist';
+    return name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'artist';
+}
+
 /**
  * Main execution flow
  */
@@ -429,19 +439,18 @@ async function main() {
 
             return {
                 name: c.name,
-                source: c.source,
-                discovered_via: c.discovered_via,
-                source_url: c.source_url,
-                raw_tags: c.raw_tags,
+                slug: slugify(c.name),
+                source: c.source || 'scanner',
+                batch_id: c.discovered_via || `scan-${new Date().toISOString().slice(0, 10)}`,
                 confidence_score: c.confidence_score,
+                quality_flags: Array.isArray(c.raw_tags) ? c.raw_tags : [],
                 status: isApproved ? 'approved' : 'pending',
-                notes: `Auto-staged by Hourly Scanner (confidence: ${c.confidence_score}%)`,
             };
         });
 
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('artist_suggestions')
-            .upsert(rows, { onConflict: 'name', ignoreDuplicates: true });
+            .insert(rows);
 
         if (error) {
             console.error(`Error inserting chunk ${i / chunkSize + 1}:`, error.message);
