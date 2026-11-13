@@ -528,6 +528,13 @@ class SessionStateMachine {
     playOnDemand(track, preserveQueue = false) {
         if (!track) return;
 
+        // Candidate audition demos in ArtistsExplorer should NOT hijack the radio session's active genre
+        if (track.isDemo || track.source === 'artist_demo') {
+            this.commitTrack(track);
+            this.notify();
+            return;
+        }
+
         // 1. Resolve canonical genre ID
         let targetGenre = track.genre || track.primary_genre_id;
         if (targetGenre) {
@@ -1028,22 +1035,26 @@ class SessionStateMachine {
             this.state.recentArtists.push(artist);
         }
 
-        // Steer the active graph node to the track's genre for continuity
-        let targetGenre = track.genre || track.primary_genre_id;
-        if (targetGenre) {
-            const normalized = normalizeGenre(targetGenre, track.artist, track.title);
-            if (normalized && GENRE_NODES[normalized]) {
-                targetGenre = normalized;
-            } else {
-                const cleanKey = String(targetGenre).toLowerCase().replace(/[\s-]+/g, '_');
-                if (GENRE_NODES[cleanKey]) {
-                    targetGenre = cleanKey;
+        // RESPECT USER'S CHOSEN GENRE:
+        // Never override this.state.activeGenre during continuous playback, skips, or track commits!
+        // Only initialize activeGenre if it was completely unset.
+        if (!this.state.activeGenre) {
+            let targetGenre = track.genre || track.primary_genre_id;
+            if (targetGenre) {
+                const normalized = normalizeGenre(targetGenre, track.artist, track.title);
+                if (normalized && GENRE_NODES[normalized]) {
+                    targetGenre = normalized;
+                } else {
+                    const cleanKey = String(targetGenre).toLowerCase().replace(/[\s-]+/g, '_');
+                    if (GENRE_NODES[cleanKey]) {
+                        targetGenre = cleanKey;
+                    }
                 }
             }
-        }
-        if (targetGenre && GENRE_NODES[targetGenre]) {
-            this.state.activeGenre = targetGenre;
-            this.state.consecutiveInNode = 0;
+            if (targetGenre && GENRE_NODES[targetGenre]) {
+                this.state.activeGenre = targetGenre;
+                this.state.consecutiveInNode = 0;
+            }
         }
 
         // Record scrobble in Supabase listening_history
@@ -1471,7 +1482,7 @@ class SessionStateMachine {
         }
     }
 
-    playCustomTrack(track) {
+    playCustomTrack(track, switchGenre = false) {
         if (!track) return;
         const resolvedTrack = {
             id: track.videoId || track.id,
@@ -1483,7 +1494,7 @@ class SessionStateMachine {
             source: track.source || 'custom_playlist'
         };
 
-        if (resolvedTrack.genre && GENRE_NODES[resolvedTrack.genre]) {
+        if (switchGenre && resolvedTrack.genre && GENRE_NODES[resolvedTrack.genre]) {
             this.state.activeGenre = resolvedTrack.genre;
         }
 

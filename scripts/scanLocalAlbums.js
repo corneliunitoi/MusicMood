@@ -19,7 +19,18 @@ function getArg(prefix, defaultVal) {
 }
 
 const pathArg = args.find(a => !a.startsWith('--'));
-const TARGET_PATH = pathArg ? path.resolve(pathArg) : '\\\\192.168.0.2\\e$\\music';
+const genreArg = getArg('--genre=', null);
+const scanAll = args.includes('--all');
+
+let TARGET_PATH = pathArg ? path.resolve(pathArg) : (scanAll ? '\\\\192.168.0.2\\e$\\music' : '\\\\192.168.0.2\\e$\\music\\Flac muzic');
+
+if (genreArg && !pathArg) {
+    const candidate = path.join('\\\\192.168.0.2\\e$\\music\\Flac muzic', genreArg.charAt(0).toUpperCase() + genreArg.slice(1));
+    if (fs.existsSync(candidate)) {
+        TARGET_PATH = candidate;
+    }
+}
+
 const LIMIT = parseInt(getArg('--limit=', '0'), 10);
 const DRY_RUN = args.includes('--dry-run');
 
@@ -50,8 +61,10 @@ function saveManifest(manifest) {
     }
 }
 
-// Recursively find CUE sheets
-function findCueFiles(dir, cueList = []) {
+// Recursively find CUE sheets with early termination if limit is set
+function findCueFiles(dir, cueList = [], maxLimit = 0) {
+    if (maxLimit > 0 && cueList.length >= maxLimit) return cueList;
+
     let entries;
     try {
         entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -60,10 +73,11 @@ function findCueFiles(dir, cueList = []) {
     }
 
     for (const e of entries) {
+        if (maxLimit > 0 && cueList.length >= maxLimit) break;
         const full = path.join(dir, e.name);
         try {
             if (e.isDirectory()) {
-                findCueFiles(full, cueList);
+                findCueFiles(full, cueList, maxLimit);
             } else if (e.isFile() && path.extname(e.name).toLowerCase() === '.cue') {
                 cueList.push(full);
             }
@@ -86,7 +100,7 @@ async function main() {
     }
 
     process.stdout.write('🔍 Scanning directory for CUE album sheets... ');
-    let cueFiles = findCueFiles(TARGET_PATH);
+    let cueFiles = findCueFiles(TARGET_PATH, [], LIMIT);
     console.log(`Found ${cueFiles.length} CUE albums.\n`);
 
     if (cueFiles.length === 0) {
@@ -174,22 +188,38 @@ async function main() {
         return;
     }
 
+    // Deduplicate by artist|track_name to avoid PostgreSQL intra-batch conflict error
+    const uniqueMap = new Map();
+    for (const t of allUpsertTracks) {
+        const key = `${t.artist?.toLowerCase()}|${t.track_name?.toLowerCase()}`;
+        if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, t);
+        }
+    }
+    const deduplicatedTracks = Array.from(uniqueMap.values());
+
     // Upsert into Supabase local_metadata in batches of 100
-    console.log(`\n☁️ Committing ${allUpsertTracks.length} tracks to public.local_metadata (youtube_video_id: null)...`);
+    console.log(`\n☁️ Committing ${deduplicatedTracks.length} unique tracks to public.local_metadata (youtube_video_id: null)...`);
     let committed = 0;
     const BATCH = 100;
 
-    for (let i = 0; i < allUpsertTracks.length; i += BATCH) {
-        const chunk = allUpsertTracks.slice(i, i + BATCH);
+    for (let i = 0; i < deduplicatedTracks.length; i += BATCH) {
+        const chunk = deduplicatedTracks.slice(i, i + BATCH);
         const { error } = await supabase
             .from('local_metadata')
             .upsert(chunk, { onConflict: 'artist,track_name' });
 
         if (error) {
-            console.warn(`   ⚠️ Batch commit warning: ${error.message}`);
+            // Poison-pill recovery: isolate items individually so no tracks are dropped
+            for (const item of chunk) {
+                const { error: singleErr } = await supabase
+                    .from('local_metadata')
+                    .upsert([item], { onConflict: 'artist,track_name' });
+                if (!singleErr) committed++;
+            }
         } else {
             committed += chunk.length;
-            process.stdout.write(`☁️ [${committed}/${allUpsertTracks.length}] `);
+            process.stdout.write(`☁️ [${committed}/${deduplicatedTracks.length}] `);
         }
     }
 

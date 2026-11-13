@@ -3,7 +3,6 @@ import { supabase, upvoteTrack, flagTrackMisclassification } from '../services/s
 import { sessionEngine } from '../services/sessionStateMachine';
 import { GENRE_NODES } from '../services/tasteGraph';
 import { jitEngine } from '../services/jitEngine';
-import { normalizeGenre } from '../services/genreNormalizer';
 import { isFavorite, toggleFavorite, subscribeFavorites } from '../services/favoritesService';
 
 /**
@@ -58,6 +57,7 @@ function Player({ initialTrack, token }) {
     const [isBuffering, setIsBuffering] = useState(false);
     const [isSteering, setIsSteering] = useState(false);
     const [isFlagging, setIsFlagging] = useState(false);
+    const [flaggedTrackIds, setFlaggedTrackIds] = useState(new Set());
     const [errorMessage, setErrorMessage] = useState(null);
     const [sessionState, setSessionState] = useState(() => sessionEngine.getState());
     const [copiedLink, setCopiedLink] = useState(false);
@@ -328,21 +328,8 @@ function Player({ initialTrack, token }) {
         setDuration(0);
         setIsSeeking(false);
 
-        // Resolve and lock genre for on-demand track so player immediately switches and stays on this subgenre
-        let trackGenre = track.genre || track.primary_genre_id;
-        if (trackGenre) {
-            const norm = normalizeGenre(trackGenre, track.artist, track.title);
-            const targetGenre = (norm && GENRE_NODES[norm])
-                ? norm
-                : (GENRE_NODES[String(trackGenre).toLowerCase().replace(/[\s-]+/g, '_')] ? String(trackGenre).toLowerCase().replace(/[\s-]+/g, '_') : null);
-
-            if (targetGenre) {
-                sessionEngine.state.activeGenre = targetGenre;
-                setSessionState(prev => ({ ...prev, activeGenre: targetGenre }));
-            } else if (sessionEngine.state.activeGenre) {
-                setSessionState(prev => ({ ...prev, activeGenre: sessionEngine.state.activeGenre }));
-            }
-        } else if (sessionEngine.state.activeGenre) {
+        // Maintain UI synchronization with sessionEngine's active genre
+        if (sessionEngine.state?.activeGenre) {
             setSessionState(prev => ({ ...prev, activeGenre: sessionEngine.state.activeGenre }));
         }
 
@@ -488,6 +475,12 @@ function Player({ initialTrack, token }) {
 
     const currentTrackKey = currentTrack?.id || currentTrack?.youtube_video_id;
     const isCurrentUpvoted = Boolean(currentTrackKey && upvotedTrackIds.has(currentTrackKey));
+    const isCurrentFlagged = Boolean(
+        currentTrack && (
+            (currentTrackKey && flaggedTrackIds.has(currentTrackKey)) ||
+            (currentTrack.dbId && flaggedTrackIds.has(currentTrack.dbId))
+        )
+    );
 
     const handleUpvote = async () => {
         if (!currentTrack || !currentTrackKey) return;
@@ -546,13 +539,33 @@ function Player({ initialTrack, token }) {
 
     const handleFlagMisclassification = async () => {
         if (!currentTrackRef.current || isFlagging) return;
-        setIsFlagging(true);
         const flagged = currentTrackRef.current;
+        const key = flagged.id || flagged.youtube_video_id || flagged.dbId;
+
+        if (key && flaggedTrackIds.has(key)) {
+            setErrorMessage(`🏷️ "${flagged.title}" is already flagged for genre review.`);
+            setTimeout(() => setErrorMessage(null), 2500);
+            return;
+        }
+
+        setIsFlagging(true);
         try {
             await flagTrackMisclassification({ track: flagged });
-            setErrorMessage(`🏷️ Flagged "${flagged.title}" for genre review. Skipping...`);
-            setTimeout(() => setErrorMessage(null), 3500);
-            await loadNextTrack(false);
+
+            if (key) {
+                setFlaggedTrackIds(prev => new Set(prev).add(key));
+            }
+
+            // Purge upcoming queued songs by this misclassified artist so they don't play next
+            if (flagged.artist && sessionEngine?.queue) {
+                const artistLower = flagged.artist.toLowerCase();
+                sessionEngine.queue = sessionEngine.queue.filter(t => (t.artist || '').toLowerCase() !== artistLower);
+                sessionEngine.notify();
+            }
+
+            setErrorMessage(`🏷️ Flagged "${flagged.title}" for genre review. Playback continues (skip whenever you like).`);
+            setTimeout(() => setErrorMessage(null), 4000);
+            // Playback continues uninterrupted so user can enjoy the song if they wish and skip when ready
         } catch (err) {
             console.warn('[Player] Flag misclassification error:', err);
             setErrorMessage("⚠️ Could not flag track for review. Please try again.");
@@ -787,20 +800,24 @@ function Player({ initialTrack, token }) {
                                 className="control-btn"
                                 onClick={handleFlagMisclassification}
                                 disabled={!currentTrack || isFlagging || isSteering}
-                                title="Report Misclassified Genre (Flags track for review & skips without downvoting)"
+                                title={isCurrentFlagged
+                                    ? "Track flagged for genre review (playback continues uninterrupted)"
+                                    : "Report Misclassified Genre (Flags track for review; playback continues)"}
                                 style={{
-                                    background: 'rgba(255, 255, 255, 0.05)',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    background: isCurrentFlagged ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                                    border: isCurrentFlagged ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
+                                    color: isCurrentFlagged ? '#10b981' : 'inherit',
                                     width: '32px',
                                     height: '32px',
                                     padding: '0.2rem',
                                     borderRadius: '8px',
                                     cursor: currentTrack ? 'pointer' : 'default',
                                     opacity: isFlagging ? 0.5 : 1,
-                                    fontSize: '0.9rem'
+                                    fontSize: '0.9rem',
+                                    transition: 'all 0.2s ease'
                                 }}
                             >
-                                🏷️
+                                {isCurrentFlagged ? '✓' : '🏷️'}
                             </button>
                         </div>
                     </div>
@@ -1051,7 +1068,7 @@ function Player({ initialTrack, token }) {
                                     key={t.id || idx}
                                     onClick={() => {
                                         sessionEngine.queue = sessionState.queue.filter((_, i) => i !== idx);
-                                        sessionEngine.playCustomTrack(t);
+                                        sessionEngine.playCustomTrack(t, false);
                                     }}
                                     style={{
                                         display: 'flex',
