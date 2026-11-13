@@ -23,10 +23,64 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const args = process.argv.slice(2);
 const limitArg = args.find(a => a.startsWith('--limit='));
 const LIMIT = limitArg ? parseInt(limitArg.split('=')[1], 10) : 100;
+const minTracksArg = args.find(a => a.startsWith('--min-tracks='));
+const MIN_TRACKS = minTracksArg ? parseInt(minTracksArg.split('=')[1], 10) : 1;
 const IS_DRY_RUN = args.includes('--dry-run');
 
-async function fetchArtistAvatar(artistName) {
-    const clean = (artistName || '').trim();
+function getArtistSearchVariants(artistName) {
+    if (!artistName) return [];
+    const clean = artistName.trim();
+    const candidates = [clean];
+
+    // Inverted names: 'Caruso, Enrico' -> 'Enrico Caruso'
+    if (clean.includes(', ') && !clean.includes(';')) {
+        const parts = clean.split(', ');
+        if (parts.length === 2 && !/^(piano|violin|cello|orch|soprano)/i.test(parts[1])) {
+            candidates.push(`${parts[1]} ${parts[0]}`);
+        }
+    }
+
+    // Corrupted Russian / Latin diacritics
+    const fixed = clean
+        .replace(/Frйdйric/g, 'Frédéric')
+        .replace(/Aleksi Perдlд/g, 'Aleksi Perälä')
+        .replace(/Paco de Lucнa/g, 'Paco de Lucía')
+        .replace(/Ramуn/g, 'Ramón');
+    if (fixed !== clean) candidates.push(fixed);
+
+    // Remove instrument suffixes: 'Santiago Rodriguez, piano' -> 'Santiago Rodriguez'
+    const noInst = clean.replace(/,\s*(piano|violin|cello|conductor|soprano|tenor|baritone).*$/i, '').trim();
+    if (noInst !== clean) candidates.push(noInst);
+
+    // Parentheticals: 'Scarlatti (Pieter-Jan Belder)' -> 'Domenico Scarlatti', 'Pieter-Jan Belder'
+    const parenthetical = clean.match(/^(.*?)\s*\((.*?)\)$/);
+    if (parenthetical) {
+        if (parenthetical[1].toLowerCase().includes('scarlatti')) candidates.push('Domenico Scarlatti');
+        candidates.push(parenthetical[2]);
+    }
+
+    // Collaborations: 'Ella Fitzgerald & Louis Armstrong' -> 'Ella Fitzgerald', 'Louis Armstrong'
+    if (clean.includes(' & ') || clean.includes(' and ') || clean.includes(' feat ') || clean.includes(' feat. ')) {
+        const parts = clean.split(/\s+(?:&|and|feat\.?)\s+/i);
+        parts.forEach(p => { if (p && p.trim().length > 2) candidates.push(p.trim()); });
+    }
+
+    // Comma lists: 'Keith Jarrett, Gary Peacock, Jack DeJohnette' -> 'Keith Jarrett'
+    if (clean.includes(', ')) {
+        const primary = clean.split(',')[0].trim();
+        if (primary && primary.length > 2) candidates.push(primary);
+    }
+
+    // Common names that need (singer)
+    if (clean.toLowerCase() === 'tom jones') {
+        candidates.push('Tom Jones (singer)');
+    }
+
+    return [...new Set(candidates)];
+}
+
+async function tryFetchSingleName(name) {
+    const clean = (name || '').trim();
     if (!clean || clean.length < 2 || /^[0-9]+$/.test(clean)) return null;
 
     // 1. Primary: Try Wikipedia Summary API (Wikimedia Commons open-license portrait)
@@ -38,27 +92,28 @@ async function fetchArtistAvatar(artistName) {
         });
         if (res.ok) {
             const data = await res.json();
-            // Discard disambiguation pages or SVG icon thumbnails
             if (data.type !== 'disambiguation' && data.thumbnail?.source && !data.thumbnail.source.endsWith('.svg')) {
                 return { url: data.thumbnail.source, source: 'wikimedia' };
             }
         }
     } catch { }
 
-    // 1B. Try Wikipedia with '(band)' suffix
-    try {
-        const wikiNameBand = clean.replace(/\s+/g, '_') + '_(band)';
-        const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiNameBand)}`;
-        const res = await fetch(url, {
-            headers: { 'User-Agent': 'MusicMood/1.0.0 (https://github.com/corneliunitoi/MusicMood; musicmood@local)' }
-        });
-        if (res.ok) {
-            const data = await res.json();
-            if (data.type !== 'disambiguation' && data.thumbnail?.source && !data.thumbnail.source.endsWith('.svg')) {
-                return { url: data.thumbnail.source, source: 'wikimedia' };
+    // 1B. Try Wikipedia with '(band)' or '(musician)' suffix
+    for (const suffix of ['_(band)', '_(musician)', '_(singer)']) {
+        try {
+            const wikiNameSuffix = clean.replace(/\s+/g, '_') + suffix;
+            const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiNameSuffix)}`;
+            const res = await fetch(url, {
+                headers: { 'User-Agent': 'MusicMood/1.0.0 (https://github.com/corneliunitoi/MusicMood; musicmood@local)' }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.type !== 'disambiguation' && data.thumbnail?.source && !data.thumbnail.source.endsWith('.svg')) {
+                    return { url: data.thumbnail.source, source: 'wikimedia' };
+                }
             }
-        }
-    } catch { }
+        } catch { }
+    }
 
     // 2. Secondary Fallback: Deezer API
     try {
@@ -80,6 +135,17 @@ async function fetchArtistAvatar(artistName) {
     return null;
 }
 
+async function fetchArtistAvatar(artistName) {
+    const variants = getArtistSearchVariants(artistName);
+    for (const variant of variants) {
+        const result = await tryFetchSingleName(variant);
+        if (result && result.url) {
+            return result;
+        }
+    }
+    return null;
+}
+
 async function main() {
     console.log('=================================================');
     console.log(`🖼️  Populating Artist Profile Pictures (Batch: ${LIMIT})`);
@@ -91,7 +157,7 @@ async function main() {
         .from('artists')
         .select('id, name, track_count, avatar_url')
         .is('avatar_url', null)
-        .gt('track_count', 0)
+        .gte('track_count', MIN_TRACKS)
         .order('track_count', { ascending: false })
         .limit(LIMIT);
 

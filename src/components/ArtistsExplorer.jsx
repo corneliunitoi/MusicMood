@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase, fetchArtistSuggestions, submitArtistRequest } from '../services/supabaseService';
 import { GENRE_NODES } from '../services/tasteGraph';
 import { sessionEngine } from '../services/sessionStateMachine';
+import { resolveArtistAvatarOnDemand } from '../services/avatarService';
 
 // 14 High-Level Parent Genre Families (Zero subgenre clutter) + Latest Ingestion & Staging Categories
 const PARENT_GENRES = [
@@ -288,6 +289,16 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
         setSelectedArtist(artist);
         setIsLoadingTracks(true);
         setArtistTracks([]);
+
+        // On-demand profile picture resolution if missing
+        if (!artist.avatar_url && !avatarOverrides[artist.name]) {
+            resolveArtistAvatarOnDemand(artist).then(pic => {
+                if (pic) {
+                    setAvatarOverrides(prev => ({ ...prev, [artist.name]: pic }));
+                }
+            }).catch(() => {});
+        }
+
         try {
             const { data, error } = await supabase
                 .from('tracks')
@@ -411,7 +422,20 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
         }
     };
 
-    // Dynamic on-demand avatar resolution for artists missing images
+    // Dynamic on-demand avatar resolution for displayed artists with blank pictures
+    useEffect(() => {
+        displayedArtists.forEach(a => {
+            if (!a.is_staged && !a.avatar_url && !avatarOverrides[a.name]) {
+                resolveArtistAvatarOnDemand(a).then(url => {
+                    if (url) {
+                        setAvatarOverrides(prev => ({ ...prev, [a.name]: url }));
+                    }
+                }).catch(() => {});
+            }
+        });
+    }, [displayedArtists]);
+
+    // Handle broken avatar images
     const handleAvatarError = (artistName) => {
         if (avatarOverrides[artistName]) return;
         // Mark as fallback so it renders the initials avatar
@@ -632,7 +656,10 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                     {displayedArtists.map(artist => {
                         const parent = getParentGenre(artist.primary_genre_id);
                         const genreObj = PARENT_GENRES.find(p => p.id === parent) || PARENT_GENRES[0];
-                        const hasAvatar = artist.avatar_url && avatarOverrides[artist.name] !== 'FALLBACK';
+                        const effectiveAvatar = avatarOverrides[artist.name] !== 'FALLBACK'
+                            ? (avatarOverrides[artist.name] || artist.avatar_url)
+                            : null;
+                        const hasAvatar = Boolean(effectiveAvatar);
                         const isRequested = !!requestedArtists[artist.id || artist.name];
                         const isStaged = !!artist.is_staged;
                         const isApproved = artist.status === 'approved' || (artist.confidence_score || 0) >= 90;
@@ -689,7 +716,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                 }}>
                                     {hasAvatar ? (
                                         <img
-                                            src={artist.avatar_url}
+                                            src={effectiveAvatar}
                                             alt={artist.name}
                                             onError={() => handleAvatarError(artist.name)}
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -802,31 +829,38 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                             justifyContent: 'space-between',
                             background: 'rgba(30, 41, 59, 0.5)'
                         }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                                <div style={{
-                                    width: '46px',
-                                    height: '46px',
-                                    borderRadius: '50%',
-                                    overflow: 'hidden',
-                                    background: '#1e293b',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    flexShrink: 0
-                                }}>
-                                    {selectedArtist.avatar_url && avatarOverrides[selectedArtist.name] !== 'FALLBACK' ? (
-                                        <img src={selectedArtist.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    ) : (
-                                        <span style={{ fontWeight: 'bold', color: '#cbd5e1' }}>{getInitials(selectedArtist.name)}</span>
-                                    )}
-                                </div>
-                                <div>
-                                    <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#f8fafc' }}>{selectedArtist.name}</h3>
-                                    <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                                        {artistTracks.length} catalog track(s) available
-                                    </span>
-                                </div>
-                            </div>
+                            {(() => {
+                                const effectiveSelectedAvatar = selectedArtist && avatarOverrides[selectedArtist.name] !== 'FALLBACK'
+                                    ? (avatarOverrides[selectedArtist.name] || selectedArtist.avatar_url)
+                                    : null;
+                                return (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                                        <div style={{
+                                            width: '46px',
+                                            height: '46px',
+                                            borderRadius: '50%',
+                                            overflow: 'hidden',
+                                            background: '#1e293b',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flexShrink: 0
+                                        }}>
+                                            {effectiveSelectedAvatar ? (
+                                                <img src={effectiveSelectedAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            ) : (
+                                                <span style={{ fontWeight: 'bold', color: '#cbd5e1' }}>{getInitials(selectedArtist.name)}</span>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#f8fafc' }}>{selectedArtist.name}</h3>
+                                            <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                                                {artistTracks.length} catalog track(s) available
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             <button
                                 onClick={() => setSelectedArtist(null)}
