@@ -242,24 +242,61 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
         }
     });
 
-    const handlePlayDemo = (artist, e) => {
+    const handlePlayDemo = async (artist, e) => {
         if (e) e.stopPropagation();
-        if (!onPlayTrack || !artist.demo_youtube_id) return;
+        if (!onPlayTrack) return;
 
-        setDemoPlayingId(artist.id);
-        const playable = {
-            id: artist.demo_youtube_id,
-            youtube_video_id: artist.demo_youtube_id,
-            title: artist.demo_track_title || `${artist.name} (Demo)`,
-            artist: artist.name,
-            genre: artist.primary_genre_id || 'rock',
-            thumbnail: `https://i.ytimg.com/vi/${artist.demo_youtube_id}/hqdefault.jpg`,
-            source: 'artist_demo'
-        };
-        if (sessionEngine.playOnDemand) {
-            sessionEngine.playOnDemand(playable, false);
+        // 1. If demo track is already cached in local object
+        if (artist.demo_youtube_id) {
+            setDemoPlayingId(artist.id);
+            const playable = {
+                id: artist.demo_youtube_id,
+                youtube_video_id: artist.demo_youtube_id,
+                title: artist.demo_track_title || `${artist.name} (Demo)`,
+                artist: artist.name,
+                genre: artist.primary_genre_id || 'rock',
+                thumbnail: `https://i.ytimg.com/vi/${artist.demo_youtube_id}/hqdefault.jpg`,
+                source: 'artist_demo'
+            };
+            if (sessionEngine.playOnDemand) {
+                sessionEngine.playOnDemand(playable, false);
+            }
+            onPlayTrack(playable);
+            return;
         }
-        onPlayTrack(playable);
+
+        // 2. Otherwise check Supabase live in case background task populated it
+        try {
+            setDemoPlayingId(artist.id);
+            const { data } = await supabase
+                .from('artist_suggestions')
+                .select('demo_youtube_id, demo_track_title')
+                .eq('id', artist.id)
+                .single();
+
+            if (data?.demo_youtube_id) {
+                artist.demo_youtube_id = data.demo_youtube_id;
+                artist.demo_track_title = data.demo_track_title;
+                const playable = {
+                    id: data.demo_youtube_id,
+                    youtube_video_id: data.demo_youtube_id,
+                    title: data.demo_track_title || `${artist.name} (Demo)`,
+                    artist: artist.name,
+                    genre: artist.primary_genre_id || 'rock',
+                    thumbnail: `https://i.ytimg.com/vi/${data.demo_youtube_id}/hqdefault.jpg`,
+                    source: 'artist_demo'
+                };
+                if (sessionEngine.playOnDemand) {
+                    sessionEngine.playOnDemand(playable, false);
+                }
+                onPlayTrack(playable);
+                return;
+            }
+        } catch (err) {
+            console.warn('[ArtistsExplorer] Failed to fetch demo song:', err);
+        }
+
+        setDemoPlayingId(null);
     };
 
     const handleToggleRequest = async (artist, e) => {
@@ -865,30 +902,28 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
                                 {/* Track Count or Try Demo + Request Buttons */}
                                 {isStaged ? (
                                     <div style={{ display: 'flex', gap: '0.25rem', width: '100%', marginTop: '0.2rem' }}>
-                                        {artist.demo_youtube_id && (
-                                            <button
-                                                onClick={(e) => handlePlayDemo(artist, e)}
-                                                style={{
-                                                    flex: '0 0 auto',
-                                                    padding: '0.2rem 0.45rem',
-                                                    borderRadius: '5px',
-                                                    border: demoPlayingId === artist.id ? '1px solid #10b981' : '1px solid rgba(99, 102, 241, 0.4)',
-                                                    background: demoPlayingId === artist.id ? 'rgba(16, 185, 129, 0.25)' : 'rgba(99, 102, 241, 0.15)',
-                                                    color: demoPlayingId === artist.id ? '#34d399' : '#a5b4fc',
-                                                    fontSize: '0.68rem',
-                                                    fontWeight: '600',
-                                                    cursor: 'pointer',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: '0.2rem',
-                                                    transition: 'all 0.15s'
-                                                }}
-                                                title={artist.demo_track_title ? `Try song: "${artist.demo_track_title}"` : `Demo ${artist.name}`}
-                                            >
-                                                <span>{demoPlayingId === artist.id ? '🔊' : '▶'}</span>
-                                                <span>Try</span>
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={(e) => handlePlayDemo(artist, e)}
+                                            style={{
+                                                flex: '0 0 auto',
+                                                padding: '0.2rem 0.45rem',
+                                                borderRadius: '5px',
+                                                border: demoPlayingId === artist.id ? '1px solid #10b981' : '1px solid rgba(99, 102, 241, 0.4)',
+                                                background: demoPlayingId === artist.id ? 'rgba(16, 185, 129, 0.25)' : 'rgba(99, 102, 241, 0.15)',
+                                                color: demoPlayingId === artist.id ? '#34d399' : '#a5b4fc',
+                                                fontSize: '0.68rem',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '0.2rem',
+                                                transition: 'all 0.15s'
+                                            }}
+                                            title={artist.demo_track_title ? `Try song: "${artist.demo_track_title}"` : `Demo ${artist.name}`}
+                                        >
+                                            <span>{demoPlayingId === artist.id ? '🔊' : '▶'}</span>
+                                            <span>Try</span>
+                                        </button>
                                         <button
                                             onClick={(e) => handleToggleRequest(artist, e)}
                                             style={{
