@@ -206,9 +206,12 @@ h1 {
 .dashboard-header-simple {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 0.95rem;
   padding-bottom: 1.35rem;
-  margin-bottom: 1.5rem;
+  margin: 0 auto 1.5rem auto;
+  max-width: 860px;
+  width: 100%;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -318,17 +321,19 @@ h1 {
 
 .header-actions {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   width: 100%;
   gap: 0.85rem;
   flex-wrap: wrap;
+  text-align: center;
 }
 
 /* Cloud Status Counters */
 .cloud-status {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   font-size: 0.82rem;
   white-space: nowrap;
@@ -338,6 +343,7 @@ h1 {
 .header-nav-pills {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   background: rgba(15, 23, 42, 0.7);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -481,9 +487,9 @@ h1 {
 
 .dashboard-main {
   text-align: center;
-  max-width: 960px;
+  max-width: 860px;
   margin: 0 auto;
-  padding: 0 1.5rem 4rem 1.5rem;
+  padding: 0 0.5rem 4rem 0.5rem;
 }
 
 /* Middle Page Headspace & Mood Redesign (Airy & Modern) */

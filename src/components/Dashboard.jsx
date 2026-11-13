@@ -462,7 +462,7 @@ function Dashboard({ token, onLogout }) {
                     )}
 
                     {/* 4 SINGLE-SELECT EXCLUSIVE PANELS + TOUR PILL */}
-                    <nav className="header-nav-pills" role="tablist" aria-label="Dashboard views" style={{ marginLeft: isAdmin() ? undefined : 'auto' }}>
+                    <nav className="header-nav-pills" role="tablist" aria-label="Dashboard views">
                         <button
                             type="button"
                             className="header-pill-btn"
