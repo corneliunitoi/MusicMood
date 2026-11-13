@@ -73,3 +73,16 @@ jobs:
             echo "🚀 Ingesting related artists for top upvotes..."
             node scripts/inflateRelatedArtists.js --anchors=5 --similar=3 --tracks=5
           fi
+
+      - name: Populate Missing Artist Avatars (Open-License)
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "🔍 Running Avatar Population in DRY-RUN mode..."
+            node scripts/populateArtistAvatars.js --limit=100 --dry-run
+          else
+            echo "🚀 Populating artist profile pictures from open sources..."
+            node scripts/populateArtistAvatars.js --limit=100
+          fi
