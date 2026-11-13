@@ -1,4 +1,4 @@
-name: Hourly Artist Discovery & Staging
+name: Hourly Balanced Artist Discovery & Staging
 
 on:
   schedule:
@@ -6,32 +6,32 @@ on:
     - cron: '0 * * * *'
   workflow_dispatch:
     inputs:
-      source:
-        description: 'Discovery mode (auto rotates KEXP and micro-tags)'
+      mode:
+        description: 'Discovery mode (balance: multi-genre library balancer; kexp: pure live radio; genre: single target)'
         required: true
         type: choice
         options:
-          - auto
+          - balance
           - kexp
-          - tag
-        default: 'auto'
+          - genre
+        default: 'balance'
       count:
         description: 'Number of candidate artists to stage'
         required: true
         type: number
         default: 500
-      tag:
-        description: 'Target genre micro-tag (if source=tag)'
+      genre:
+        description: 'Target genre or tag (only if mode=genre)'
         required: false
         type: string
-        default: 'delta blues'
+        default: 'blues'
 
 permissions:
   contents: read
 
 jobs:
   scan-artists:
-    name: Scan & Stage Candidate Artists
+    name: Scan & Stage Balanced Candidate Artists
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -48,7 +48,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Artist Candidate Scanner
+      - name: Run Balanced Artist Scanner
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
@@ -56,9 +56,9 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
           LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8' }}
         run: |
-          SOURCE="${{ github.event.inputs.source || 'auto' }}"
+          MODE="${{ github.event.inputs.mode || 'balance' }}"
           COUNT="${{ github.event.inputs.count || '500' }}"
-          TAG="${{ github.event.inputs.tag || 'delta blues' }}"
+          GENRE="${{ github.event.inputs.genre || 'blues' }}"
 
-          echo "🔍 Scanning artists: source=$SOURCE, count=$COUNT, tag=$TAG..."
-          node scripts/scanArtistCandidates.js --source="$SOURCE" --count="$COUNT" --tag="$TAG"
+          echo "🔍 Scanning artists: mode=$MODE, count=$COUNT, genre=$GENRE..."
+          node scripts/scanArtistCandidates.js --mode="$MODE" --count="$COUNT" --genre="$GENRE"

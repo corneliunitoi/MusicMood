@@ -1,23 +1,32 @@
 // scripts/scanArtistCandidates.js
 // -----------------------------------------------------------------------------
-// Lightweight Artist Candidate Scanner & Staging Engine
+// Dynamic Library-Balancing Artist Candidate Scanner & Staging Engine
 //
-// Discovers artists from Last.fm micro-tags, top charts, or curated radio
-// (e.g. KEXP live tracklist), validates anti-AI heuristics, and stages them
-// into public.artist_suggestions WITHOUT resolving tracks or audio preview URLs.
+// Rather than targeting a single narrow micro-tag, this scanner generates a
+// balanced, broad cohort of artist candidates across the entire musical
+// spectrum, actively counter-balancing catalog deficits in public.artists.
 //
-// Guaranteed deduplication:
-// - Pre-loads all existing artists from public.artists
-// - Pre-loads distinct artist names from public.tracks
-// - Pre-loads all existing candidate names from public.artist_suggestions
-// - Normalizes names (strips diacritics, punctuation, casing) so duplicate
-//   variations like "B.B. King" vs "BB King" or "Édith Piaf" vs "Edith Piaf"
-//   are safely caught and skipped.
+// Cohort Composition (Target: 500 candidates):
+// 1. Eclectic Human Curation (KEXP Radio Live Stream) ~100 candidates
+// 2. Dynamic Library Deficit Balancing ~400 candidates
+//    Divided evenly across under-represented and broad genre pillars:
+//    - Blues (Delta, Chicago, Electric, Soul Blues)
+//    - Country & Americana (Americana, Bluegrass, Outlaw, Alt-Country)
+//    - Folk & Acoustic (Traditional, Contemporary, Indie Folk, Celtic)
+//    - Avant-Garde & Experimental (Experimental, Drone, Post-Rock, Free Improvisation)
+//    - Reggae, Latin & World (Afrobeat, Roots Reggae, Bossa Nova, Flamenco)
+//    - R&B, Soul & Funk (Classic Soul, Neo-Soul, Funk, P-Funk)
+//    - Ambient & Chill (Ambient, Downtempo, Atmospheric, Modern Composition)
+//    - Jazz (Modal, Bebop, Cool Jazz, Spiritual Jazz)
+//
+// Guaranteed Deduplication:
+// - Pre-loads all ~13,000+ artists from public.artists
+// - Pre-loads all existing candidate suggestions from public.artist_suggestions
+// - Normalizes names (strips diacritics, punctuation, casing, spacing)
 //
 // GitHub Actions UI Integration:
-// - Outputs candidate summary table to console stdout
-// - Writes rich markdown table to $GITHUB_STEP_SUMMARY for immediate on-screen
-//   monitoring in the GitHub Action Run page.
+// - Live step terminal logs
+// - Rich markdown table written to $GITHUB_STEP_SUMMARY for instant on-screen review
 // -----------------------------------------------------------------------------
 
 import { createClient } from '@supabase/supabase-js';
@@ -25,7 +34,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 
-dotenv.config();
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6';
@@ -45,45 +54,100 @@ function getArg(flag, fallback) {
     return fallback;
 }
 
-const SOURCE = getArg('source', 'auto'); // 'lastfm_tag', 'kexp', 'auto'
-const TAG = getArg('tag', 'delta blues');
+const MODE = getArg('mode', getArg('source', 'balance')); // 'balance', 'kexp', 'genre'
+const TARGET_GENRE = getArg('genre', getArg('tag', null));
 const TARGET_COUNT = parseInt(getArg('count', '500'), 10);
 const DRY_RUN = args.includes('--dry-run');
 
 console.log('====================================================');
-console.log('   ARTIST CANDIDATE DISCOVERY & STAGING ENGINE     ');
+console.log('   DYNAMIC LIBRARY-BALANCING ARTIST SCANNER        ');
 console.log('====================================================');
-console.log(`Source:       ${SOURCE}`);
-console.log(`Tag/Filter:   ${TAG}`);
-console.log(`Target Limit: ${TARGET_COUNT}`);
-console.log(`Dry Run:      ${DRY_RUN}`);
+console.log(`Execution Mode: ${MODE}`);
+console.log(`Target Limit:   ${TARGET_COUNT}`);
+console.log(`Dry Run:        ${DRY_RUN}`);
 console.log('====================================================\n');
 
 /**
- * Normalizes artist name for fuzzy deduplication:
- * - Lowercase
- * - Strip diacritics / accents (é -> e, ü -> u)
- * - Strip punctuation / symbols (&, ', -, ., etc.)
- * - Collapse whitespace
+ * 8 Core Pillars for Catalog Balancing
+ * Each pillar includes diverse representative tags to sample broadly.
+ */
+const BALANCING_PILLARS = [
+    {
+        id: 'blues',
+        name: 'Blues',
+        primary_genre_id: 'blues',
+        tags: ['blues', 'delta blues', 'chicago blues', 'electric blues', 'soul blues'],
+    },
+    {
+        id: 'country',
+        name: 'Country & Americana',
+        primary_genre_id: 'country',
+        tags: ['americana', 'alt-country', 'bluegrass', 'outlaw country', 'country'],
+    },
+    {
+        id: 'folk_acoustic',
+        name: 'Folk & Acoustic',
+        primary_genre_id: 'folk_acoustic',
+        tags: ['folk', 'indie folk', 'traditional folk', 'acoustic folk', 'celtic folk'],
+    },
+    {
+        id: 'avant_garde',
+        name: 'Avant-Garde & Experimental',
+        primary_genre_id: 'avant_garde',
+        tags: ['experimental', 'drone', 'post-rock', 'free improvisation', 'noise music'],
+    },
+    {
+        id: 'world_reggae',
+        name: 'Reggae, Latin & World',
+        primary_genre_id: 'world_reggae',
+        tags: ['roots reggae', 'afrobeat', 'bossa nova', 'flamenco', 'dub'],
+    },
+    {
+        id: 'rnb_soul',
+        name: 'R&B, Soul & Funk',
+        primary_genre_id: 'rnb_soul',
+        tags: ['soul', 'funk', 'neo-soul', 'classic soul', 'rhythm and blues'],
+    },
+    {
+        id: 'ambient_chill',
+        name: 'Ambient & Chill',
+        primary_genre_id: 'ambient_chill',
+        tags: ['ambient', 'downtempo', 'chillout', 'atmospheric', 'modern classical'],
+    },
+    {
+        id: 'jazz',
+        name: 'Jazz & Fusion',
+        primary_genre_id: 'jazz',
+        tags: ['jazz', 'modal jazz', 'bebop', 'cool jazz', 'jazz fusion'],
+    },
+];
+
+/**
+ * Normalize artist name for strict fuzzy deduplication
  */
 function normalizeArtistKey(name) {
     if (!name) return '';
     return name
         .toLowerCase()
         .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // remove diacritics
+        .replace(/[\u0300-\u036f]/g, '')
         .replace(/&/g, 'and')
-        .replace(/[^a-z0-9]/g, '')        // remove all non-alphanumeric
+        .replace(/[^a-z0-9]/g, '')
         .trim();
 }
 
+function slugify(name) {
+    if (!name) return 'artist';
+    return name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'artist';
+}
+
 /**
- * Pre-loads all existing artist names from:
- * 1. public.artists (or via RPC get_catalog_artist_names)
- * 2. public.tracks (artist column)
- * 3. public.artist_suggestions (name column)
- *
- * Returns a Set of exact lowercase names and a Set of normalized keys.
+ * Load all existing artists to guarantee zero duplicates
  */
 async function loadExistingLibraryKeys() {
     console.log('Loading existing artist library & suggestions for strict deduplication...');
@@ -99,7 +163,7 @@ async function loadExistingLibraryKeys() {
         if (norm) normalizedSet.add(norm);
     }
 
-    // 1. Paginated load of ALL artists in public.artists
+    // 1. Paginated load from public.artists
     try {
         let from = 0;
         const pageSize = 1000;
@@ -141,28 +205,41 @@ async function loadExistingLibraryKeys() {
         console.warn('Note: Could not check public.artist_suggestions:', e.message);
     }
 
-    console.log(`Dedup index ready: ${exactSet.size} exact unique names (${normalizedSet.size} normalized tokens).\n`);
+    console.log(`Dedup index ready: ${exactSet.size} unique artists indexed.\n`);
     return { exactSet, normalizedSet };
 }
 
 /**
- * Fetch artists from Last.fm tag with multi-page support
+ * Anti-AI Sludge Heuristic
  */
-async function fetchLastFmTagArtists(tag, targetCount, library) {
+function looksLikeAISludge(name) {
+    const lower = name.toLowerCase();
+    const bannedPatterns = [
+        'suno', 'udio', 'ai generated', 'generated by',
+        'lo-fi beats to relax', 'white noise therapy',
+        'baby sleep music channel', 'binaural study beats',
+        'sound effects library', 'relaxing spa sounds',
+    ];
+    for (const b of bannedPatterns) {
+        if (lower.includes(b)) return true;
+    }
+    if (/[a-f0-9]{8,}/.test(lower)) return true;
+    return false;
+}
+
+/**
+ * Fetch artists from Last.fm tag
+ */
+async function fetchArtistsForTag(tag, targetCount, library, genreInfo) {
     const artists = [];
     const limitPerPage = 100;
-    const maxPages = Math.min(10, Math.ceil((targetCount * 3) / limitPerPage)); // fetch extra to account for duplicates
-
-    console.log(`Fetching candidate artists from Last.fm tag: "${tag}" (up to ${maxPages} pages)...`);
+    const maxPages = 4;
 
     for (let page = 1; page <= maxPages; page++) {
         const url = `https://ws.audioscrobbler.com/2.0/?method=tag.gettopartists&tag=${encodeURIComponent(tag)}&api_key=${LASTFM_API_KEY}&format=json&limit=${limitPerPage}&page=${page}`;
         try {
             const res = await fetch(url);
-            if (!res.ok) {
-                console.warn(`Last.fm API returned HTTP ${res.status} on page ${page}`);
-                break;
-            }
+            if (!res.ok) break;
             const json = await res.json();
             const list = json?.topartists?.artist || [];
             if (!Array.isArray(list) || list.length === 0) break;
@@ -174,25 +251,19 @@ async function fetchLastFmTagArtists(tag, targetCount, library) {
                 const lowerName = name.toLowerCase();
                 const normName = normalizeArtistKey(name);
 
-                // Strict deduplication check
-                if (library.exactSet.has(lowerName) || library.normalizedSet.has(normName)) {
-                    continue;
-                }
+                if (library.exactSet.has(lowerName) || library.normalizedSet.has(normName)) continue;
+                if (looksLikeAISludge(name)) continue;
 
-                // AI sludge & fraud heuristics
-                if (looksLikeAISludge(name)) {
-                    continue;
-                }
-
-                // Add to temporary set to avoid intra-batch duplicates
                 library.exactSet.add(lowerName);
                 library.normalizedSet.add(normName);
 
                 artists.push({
                     name,
                     source: 'lastfm_tag',
-                    discovered_via: `lastfm_tag:${tag}`,
+                    discovered_via: `tag:${tag}`,
                     source_url: item.url || `https://www.last.fm/music/${encodeURIComponent(name)}`,
+                    primary_genre_id: genreInfo?.primary_genre_id || null,
+                    genre_label: genreInfo?.name || tag,
                     raw_tags: [tag],
                     estimated_listeners: parseInt(item.listeners || '0', 10),
                     confidence_score: 85,
@@ -201,15 +272,12 @@ async function fetchLastFmTagArtists(tag, targetCount, library) {
                 if (artists.length >= targetCount) break;
             }
 
-            console.log(`Page ${page}: found ${list.length} raw artists -> accumulated ${artists.length} new candidates.`);
             if (artists.length >= targetCount) break;
-            await new Promise((r) => setTimeout(r, 200)); // friendly rate limit
-        } catch (e) {
-            console.error(`Error fetching Last.fm page ${page}:`, e.message);
+            await new Promise((r) => setTimeout(r, 120));
+        } catch {
             break;
         }
     }
-
     return artists;
 }
 
@@ -220,9 +288,9 @@ async function fetchKEXPPlays(targetCount, library) {
     const artists = [];
     let nextUrl = 'https://api.kexp.org/v2/plays/?limit=100';
     let pages = 0;
-    const maxPages = 40;
+    const maxPages = 20;
 
-    console.log(`Fetching recent live curation from KEXP radio API...`);
+    console.log(`Sampling eclectic live human curation from KEXP radio stream...`);
 
     while (nextUrl && artists.length < targetCount && pages < maxPages) {
         pages++;
@@ -241,14 +309,8 @@ async function fetchKEXPPlays(targetCount, library) {
                 const lowerName = name.toLowerCase();
                 const normName = normalizeArtistKey(name);
 
-                // Strict deduplication
-                if (library.exactSet.has(lowerName) || library.normalizedSet.has(normName)) {
-                    continue;
-                }
-
-                if (looksLikeAISludge(name)) {
-                    continue;
-                }
+                if (library.exactSet.has(lowerName) || library.normalizedSet.has(normName)) continue;
+                if (looksLikeAISludge(name)) continue;
 
                 library.exactSet.add(lowerName);
                 library.normalizedSet.add(normName);
@@ -256,11 +318,13 @@ async function fetchKEXPPlays(targetCount, library) {
                 artists.push({
                     name,
                     source: 'kexp_live',
-                    discovered_via: `kexp:${play.show_title || 'live_broadcast'}`,
+                    discovered_via: `kexp:${play.show_title || 'live_radio'}`,
                     source_url: `https://kexp.org/search/?q=${encodeURIComponent(name)}`,
-                    raw_tags: ['human_curated', 'kexp_radio', play.release_date ? `year_${play.release_date.slice(0, 4)}` : null].filter(Boolean),
+                    primary_genre_id: null, // Let later enrichment assign exact genre
+                    genre_label: 'Eclectic / Radio Curated',
+                    raw_tags: ['kexp_curated', 'eclectic_radio'],
                     estimated_listeners: 0,
-                    confidence_score: 95, // Human curated KEXP DJs = ultra high trust
+                    confidence_score: 95,
                 });
 
                 if (artists.length >= targetCount) break;
@@ -268,33 +332,50 @@ async function fetchKEXPPlays(targetCount, library) {
 
             nextUrl = data.next;
             await new Promise((r) => setTimeout(r, 150));
-        } catch (e) {
-            console.error('Error fetching KEXP:', e.message);
+        } catch {
             break;
         }
     }
 
-    console.log(`KEXP stream: checked ${pages} pages -> gathered ${artists.length} new candidates.`);
+    console.log(`KEXP stream: gathered ${artists.length} new candidates.`);
     return artists;
 }
 
 /**
- * Anti-AI Sludge Heuristic
+ * Execute Balanced Multi-Genre Discovery
  */
-function looksLikeAISludge(name) {
-    const lower = name.toLowerCase();
-    const bannedPatterns = [
-        'suno', 'udio', 'ai generated', 'generated by',
-        'lo-fi beats to relax', 'white noise therapy',
-        'baby sleep music channel', 'binaural study beats',
-        'sound effects library', 'relaxing spa sounds',
-    ];
-    for (const b of bannedPatterns) {
-        if (lower.includes(b)) return true;
+async function runBalancedDiscovery(targetCount, library) {
+    const candidates = [];
+
+    // 1. Eclectic Curation Quota (~20% of target: ~100 artists for 500 target)
+    const kexpQuota = Math.min(100, Math.floor(targetCount * 0.20));
+    const kexpArtists = await fetchKEXPPlays(kexpQuota, library);
+    candidates.push(...kexpArtists);
+
+    // 2. Dynamic Balancing Quota across the 8 Pillars (~80% of target)
+    const remainingCount = targetCount - candidates.length;
+    const perPillarQuota = Math.ceil(remainingCount / BALANCING_PILLARS.length);
+
+    console.log(`\nBalancing Catalog: targeting ~${perPillarQuota} artists across each of the 8 key pillars...`);
+
+    for (const pillar of BALANCING_PILLARS) {
+        if (candidates.length >= targetCount) break;
+
+        let pillarGathered = [];
+        // Sample across the tags within this pillar
+        for (const tag of pillar.tags) {
+            const needed = perPillarQuota - pillarGathered.length;
+            if (needed <= 0) break;
+
+            const found = await fetchArtistsForTag(tag, needed, library, pillar);
+            pillarGathered.push(...found);
+        }
+
+        console.log(`- ${pillar.name.padEnd(28)}: gathered ${pillarGathered.length} new candidates`);
+        candidates.push(...pillarGathered);
     }
-    // Suspicious repetitive numbers/hex strings
-    if (/[a-f0-9]{8,}/.test(lower)) return true;
-    return false;
+
+    return candidates.slice(0, targetCount);
 }
 
 /**
@@ -303,37 +384,47 @@ function looksLikeAISludge(name) {
 function writeGitHubStepSummary(candidates, stats) {
     const summaryFile = process.env.GITHUB_STEP_SUMMARY;
     if (!summaryFile) {
-        console.log('(GITHUB_STEP_SUMMARY environment variable not set, skipping action UI render)');
+        console.log('(GITHUB_STEP_SUMMARY not set, skipping action UI render)');
         return;
     }
 
     try {
-        let md = `## 🎨 Hourly Artist Discovery & Staging Report\n\n`;
+        let md = `## ⚖️ Library-Balancing Artist Discovery Report\n\n`;
         md += `| Metric | Count |\n`;
         md += `| :--- | :--- |\n`;
-        md += `| **Source Mode** | \`${stats.source}\` |\n`;
+        md += `| **Scanner Mode** | \`Library-Balancing General Scanner\` |\n`;
         md += `| **Discovered New Candidates** | **${stats.discovered}** |\n`;
         md += `| **Staged to \`public.artist_suggestions\`** | **${stats.staged}** |\n`;
         md += `| **Auto-Approved (Confidence >= 90)** | **${stats.approved}** |\n`;
         md += `| **Pending Review (Confidence < 90)** | **${stats.pending}** |\n`;
-        md += `| **Total Existing Catalog Filtered** | \`${stats.catalogSize}\` artists |\n\n`;
+        md += `| **Existing Catalog Filtered (Zero Dups)** | \`${stats.catalogSize}\` artists |\n\n`;
 
-        md += `### 📋 Staged Candidate Artists (First 100 Preview)\n\n`;
-        md += `| # | Artist Name | Source / Tag | Confidence | Status |\n`;
-        md += `| :---: | :--- | :--- | :---: | :--- |\n`;
+        // Genre Breakdown Table
+        md += `### 🎼 Balanced Cohort Breakdown\n\n`;
+        md += `| Genre Pillar / Source | Candidates |\n`;
+        md += `| :--- | :---: |\n`;
+        for (const [genre, count] of Object.entries(stats.byGenre)) {
+            md += `| **${escapeMd(genre)}** | ${count} |\n`;
+        }
+        md += `\n`;
+
+        // First 100 Preview
+        md += `### 📋 Staged Candidate Artists (Preview Sample)\n\n`;
+        md += `| # | Artist Name | Genre Pillar | Source | Confidence | Status |\n`;
+        md += `| :---: | :--- | :--- | :--- | :---: | :--- |\n`;
 
         const previewList = candidates.slice(0, 100);
         previewList.forEach((c, idx) => {
             const statusBadge = c.confidence_score >= 90 ? '🟢 Auto-Approved' : '🟡 Pending Review';
-            md += `| ${idx + 1} | **${escapeMd(c.name)}** | \`${escapeMd(c.discovered_via)}\` | ${c.confidence_score}% | ${statusBadge} |\n`;
+            md += `| ${idx + 1} | **${escapeMd(c.name)}** | ${escapeMd(c.genre_label)} | \`${escapeMd(c.discovered_via)}\` | ${c.confidence_score}% | ${statusBadge} |\n`;
         });
 
         if (candidates.length > 100) {
-            md += `\n*... and ${candidates.length - 100} more artists staged in this run.* Check \`public.artist_suggestions\` table in Supabase.\n`;
+            md += `\n*... and ${candidates.length - 100} more balanced candidates staged.* Check \`public.artist_suggestions\` in Supabase.\n`;
         }
 
         fs.appendFileSync(summaryFile, md, 'utf8');
-        console.log(`Successfully wrote ${candidates.length} artist summary to $GITHUB_STEP_SUMMARY for Action UI screen monitoring.`);
+        console.log(`Successfully wrote ${candidates.length} artist summary to $GITHUB_STEP_SUMMARY.`);
     } catch (e) {
         console.warn('Failed to write to $GITHUB_STEP_SUMMARY:', e.message);
     }
@@ -342,16 +433,6 @@ function writeGitHubStepSummary(candidates, stats) {
 function escapeMd(text) {
     if (!text) return '';
     return text.replace(/\|/g, '\\|');
-}
-
-function slugify(name) {
-    if (!name) return 'artist';
-    return name
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'artist';
 }
 
 /**
@@ -363,59 +444,33 @@ async function main() {
 
     let candidates = [];
 
-    // Tag rotation pool if auto mode is selected
-    const rotationTags = [
-        'delta blues', 'chicago blues', 'country blues', 'bluegrass',
-        'appalachian folk', 'americana', 'freak folk', 'anti-folk',
-        'free improvisation', 'musique concrete', 'drone music', 'post-rock',
-        'neo-psychedelia', 'desert rock', 'alt-country', 'celtic folk'
-    ];
-
-    if (SOURCE === 'auto') {
-        const hour = new Date().getUTCHours();
-        if (hour % 2 === 0) {
-            console.log(`Auto mode (Hour ${hour} UTC - Even): Querying KEXP live radio plays...`);
-            candidates = await fetchKEXPPlays(TARGET_COUNT, library);
-            // If KEXP returns fewer than target, top up with rotating tag
-            if (candidates.length < TARGET_COUNT) {
-                const tag = rotationTags[hour % rotationTags.length];
-                console.log(`Topping up with Last.fm tag: "${tag}"...`);
-                const topup = await fetchLastFmTagArtists(tag, TARGET_COUNT - candidates.length, library);
-                candidates = candidates.concat(topup);
-            }
-        } else {
-            const tag = rotationTags[hour % rotationTags.length];
-            console.log(`Auto mode (Hour ${hour} UTC - Odd): Querying Last.fm micro-tag: "${tag}"...`);
-            candidates = await fetchLastFmTagArtists(tag, TARGET_COUNT, library);
-        }
-    } else if (SOURCE === 'kexp') {
+    if (MODE === 'kexp') {
         candidates = await fetchKEXPPlays(TARGET_COUNT, library);
+    } else if (MODE === 'genre' && TARGET_GENRE) {
+        const pillar = BALANCING_PILLARS.find((p) => p.id === TARGET_GENRE || p.tags.includes(TARGET_GENRE));
+        candidates = await fetchArtistsForTag(TARGET_GENRE, TARGET_COUNT, library, pillar);
     } else {
-        candidates = await fetchLastFmTagArtists(TAG, TARGET_COUNT, library);
+        // Default: Full multi-genre balancing scan
+        candidates = await runBalancedDiscovery(TARGET_COUNT, library);
     }
 
     console.log(`\nDiscovered ${candidates.length} unique, verified new candidates.`);
 
     if (candidates.length === 0) {
         console.log('No new candidates found to stage. Exiting.');
-        writeGitHubStepSummary([], {
-            source: SOURCE,
-            discovered: 0,
-            staged: 0,
-            approved: 0,
-            pending: 0,
-            catalogSize: initialCatalogSize,
-        });
         return;
     }
 
-    // Print summary to terminal console for live log monitoring
-    console.log('\n--- CANDIDATE ARTISTS DISCOVERED ---');
-    candidates.slice(0, 50).forEach((c, i) => {
-        console.log(`[${i + 1}] ${c.name.padEnd(35)} | ${c.discovered_via.padEnd(25)} | Score: ${c.confidence_score}`);
-    });
-    if (candidates.length > 50) {
-        console.log(`... and ${candidates.length - 50} more candidates.`);
+    // Compute genre distribution
+    const byGenre = {};
+    for (const c of candidates) {
+        const label = c.genre_label || 'Other';
+        byGenre[label] = (byGenre[label] || 0) + 1;
+    }
+
+    console.log('\n--- COHORT DISTRIBUTION ---');
+    for (const [g, count] of Object.entries(byGenre)) {
+        console.log(`- ${g.padEnd(30)}: ${count} artists`);
     }
 
     if (DRY_RUN) {
@@ -443,12 +498,13 @@ async function main() {
                 source: c.source || 'scanner',
                 batch_id: c.discovered_via || `scan-${new Date().toISOString().slice(0, 10)}`,
                 confidence_score: c.confidence_score,
+                primary_genre_id: c.primary_genre_id || null,
                 quality_flags: Array.isArray(c.raw_tags) ? c.raw_tags : [],
                 status: isApproved ? 'approved' : 'pending',
             };
         });
 
-        const { data, error } = await supabase
+        const { error } = await supabase
             .from('artist_suggestions')
             .insert(rows);
 
@@ -465,12 +521,13 @@ async function main() {
 
     // Render into GitHub Actions Step Summary for on-screen monitoring
     writeGitHubStepSummary(candidates, {
-        source: SOURCE,
+        source: MODE,
         discovered: candidates.length,
         staged: stagedCount,
         approved: approvedCount,
         pending: pendingCount,
         catalogSize: initialCatalogSize,
+        byGenre,
     });
 }
 
