@@ -26,7 +26,9 @@ export async function fetchArtistSuggestions(search = '', limit = 250, offset = 
             .select('id, name, slug, status, confidence_score, primary_genre_id, source, batch_id, created_at, is_requested, request_count, demo_youtube_id, demo_track_title')
             .neq('status', 'rejected')
             .neq('status', 'inflated')
+            .neq('status', 'requested')
             .eq('is_requested', false)
+            .eq('request_count', 0)
             .order('confidence_score', { ascending: false })
             .order('name', { ascending: true })
             .range(offset, offset + limit - 1);
@@ -74,6 +76,26 @@ export async function submitArtistRequest(artistId) {
     } catch (e) {
         console.error('[supabaseService] Error requesting artist:', e);
         return { success: false, error: e.message };
+    }
+}
+
+/**
+ * Fetches all artist IDs and names that are marked as requested or inflated in the database
+ */
+export async function fetchRequestedArtistIdentifiers() {
+    try {
+        const { data, error } = await supabase
+            .from('artist_suggestions')
+            .select('id, name')
+            .or('is_requested.eq.true,request_count.gt.0,status.eq.inflated,status.eq.requested');
+
+        if (error) {
+            console.warn('[supabaseService] Error fetching requested artist identifiers:', error);
+            return [];
+        }
+        return data || [];
+    } catch (e) {
+        return [];
     }
 }
 

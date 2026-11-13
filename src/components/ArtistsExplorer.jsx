@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { supabase, fetchArtistSuggestions, submitArtistRequest, rejectArtistSuggestion } from '../services/supabaseService';
+import { supabase, fetchArtistSuggestions, submitArtistRequest, rejectArtistSuggestion, fetchRequestedArtistIdentifiers } from '../services/supabaseService';
 import { GENRE_NODES } from '../services/tasteGraph';
 import { sessionEngine } from '../services/sessionStateMachine';
 import { resolveArtistAvatarOnDemand } from '../services/avatarService';
@@ -245,6 +245,28 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
         }
     });
 
+    // Seed requestedArtists cache with all artists marked as requested in database
+    useEffect(() => {
+        fetchRequestedArtistIdentifiers().then(items => {
+            if (items && items.length > 0) {
+                setRequestedArtists(prev => {
+                    const next = { ...prev };
+                    items.forEach(item => {
+                        if (item.id) next[item.id] = true;
+                        if (item.name) {
+                            next[item.name.toLowerCase().trim()] = true;
+                            next[normalizeArtistKey(item.name)] = true;
+                        }
+                    });
+                    try {
+                        localStorage.setItem('musicmood_requested_artists', JSON.stringify(next));
+                    } catch {}
+                    return next;
+                });
+            }
+        }).catch(() => {});
+    }, []);
+
     const handlePlayDemo = async (artist, e) => {
         if (e) e.stopPropagation();
         if (!onPlayTrack) return;
@@ -307,9 +329,23 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
     const handleToggleRequest = async (artist, e) => {
         if (e) e.stopPropagation();
         const key = artist.id || artist.name;
+        const normKey = normalizeArtistKey(artist.name);
+        const lowerName = artist.name ? artist.name.toLowerCase().trim() : '';
 
         // Visual confirmation before dismissal
         setDismissingIds(prev => new Set(prev).add(key));
+
+        // Immediately persist to local state and localStorage
+        setRequestedArtists(prev => {
+            const next = { ...prev, [key]: true };
+            if (artist.id) next[artist.id] = true;
+            if (lowerName) next[lowerName] = true;
+            if (normKey) next[normKey] = true;
+            try {
+                localStorage.setItem('musicmood_requested_artists', JSON.stringify(next));
+            } catch {}
+            return next;
+        });
 
         // Persist live request directly to Supabase
         if (artist.id) {
@@ -520,7 +556,17 @@ export default function ArtistsExplorer({ onPlayTrack, onClose }) {
 
         // 1. "Potential Matches" Tab: artists currently sitting in staging awaiting ingestion
         if (selectedGenre === 'potential') {
-            const mapped = stagedArtists.map(a => {
+            const catalogNameSet = new Set(artists.map(a => normalizeArtistKey(a.name)));
+            const mapped = stagedArtists
+                .filter(a => {
+                    if (a.is_requested || (a.request_count && a.request_count > 0)) return false;
+                    const normA = normalizeArtistKey(a.name);
+                    const lowerA = a.name ? a.name.toLowerCase().trim() : '';
+                    if (requestedArtists[a.id] || (lowerA && requestedArtists[lowerA]) || (normA && requestedArtists[normA])) return false;
+                    if (normA && catalogNameSet.has(normA)) return false; // Already present in verified catalog
+                    return true;
+                })
+                .map(a => {
                 const parent = getParentGenre(a.primary_genre_id);
                 const safeGenre = a.primary_genre_id && a.primary_genre_id !== 'other'
                     ? a.primary_genre_id
