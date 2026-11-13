@@ -175,29 +175,48 @@ async function runInflationPipeline() {
     if (IS_DRY_RUN) console.log('   • Mode: DRY RUN (No database inserts)');
     console.log('=================================================\n');
 
-    // 1. Fetch candidate artists
-    let query = supabase
-        .from('artists')
-        .select('id, name, primary_genre_id, secondary_genre_ids, affinity_score, upvotes, track_count')
-        .not('name', 'is', null)
-        .lt('track_count', MAX_TRACKS_PER_ARTIST)
-        .order('upvotes', { ascending: false })
-        .order('affinity_score', { ascending: false })
-        .order('track_count', { ascending: true })
-        .limit(Math.max(LIMIT_ARTISTS * 4, 40));
-
-    if (TARGET_ARTIST) {
-        query = query.ilike('name', TARGET_ARTIST);
+    // 1. Fetch candidate artists (prioritizing 1:1 parity between Upvotes and Unique User Favorites)
+    let artists = null;
+    try {
+        const { data: rpcArtists, error: rpcErr } = await supabase.rpc('get_priority_inflation_candidates', {
+            p_limit: Math.max(LIMIT_ARTISTS * 4, 40),
+            p_max_tracks: MAX_TRACKS_PER_ARTIST,
+            p_target_genre: TARGET_GENRE,
+            p_target_artist: TARGET_ARTIST
+        });
+        if (!rpcErr && Array.isArray(rpcArtists) && rpcArtists.length > 0) {
+            artists = rpcArtists;
+        } else if (rpcErr) {
+            console.warn('[Inflation] RPC candidate fetch notice:', rpcErr.message);
+        }
+    } catch (e) {
+        console.warn('[Inflation] Falling back to standard query:', e.message);
     }
-    if (TARGET_GENRE) {
-        query = query.eq('primary_genre_id', TARGET_GENRE);
-    }
 
-    const { data: artists, error: artErr } = await query;
+    if (!artists) {
+        let query = supabase
+            .from('artists')
+            .select('id, name, primary_genre_id, secondary_genre_ids, affinity_score, upvotes, track_count')
+            .not('name', 'is', null)
+            .lt('track_count', MAX_TRACKS_PER_ARTIST)
+            .order('upvotes', { ascending: false })
+            .order('affinity_score', { ascending: false })
+            .order('track_count', { ascending: true })
+            .limit(Math.max(LIMIT_ARTISTS * 4, 40));
 
-    if (artErr) {
-        console.error('Failed to query artists:', artErr.message);
-        return;
+        if (TARGET_ARTIST) {
+            query = query.ilike('name', TARGET_ARTIST);
+        }
+        if (TARGET_GENRE) {
+            query = query.eq('primary_genre_id', TARGET_GENRE);
+        }
+
+        const { data: fallbackArtists, error: artErr } = await query;
+        if (artErr) {
+            console.error('Failed to query artists:', artErr.message);
+            return;
+        }
+        artists = fallbackArtists;
     }
 
     if (!artists || artists.length === 0) {
@@ -219,7 +238,7 @@ async function runInflationPipeline() {
         const art = artists[i];
         console.log(`-------------------------------------------------`);
         console.log(`[Artist ${completedArtists + 1}/${LIMIT_ARTISTS}] "${art.name}"`);
-        console.log(`   Upvotes: ${art.upvotes || 0} 👍 | Affinity Score: ${art.affinity_score || 0} pts | Genre: ${art.primary_genre_id || 'unknown'}`);
+        console.log(`   Upvotes: ${art.upvotes || 0} 👍 | Unique Favorites: ${art.unique_favorited_users || 0} ❤️ | Priority Score: ${art.total_priority_score || art.upvotes || 0} pts | Genre: ${art.primary_genre_id || 'unknown'}`);
 
         // Get exact current tracks in catalog for this artist
         const { data: existingTracks, error: trkErr } = await supabase
