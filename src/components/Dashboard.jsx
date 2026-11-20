@@ -15,6 +15,7 @@ import WelcomeSplash from './WelcomeSplash';
 import GuidedTour from './GuidedTour';
 import FeedbackModal from './FeedbackModal';
 import AboutModal from './AboutModal';
+import GlobalSearchModal from './GlobalSearchModal';
 import { getFavoritesCount, subscribeFavorites } from '../services/favoritesService';
 import {
     initUserProfile,
@@ -85,6 +86,19 @@ function Dashboard({ token, onLogout, onTokenUpdate }) {
     const [showJitFeed, setShowJitFeed] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [showAboutModal, setShowAboutModal] = useState(false);
+    const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+
+    // Global shortcut (Ctrl+K / Cmd+K) for Universal Search
+    useEffect(() => {
+        const handleGlobalKeyDown = (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                setShowGlobalSearch(prev => !prev);
+            }
+        };
+        window.addEventListener('keydown', handleGlobalKeyDown);
+        return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+    }, []);
 
     // Welcome Splash & Guided Spotlight Tour state
     const [showWelcomeSplash, setShowWelcomeSplash] = useState(() => !localStorage.getItem('musicMood_welcome_seen'));
@@ -452,6 +466,17 @@ function Dashboard({ token, onLogout, onTokenUpdate }) {
                     <div className="header-top-right">
                         <button
                             type="button"
+                            className="btn-feedback btn-global-search-trigger"
+                            onClick={() => setShowGlobalSearch(true)}
+                            title="Global Search: Songs, Artists & Staged (Ctrl+K)"
+                            style={{ borderColor: 'rgba(168, 85, 247, 0.35)', color: '#e9d5ff' }}
+                        >
+                            <span className="feedback-icon">🔍</span>
+                            <span className="feedback-label">Search</span>
+                        </button>
+
+                        <button
+                            type="button"
                             className="btn-feedback"
                             onClick={() => setShowAboutModal(true)}
                             title="About MusicMood & Author"
@@ -713,6 +738,19 @@ function Dashboard({ token, onLogout, onTokenUpdate }) {
                         onClose={closeWelcomeSplash}
                     />
                 )}
+
+                {/* GLOBAL UNIVERSAL SEARCH MODAL (SONGS & ARTISTS) */}
+                <GlobalSearchModal
+                    isOpen={showGlobalSearch}
+                    onClose={() => setShowGlobalSearch(false)}
+                    onPlayTrack={(track) => {
+                        setActiveTrack(track);
+                        sessionEngine.playOnDemand(track);
+                    }}
+                    onOpenArtist={(artistName) => {
+                        handleOpenArtist(artistName);
+                    }}
+                />
 
                 {/* USER FEEDBACK MODAL */}
                 <FeedbackModal
