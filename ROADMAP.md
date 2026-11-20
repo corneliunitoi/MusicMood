@@ -12,7 +12,7 @@ Order is strict: each phase depends on the one before it.
 
 Live-database findings (Nov 20 audit): RLS is enabled on all 17 tables, but grants and policies cancel it out.
 
-* [ ] **Revoke `TRUNCATE`, `TRIGGER`, `REFERENCES` from `anon` and `authenticated` on all `public` tables.** RLS does not apply to `TRUNCATE`, so today anyone holding the public key can empty `tracks` (107k rows) in one call. The app never uses these privileges.
+* [x] **Revoke `TRUNCATE`, `TRIGGER`, `REFERENCES` from `anon` and `authenticated` on all `public` tables.** *(Done Nov 20, including default privileges for new tables; see `supabase/migrations/`.)* RLS does not apply to `TRUNCATE`, so today anyone holding the public key can empty `tracks` (107k rows) in one call. The app never uses these privileges.
 * [ ] **Revoke `EXECUTE` on `resolve_or_create_test_user` from `anon` and `authenticated`.** Anyone can currently mint an admin profile with it.
 * [ ] **Revoke public `EXECUTE` on maintenance functions** used only by scripts or triggers: `sync_track_artist`, `update_artist_track_count`, `sync_artist_affinity_from_*`, `get_*priority_inflation_candidates`, `get_random_unmapped_local_tracks`.
 * [ ] **Set `search_path`** on the 8 functions flagged by the Supabase security advisor.
