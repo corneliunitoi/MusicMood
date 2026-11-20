@@ -309,6 +309,30 @@ graph TD
      * *Discovery Floor:* Maintain 40–50% discovery ratio so promoted candidates complement established catalog anchors without overwhelming familiar hits.
      * *Status:* **Documented in Strategic Roadmap; implementation targeted post-v0.8.x stabilization.**
 
+### 20. 🗂️ Player Header Real Estate & "Up Next" Button Compactification
+* **Feedback Origin:** *User Feedback (Nov 16, 2026)*: *"up next button is not very useful and might be worth removing or making smaller to make more room for the name"*.
+* **Problem:** On smaller screens, tablets, or compact desktop windows, the "Up Next: [Song Title]" button occupies significant horizontal width in the player bar, truncating long artist names or track titles.
+* **Scope & UX Implementation:**
+  * Transform the "Up Next" preview button into a sleek, compact icon button (e.g. `⏭️ Next`) with a glassmorphic hover card showing the upcoming title and thumbnail on mouseover.
+  * Reclaim 120–160px of horizontal flex space dedicated to track and artist title display.
+  * Add automatic responsive collapse on screens < 900px.
+
+### 21. 🧬 Catch-All Taxonomy Decomposition ("General Rock" / "General Metal" to Leaf Subgenres)
+* **Feedback Origin:** *User Feedback (Nov 16 & Nov 20, 2026)*: *"what is the music that falls in to 'General rock' are other general categories ? - lots of misclassified ones there"* & *"how do generic genres work, like rock, jazz metal general, are those the vaguely catalogued tracks or do they encompass or subgenres technically under that genre ?"*.
+* **Problem:**
+  * When third-party sources (MusicBrainz, Last.fm, iTunes) provide coarse tags, tracks default to top-level umbrella buckets (`rock`, `metal`, `jazz`, `electronic`).
+  * While useful as parent genre containers in browse mode, generic umbrella tags obscure acoustic specificity and can cluster misclassified edge tracks.
+* **Scope & Implementation:**
+  * **Automated Subgenre Decomposition Cron:** Implement an offline classification pass that inspects tracks labeled simply `rock` or `metal`, queries MusicBrainz release and artist release group tags, and promotes them to specific leaf subgenres (e.g. `prog_rock`, `grunge`, `classic_rock`, `hard_rock`, `blues_rock`, `thrash_metal`, `death_metal`).
+  * **Interactive Misclassification Sweep:** Run the consensus healing engine on tracks tagged with generic parent labels that have low confidence scores.
+
+### 22. 📖 Taxonomy Hierarchy & Subgenre Inheritance Guide in UI
+* **Feedback Origin:** *User Feedback (Nov 20, 2026)*: *"how do generic genres work, like rock, jazz metal general, are those the vaguely catalogued tracks or do they encompass or subgenres technically under that genre ?"*.
+* **Scope & Implementation:**
+  * Add an informative badge / tooltip in Artists Explorer and Taste Calibration explaining that:
+    1. Parent Genre Families (e.g. Rock, Metal, Classical) act as overarching sonic umbrellas encompassing all 115 specialized subgenres.
+    2. Browsing "Rock" seamlessly aggregates tracks from Prog Rock, Alt Rock, Post-Rock, Grunge, Classic Rock, etc., while legacy tracks with coarse tags reside in the baseline parent category until promoted by the healing pipeline.
+
 ---
 
 ## 📈 Completed Milestones
@@ -336,3 +360,33 @@ graph TD
 * [x] **v0.8.2:** Strict Genre Family Containment (`sameFamilyGenres`), Playback Fluctuation Elimination, Non-Disruptive Genre Review Flagging, Lossless CUE/APE Album Explosion & Online Ingestion Pipeline.
 * [x] **v0.8.3:** In-App Master Volume Slider & Mute Toggle, Web Media Session API (Lock Screen & Notification Controls), Full Title Tooltips, and Toxic Secondary Tag Sanitization.
 * [x] **v0.8.4:** Adaptive Buffering Engine (YouTube state 3 handling & 10s auto-nudge), Zero-Video Pure Audio Engine Lock (1x1px off-screen), Clean Single-Line Player Geometry & In-App Discography Navigation, Staged Artist Request Hygiene, Catalog Healing ("Years" -> "10 Years" Metal), and Lossless CUE Ingestion (>91.8k catalog tracks).
+* [x] **v0.8.5:** Dynamic Discovery Crate, Staged Candidate Auditions, and Automated Demonstration Harvester (`.github/workflows/populate-staged-demos.yml`).
+* [x] **v0.8.6:** Zero-Quota Global Universal Search Modal (Songs, Artists & Staged, `Ctrl+K` / `Cmd+K`), Offline Search Fallback, Google Identity Services Hardening (`prompt: 'select_account'`), and Guest Quick Sign-In.
+* [x] **v0.8.7:** Production Inflation of Approved Staged Candidates (10+ tracks per admitted artist via iTunes + Last.fm + InnerTube), Unified 50-Artist Roll Section inside Potential Matches with 0 duplicate boxes, and Guided Spotlight Tour Potential Matches Discovery Onboarding Step.
+
+---
+
+## 📋 Live User Feedback Status & Audit Matrix
+
+| Date | User Feedback Summary | Status | Resolution / Action Item in Roadmap |
+| :--- | :--- | :---: | :--- |
+| **Nov 20** | *How generic genres work (e.g. rock, metal general)* | 📌 **Active Roadmap** | **Item #21 & #22**: Subgenre decomposition & in-app taxonomy inheritance guide |
+| **Nov 17** | *Genre inflation workflows not working* | ✅ **Shipped (v0.8.7)** | Upgraded `inflateStagedArtists.js` with InnerTube + iTunes + scheduled workflow |
+| **Nov 16** | *Up Next button not useful / make smaller for title space* | 📌 **Active Roadmap** | **Item #20**: Compact `⏭️ Next` icon button with hover preview |
+| **Nov 16** | *Lots of misclassified songs in "General Rock"* | 📌 **Active Roadmap** | **Item #21**: Decomposition of catch-all parent buckets to leaf subgenres |
+| **Nov 12** | *Hover over song title to see title clearly* | ✅ **Shipped (v0.8.3)** | Full title tooltips and hover expansion added to `Player.jsx` |
+| **Nov 12** | *Randomize songs when starting playback (stop playing same track)* | ✅ **Shipped (v0.8.4)** | Dynamic seed offset and session shuffle on genre start in state machine |
+| **Nov 12** | *Scrape Last.fm user profile for bands* | ⏳ **In Progress** | **Item #16**: Last.fm harvest scripts built; web profile import tool planned |
+| **Nov 10** | *Remember upvotes / isolate against bot spam* | 📌 **Active Roadmap** | **Item #13**: Dedicated `public.user_upvotes` table with RLS isolation |
+| **Nov 10** | *Track link in player brings to artist, only YT to YouTube* | ✅ **Shipped (v0.8.4)** | Decoupled player track clicks: artist opens in-app Artists Explorer, icon opens YT |
+| **Nov 10** | *Save genre preferences in db for cross-device sync* | ⏳ **In Progress** | **Item #15**: Radar and calibration sync shipped; full session state sync planned |
+| **Nov 10** | *Mobile background mode buttons (skip from notification shade)* | ✅ **Shipped (v0.8.3)** | Web Media Session API wired with lock-screen next/prev/play/pause controls |
+| **Nov 10** | *Misfits screen on phone* | ✅ **Shipped (v0.8.3)** | Responsive `100dvh` viewport layout and compact mobile player controls |
+| **Nov 10** | *Background playback not working* | ✅ **Shipped (v0.8.4)** | Pure Audio Engine lock (1x1px off-screen iframe, background keep-alive) |
+| **Nov 09** | *Favorites modal doesn't close on play* | ✅ **Shipped (v0.8.4)** | Auto-dismissing drawer / modal behavior added to `FavoritesPane` |
+| **Nov 09** | *General rock gets stuck on loop / repeats tracks* | ✅ **Shipped (v0.4.0)** | 2-track dwell cap, 15-artist cooldown, and dynamic fatigue enforcement |
+| **Nov 09** | *Choral church songs misclassified as Bossa Nova* | ✅ **Shipped (v0.7.5)** | Reclassified Saint Thomas Choir and choral pieces out of Bossa Nova |
+| **Nov 09** | *Feature to flag misclassifications* | ✅ **Shipped (v0.7.5)** | In-player `[🏷️ Wrong Genre]` 1-click flagging modal (`public.track_genre_flags`) |
+| **Nov 09** | *Carlos Montoya classed as Ska* | ✅ **Shipped (v0.7.5)** | Reclassified Carlos Montoya to Flamenco / World |
+| **Nov 09** | *Volume button in app* | ✅ **Shipped (v0.8.3)** | Glassmorphic master volume slider and mute toggle in `Player.jsx` |
+| **Nov 07** | *Some AI features wouldn't hurt* | 📌 **Active Roadmap** | **Item #3**: "Ask AI What You Want" Sonic Intent Parser |
