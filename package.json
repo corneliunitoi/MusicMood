@@ -34,7 +34,9 @@
     "backfill-tags": "node scripts/backfillAllTags.js",
     "resolve:flags": "node scripts/resolveFlaggedTracks.js",
     "resolve:flags:apply": "node scripts/resolveFlaggedTracks.js --apply",
-    "populate:avatars": "node scripts/populateArtistAvatars.js"
+    "populate:avatars": "node scripts/populateArtistAvatars.js",
+    "seed:staged": "node scripts/seedStagedTopArtists.js",
+    "seed:staged:dry": "node scripts/seedStagedTopArtists.js --dry-run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",
