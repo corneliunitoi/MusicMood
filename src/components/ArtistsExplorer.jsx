@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { supabase, fetchArtistSuggestions, submitArtistRequest, rejectArtistSuggestion, fetchRequestedArtistIdentifiers, requestNewArtist } from '../services/supabaseService';
+import { supabase, fetchArtistSuggestions, fetchRandomStagedArtists, submitArtistRequest, rejectArtistSuggestion, fetchRequestedArtistIdentifiers, requestNewArtist } from '../services/supabaseService';
 import { GENRE_NODES } from '../services/tasteGraph';
 import { sessionEngine } from '../services/sessionStateMachine';
 import { resolveArtistAvatarOnDemand } from '../services/avatarService';
@@ -313,6 +313,8 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
     const [stagedArtists, setStagedArtists] = useState([]);
     const [isLoadingStaged, setIsLoadingStaged] = useState(false);
     const [isLoadingMoreStaged, setIsLoadingMoreStaged] = useState(false);
+    const [rolledArtists, setRolledArtists] = useState([]);
+    const [isRolling, setIsRolling] = useState(false);
     const [demoPlayingId, setDemoPlayingId] = useState(null);
     const [dismissingIds, setDismissingIds] = useState(new Set());
     const [isSubmittingCustom, setIsSubmittingCustom] = useState(false);
@@ -564,6 +566,28 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
             }).catch(() => {});
         }
     }, [stagedArtists.length, selectedGenre, searchQuery, isLoadingStaged]);
+
+    const handleRollFive = async (genre = selectedGenre) => {
+        setIsRolling(true);
+        try {
+            const targetGenre = (genre && genre !== 'potential' && genre !== 'all' && genre !== 'latest') ? genre : null;
+            const freshFive = await fetchRandomStagedArtists(5, targetGenre);
+            if (freshFive && freshFive.length > 0) {
+                setRolledArtists(freshFive);
+            }
+        } catch (err) {
+            console.warn('[ArtistsExplorer] Roll 5 failed:', err);
+        } finally {
+            setIsRolling(false);
+        }
+    };
+
+    // Auto-roll 5 when switching to potential matches or when empty
+    useEffect(() => {
+        if (selectedGenre === 'potential' && rolledArtists.length === 0 && !isRolling) {
+            handleRollFive('potential');
+        }
+    }, [selectedGenre]);
 
     const handleForceRefresh = async () => {
         setIsRefreshing(true);
@@ -945,6 +969,30 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
                         <span style={{ display: 'inline-block', transform: isRefreshing ? 'rotate(180deg)' : 'none', transition: 'transform 0.4s' }}>🔄</span>
                         {isRefreshing ? 'Syncing...' : 'Sync'}
                     </button>
+
+                    <button
+                        onClick={() => handleRollFive()}
+                        disabled={isRolling}
+                        title="Roll 5 random uncataloged artists from staging with playable demos"
+                        style={{
+                            background: isRolling ? 'rgba(139, 92, 246, 0.4)' : 'linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(99, 102, 241, 0.25))',
+                            border: '1px solid rgba(139, 92, 246, 0.45)',
+                            borderRadius: '6px',
+                            color: '#e9d5ff',
+                            padding: '0.15rem 0.55rem',
+                            fontSize: '0.72rem',
+                            fontWeight: '600',
+                            cursor: isRolling ? 'wait' : 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 2px 8px rgba(139, 92, 246, 0.2)'
+                        }}
+                    >
+                        <span style={{ display: 'inline-block', transform: isRolling ? 'rotate(180deg)' : 'none', transition: 'transform 0.4s' }}>🎲</span>
+                        <span>{isRolling ? 'Rolling...' : 'Roll 5'}</span>
+                    </button>
                 </div>
 
                 {onClose && (
@@ -1126,6 +1174,172 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
                             Searching 11,896 staged...
                         </span>
                     )}
+                </div>
+            )}
+
+            {/* 🎲 DISCOVERY CRATE — ROLL 5 UNCATALOGED GEMS */}
+            {(selectedGenre === 'potential' || rolledArtists.length > 0) && (
+                <div className="discovery-crate-box" style={{
+                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.14), rgba(30, 41, 59, 0.75))',
+                    border: '1px solid rgba(139, 92, 246, 0.35)',
+                    borderRadius: '12px',
+                    padding: '0.85rem 1rem',
+                    marginBottom: '0.85rem',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                            <span style={{ fontSize: '1.35rem' }}>🎲</span>
+                            <div>
+                                <div style={{ fontSize: '0.94rem', fontWeight: '700', color: '#e9d5ff', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                    <span>Discovery Crate — Roll 5</span>
+                                    <span style={{ fontSize: '0.66rem', padding: '0.1rem 0.45rem', background: 'rgba(139, 92, 246, 0.25)', borderRadius: '9999px', border: '1px solid rgba(139, 92, 246, 0.4)', color: '#d8b4fe' }}>
+                                        From 17,500+ Staged
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: '0.74rem', color: '#94a3b8' }}>
+                                    Audition 5 random uncataloged gems. Tap &ldquo;+ Request&rdquo; on any you love, or roll 5 new!
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => handleRollFive()}
+                            disabled={isRolling}
+                            style={{
+                                background: isRolling ? 'rgba(139, 92, 246, 0.35)' : 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '0.35rem 0.85rem',
+                                fontSize: '0.78rem',
+                                fontWeight: '700',
+                                cursor: isRolling ? 'wait' : 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.4rem',
+                                boxShadow: '0 2px 10px rgba(139, 92, 246, 0.35)',
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            <span style={{ display: 'inline-block', transform: isRolling ? 'rotate(180deg)' : 'none', transition: 'transform 0.4s' }}>🎲</span>
+                            <span>{isRolling ? 'Rolling...' : 'Roll 5 Fresh'}</span>
+                        </button>
+                    </div>
+
+                    {/* 5 Cards Grid */}
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+                        gap: '0.55rem'
+                    }}>
+                        {rolledArtists.map((artist) => {
+                            const isRequested = requestedArtists[artist.id] || requestedArtists[artist.name?.toLowerCase()?.trim()] || artist.is_requested;
+                            const isPlaying = demoPlayingId === artist.id;
+                            return (
+                                <div key={artist.id} style={{
+                                    background: 'rgba(15, 23, 42, 0.75)',
+                                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                                    borderRadius: '8px',
+                                    padding: '0.65rem 0.75rem',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'space-between',
+                                    gap: '0.45rem',
+                                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
+                                }}>
+                                    <div>
+                                        <div style={{
+                                            fontSize: '0.88rem',
+                                            fontWeight: '700',
+                                            color: '#f8fafc',
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis'
+                                        }} title={artist.name}>
+                                            {artist.name}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.2rem' }}>
+                                            <span style={{
+                                                fontSize: '0.64rem',
+                                                padding: '0.1rem 0.38rem',
+                                                background: 'rgba(139, 92, 246, 0.2)',
+                                                color: '#c4b5fd',
+                                                borderRadius: '4px',
+                                                border: '1px solid rgba(139, 92, 246, 0.35)',
+                                                fontWeight: '600'
+                                            }}>
+                                                {artist.primary_genre_id ? artist.primary_genre_id.replace(/_/g, ' ') : 'Staged'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {artist.demo_track_title && (
+                                        <div style={{
+                                            fontSize: '0.68rem',
+                                            color: '#cbd5e1',
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis'
+                                        }} title={artist.demo_track_title}>
+                                            🎵 {artist.demo_track_title}
+                                        </div>
+                                    )}
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.2rem' }}>
+                                        {artist.demo_youtube_id ? (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handlePlayDemo(artist, e)}
+                                                style={{
+                                                    flex: 1,
+                                                    background: isPlaying ? '#8b5cf6' : 'rgba(139, 92, 246, 0.25)',
+                                                    border: '1px solid rgba(139, 92, 246, 0.45)',
+                                                    color: '#f3e8ff',
+                                                    padding: '0.25rem 0.4rem',
+                                                    borderRadius: '6px',
+                                                    fontSize: '0.72rem',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '0.25rem'
+                                                }}
+                                                title="Audition signature demo track"
+                                            >
+                                                <span>{isPlaying ? '🔊 Playing' : '▶ Demo'}</span>
+                                            </button>
+                                        ) : null}
+
+                                        <button
+                                            type="button"
+                                            onClick={(e) => handleRequest(artist, e)}
+                                            disabled={isRequested}
+                                            style={{
+                                                flex: 1,
+                                                background: isRequested ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                                                border: isRequested ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.15)',
+                                                color: isRequested ? '#6ee7b7' : '#e2e8f0',
+                                                padding: '0.25rem 0.4rem',
+                                                borderRadius: '6px',
+                                                fontSize: '0.72rem',
+                                                fontWeight: '600',
+                                                cursor: isRequested ? 'default' : 'pointer',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}
+                                            title="Request this artist to be admitted & inflated into catalog"
+                                        >
+                                            <span>{isRequested ? '✓ Done' : '+ Request'}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             )}
 

@@ -61,6 +61,60 @@ export async function fetchArtistSuggestions(search = '', limit = 250, offset = 
 }
 
 /**
+ * Fetches a random slice of N staged artists with playable demo tracks for crate digging
+ */
+export async function fetchRandomStagedArtists(limit = 5, genre = null) {
+    try {
+        let countQuery = supabase
+            .from('artist_suggestions')
+            .select('id', { count: 'exact', head: true })
+            .neq('status', 'rejected')
+            .neq('status', 'inflated')
+            .not('demo_youtube_id', 'is', null);
+
+        if (genre && genre !== 'all' && genre !== 'potential') {
+            countQuery = countQuery.ilike('primary_genre_id', `%${genre}%`);
+        }
+
+        const { count, error: countErr } = await countQuery;
+        if (countErr || !count || count === 0) {
+            const fallback = await supabase
+                .from('artist_suggestions')
+                .select('id, name, slug, status, confidence_score, primary_genre_id, demo_youtube_id, demo_track_title')
+                .neq('status', 'rejected')
+                .neq('status', 'inflated')
+                .limit(limit);
+            return fallback.data || [];
+        }
+
+        const maxOffset = Math.max(0, count - limit);
+        const randomOffset = Math.floor(Math.random() * (maxOffset + 1));
+
+        let dataQuery = supabase
+            .from('artist_suggestions')
+            .select('id, name, slug, status, confidence_score, primary_genre_id, demo_youtube_id, demo_track_title, request_count, is_requested')
+            .neq('status', 'rejected')
+            .neq('status', 'inflated')
+            .not('demo_youtube_id', 'is', null)
+            .range(randomOffset, randomOffset + limit - 1);
+
+        if (genre && genre !== 'all' && genre !== 'potential') {
+            dataQuery = dataQuery.ilike('primary_genre_id', `%${genre}%`);
+        }
+
+        const { data, error } = await dataQuery;
+        if (error) {
+            console.error('[supabaseService] Error fetching random staged artists:', error);
+            return [];
+        }
+        return data || [];
+    } catch (e) {
+        console.error('[supabaseService] Error in fetchRandomStagedArtists:', e);
+        return [];
+    }
+}
+
+/**
  * Submits a live database request for a staged artist to be prioritized for catalog ingestion
  */
 export async function submitArtistRequest(artistId) {
