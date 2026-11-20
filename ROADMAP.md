@@ -1,10 +1,97 @@
 # 🗺️ MusicMood Strategic Roadmap
 
-This document outlines prioritized enhancements, user experience improvements, and upcoming architectural milestones for **MusicMood**.
+> **Current focus: security and stability only, then the Android migration.**
+> No new features are scheduled until Phase 4 is done. Every earlier feature item is frozen in the
+> [Frozen Feature Backlog](#-frozen-feature-backlog-not-scheduled) at the bottom of this file.
+
+Order is strict: each phase depends on the one before it.
 
 ---
 
-## 🎯 High Priority (Next Milestone — v0.6.1)
+## 🚨 Phase 0 — Emergency Hardening (no client changes required)
+
+Live-database findings (Nov 20 audit): RLS is enabled on all 17 tables, but grants and policies cancel it out.
+
+* [ ] **Revoke `TRUNCATE`, `TRIGGER`, `REFERENCES` from `anon` and `authenticated` on all `public` tables.** RLS does not apply to `TRUNCATE`, so today anyone holding the public key can empty `tracks` (107k rows) in one call. The app never uses these privileges.
+* [ ] **Revoke `EXECUTE` on `resolve_or_create_test_user` from `anon` and `authenticated`.** Anyone can currently mint an admin profile with it.
+* [ ] **Revoke public `EXECUTE` on maintenance functions** used only by scripts or triggers: `sync_track_artist`, `update_artist_track_count`, `sync_artist_affinity_from_*`, `get_*priority_inflation_candidates`, `get_random_unmapped_local_tracks`.
+* [ ] **Set `search_path`** on the 8 functions flagged by the Supabase security advisor.
+* [ ] **Take a database backup** before any further policy work.
+* [ ] **Remove leaked data from `public/`:** `exploded_albums_manifest.json` (contains `\\192.168.0.2\e$\…` NAS paths) and the other `local_*` / `rejected_tracks.json` dumps.
+* [ ] **Rotate the Last.fm API key** and remove the hard-coded fallbacks in `src/` and `.github/workflows/`.
+* [ ] **Remove the shared guest password** (`guestpassword123`) from `src/services/supabaseService.js` and `scripts/createGuest.js`, and disable that account.
+* [ ] **Remove hard-coded admin email checks** (`isTargetAdmin`) and personal email from the client bundle.
+* [ ] **Workflows:** fail fast when `SUPABASE_SERVICE_ROLE_KEY` is missing instead of silently falling back to the publishable key.
+* [ ] **Drop or lock unused tables** `history` and `music_users`, after confirming nothing reads them.
+* [ ] **Patch dependencies:** `npm audit fix` (high: `music-metadata`, moderate: `file-type`).
+
+---
+
+## 🔐 Phase 1 — Supabase Auth (replace the custom identity system)
+
+Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profiles is linked to a real `auth.users` row; identity is asserted by the client.
+
+* [ ] **Google provider in Supabase:** enable it under Auth → Providers, add the Google OAuth client ID/secret, and register the Supabase callback URL in Google Cloud Console.
+* [ ] **Web sign-in:** `supabase.auth.signInWithOAuth({ provider: 'google', scopes: 'youtube.readonly' })`, using `session.provider_token` for playlist import. (Android will later use Credential Manager + `signInWithIdToken` against the same backend.)
+* [ ] **Guests:** `signInAnonymously()` per guest, and `linkIdentity()` to upgrade a guest to Google while keeping their data. Remove the shared guest ID `f7337681-…`.
+* [ ] **Client identity:** replace `getResolvedUserId()` and the localStorage profile with the Supabase session. Remove `isAdmin()`/role checks that read localStorage.
+* [ ] **Profile creation** via the `handle_new_user` trigger on `auth.users`.
+* [ ] **Roles:** move `role` / `user_class` into a `user_roles` table that only the service role can write; add an `is_admin()` SQL helper. Users must not be able to edit their own role.
+* [ ] **Remove** `resolve_or_create_user` (both overloads) and `resolve_or_create_test_user`. Remove the test-persona switcher from the production build.
+* [ ] **Migrate the 2 real users** with a one-off SQL script: re-point `user_favorites`, `listening_history`, `user_dealbreakers`, `user_mood_genre_affinities`, `feedback` and calibration to the new `auth.users` IDs. Decide what happens to the 2,186 history rows under the old shared guest ID.
+
+---
+
+## 🛡️ Phase 2 — Row Level Security & RPC Rewrite
+
+* [ ] **Baseline migration:** dump the live schema (tables, policies, functions, triggers) into `supabase/migrations/` so the database can be rebuilt from the repo. Retire `schema_v2.sql` / `setup_taste_graph.sql` as sources of truth.
+* [ ] **Catalog tables** (`tracks`, `artists`, `local_metadata`, `artist_suggestions`, `track_suggestions`, `track_subgenres`, `genres`, `moods`): read-only for clients. Writes only via the service role (scripts/workflows) or narrow vetted RPCs. Drop every `USING (true)` insert/update/delete policy.
+* [ ] **User tables:** `auth.uid() = user_id` for every operation. Drop `Allow anon insert/select on listening_history`.
+* [ ] **RPCs:** remove all `p_user_id` parameters; use `auth.uid()` inside. Applies to `get_user_favorites`, `sync_user_favorites`, `remove_user_favorite`, `get_user_calibration`, `sync_user_calibration`.
+* [ ] **`upvote_track`:** clamp the delta to ±1 and make it idempotent per user via `user_upvotes (user_id, track_id)` (old item #13).
+* [ ] **`track_genre_flags`:** authenticated insert of own flags only; review and delete restricted to admins.
+* [ ] **`feedback`:** insert-only for users; reading restricted to admins.
+* [ ] **Revoke `anon` access** to everything not needed before sign-in (GraphQL exposure lints 0026/0027).
+* [ ] **Server endpoints** `/api/resolve-track` and `/api/playlist-tracks`: require a valid Supabase JWT, add rate limiting, and add security headers (CSP, HSTS) to `server.js`.
+* [ ] **Verification:** replace `scripts/verify_rls.js` with tests that *fail* if `anon` can read another user's data, write the catalog, or call privileged RPCs. Supabase security advisor must be clean.
+
+---
+
+## 🧱 Phase 3 — Stability
+
+* [ ] **No client-side catalog deletes:** replace the global purges in `Player.jsx` (playback errors) and `sessionStateMachine.js` (dislike → delete JIT track) with an `unplayable_reports` flag reviewed by a job. One user's region lock must not delete a track for everyone.
+* [ ] **Listening history actually records:** handle tracks without a `dbId` (`track_id` is `NOT NULL`), and align mood IDs; `sad` and `party` are missing from the `moods` table, so inserts fail silently today.
+* [ ] **Single mood/genre vocabulary:** reconcile `moods.js`, `MOOD_GENRE_MAP` in `tasteGraph.js` and the `moods`/`genres` tables. Remove dead genre IDs (`dream_pop`, `motown`, `90s_alt`, `space_rock`, `rnb_contemporary`, `fingerstyle`, `acoustic_guitar`).
+* [ ] **Column naming:** `local_metadata.youtube_id` vs `youtube_video_id`; pick one and migrate.
+* [ ] **State machine correctness:**
+  * Explicit states and transitions; `getNextTrack` must distinguish "busy" from "nothing playable".
+  * One shared artist-cooldown window across all sourcing paths (currently 15 / 10 / 5); the emergency path must run the full guards.
+  * Bound `recentTracks` in memory, not only when saving.
+  * Either enforce `MAX_DWELL_PER_NODE` or remove it (`getMaxDwell()` returns `Infinity`).
+  * Discovery tiers must respect their hop limits (anchors currently bypass them).
+* [ ] **Single scraper implementation:** remove the duplicate of the `server.js` logic in `vite.config.js`.
+* [ ] **Error handling:** surface failed writes instead of `console.warn` and continuing.
+* [ ] **Tests:** unit tests for the state machine and graph traversal; integration test for sign-in → favorites → history under RLS.
+* [ ] **Repo hygiene:** fix `.gitignore` entries for tracked files (`src/App.jsx`, `src/main.jsx`, `src/index.css`); strip the admin/test UI from the production bundle.
+
+---
+
+## 📱 Phase 4 — Android Migration
+
+Starts only after Phases 0–3 are complete.
+
+* [ ] **Gate (decide before any Android code): playback model.** The current hidden 1×1 off-screen YouTube player and InnerTube scraping violate YouTube API terms and Google Play policy. Choose a compliant model (visible ≥200×200 foreground YouTube player via the official API, a streaming partner SDK, or a licensed catalog).
+* [ ] **Engine portability:** extract the state machine / taste graph into pure logic, free of `localStorage`, `window` and direct Supabase calls.
+* [ ] **Android client** (TWA, Capacitor, or native), with Google sign-in via Credential Manager + `supabase.auth.signInWithIdToken`.
+* [ ] **Play Store requirements:** privacy policy URL, in-app and web account deletion, Data Safety form, target API level.
+
+---
+
+## ❄️ Frozen Feature Backlog (not scheduled)
+
+Kept for reference only. Nothing below is worked on until Phase 4 ships.
+
+### 🎯 Former High Priority (v0.6.1)
 
 ### 1. 🎛️ Custom Default Subgenres per Mood (Core 6 Moods)
 * **Problem:** Clicking a mood (such as *Party* or *Happy*) currently routes to a hardcoded genre cluster (`MOOD_GENRE_MAP`), often defaulting to genres the user rarely listens to (e.g. `funk` or `classic_soul`). Listeners must manually select their preferred genre each time.
@@ -25,7 +112,7 @@ This document outlines prioritized enhancements, user experience improvements, a
 
 ---
 
-## 🚀 Near-Term Enhancements
+### 🚀 Near-Term Enhancements
 
 ### 2. 🔍 "Add Your Own Artist" (On-Demand Metadata & 10-Track Harvest)
 * Search any artist on demand via MusicBrainz API (`https://musicbrainz.org/ws/2/artist/`).
@@ -308,6 +395,8 @@ graph TD
      * *Artist Dwell Cooldown:* Maximum 1 track from any newly promoted staged artist per 6–8 songs in a session.
      * *Discovery Floor:* Maintain 40–50% discovery ratio so promoted candidates complement established catalog anchors without overwhelming familiar hits.
      * *Status:* **Documented in Strategic Roadmap; implementation targeted post-v0.8.x stabilization.**
+
+---
 
 ---
 
