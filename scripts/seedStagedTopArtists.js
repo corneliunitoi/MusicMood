@@ -8,7 +8,7 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduft
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const LASTFM_API_KEY = process.env.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8';
+const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
 
 const args = process.argv.slice(2);
 function getArg(prefix, defaultVal) {

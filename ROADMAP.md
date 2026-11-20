@@ -13,17 +13,17 @@ Order is strict: each phase depends on the one before it.
 Live-database findings (Nov 20 audit): RLS is enabled on all 17 tables, but grants and policies cancel it out.
 
 * [x] **Revoke `TRUNCATE`, `TRIGGER`, `REFERENCES` from `anon` and `authenticated` on all `public` tables.** *(Done Nov 20, including default privileges for new tables; see `supabase/migrations/`.)* RLS does not apply to `TRUNCATE`, so today anyone holding the public key can empty `tracks` (107k rows) in one call. The app never uses these privileges.
-* [ ] **Revoke `EXECUTE` on `resolve_or_create_test_user` from `anon` and `authenticated`.** Anyone can currently mint an admin profile with it.
-* [ ] **Revoke public `EXECUTE` on maintenance functions** used only by scripts or triggers: `sync_track_artist`, `update_artist_track_count`, `sync_artist_affinity_from_*`, `get_*priority_inflation_candidates`, `get_random_unmapped_local_tracks`.
-* [ ] **Set `search_path`** on the 8 functions flagged by the Supabase security advisor.
-* [ ] **Take a database backup** before any further policy work.
-* [ ] **Remove leaked data from `public/`:** `exploded_albums_manifest.json` (contains `\\192.168.0.2\e$\…` NAS paths) and the other `local_*` / `rejected_tracks.json` dumps.
-* [ ] **Rotate the Last.fm API key** and remove the hard-coded fallbacks in `src/` and `.github/workflows/`.
-* [ ] **Remove the shared guest password** (`guestpassword123`) from `src/services/supabaseService.js` and `scripts/createGuest.js`, and disable that account.
-* [ ] **Remove hard-coded admin email checks** (`isTargetAdmin`) and personal email from the client bundle.
-* [ ] **Workflows:** fail fast when `SUPABASE_SERVICE_ROLE_KEY` is missing instead of silently falling back to the publishable key. Pass `github.event.inputs.*` through `env:` instead of interpolating them into `run:` scripts (shell injection).
-* [ ] **Drop or lock unused tables** `history` and `music_users`, after confirming nothing reads them.
-* [ ] **Patch dependencies:** `npm audit fix` (high: `music-metadata`, moderate: `file-type`).
+* [x] **Revoke `EXECUTE` on `resolve_or_create_test_user` from `anon` and `authenticated`.** Anyone can currently mint an admin profile with it. *(Done Nov 20.)*
+* [ ] **Revoke public `EXECUTE` on maintenance functions** used only by scripts or triggers: `sync_track_artist`, `update_artist_track_count`, `sync_artist_affinity_from_*`, `get_*priority_inflation_candidates`, `get_random_unmapped_local_tracks`. *(Partly done Nov 20: trigger functions and `get_priority_inflation_candidates` revoked. `get_dynamic_priority_inflation_candidates` and `get_random_unmapped_local_tracks` stay callable until the scripts move to the service-role key in Phase 2.)*
+* [x] **Set `search_path`** on the 8 functions flagged by the Supabase security advisor. *(Done Nov 20.)*
+* [ ] **Take a database backup** (manual: Supabase dashboard → Database → Backups) before any further policy work.
+* [x] **Remove leaked data from `public/`:** `exploded_albums_manifest.json` (contains `\\192.168.0.2\e$\…` NAS paths) and the other `local_*` / `rejected_tracks.json` dumps. *(Done Nov 20; scanner output now goes to the gitignored `scripts/cache/`. The files remain in git history.)*
+* [ ] **Rotate the Last.fm API key** and remove the hard-coded fallbacks in `src/` and `.github/workflows/`. *(Hard-coded key removed Nov 20; set `LASTFM_API_KEY` (scripts/workflows) and `VITE_LASTFM_API_KEY` (client). Rotating the old key on last.fm is still a manual step.)*
+* [x] **Remove the shared guest password** (`guestpassword123`) from `src/services/supabaseService.js` and `scripts/createGuest.js`, and disable that account. *(Done Nov 20: password fallback and `scripts/createGuest.js` removed; the account is banned (it had never signed in).)*
+* [x] **Remove hard-coded admin email checks** (`isTargetAdmin`) and personal email from the client bundle. *(Done Nov 20: roles come only from the database. The author email in the About modal is kept as intentional attribution.)*
+* [ ] **Workflows:** fail fast when `SUPABASE_SERVICE_ROLE_KEY` is missing instead of silently falling back to the publishable key. Pass `github.event.inputs.*` through `env:` instead of interpolating them into `run:` scripts (shell injection). *(Shell-injection fix done Nov 20. Service-role fail-fast moves to Phase 2, because the workflows currently write with the publishable key.)*
+* [x] **Drop or lock unused tables** `history` and `music_users`, after confirming nothing reads them. *(Locked Nov 20: API access revoked.)*
+* [x] **Patch dependencies:** `npm audit fix` (high: `music-metadata`, moderate: `file-type`). *(Done Nov 20: `npm audit` reports 0 vulnerabilities.)*
 
 ---
 
@@ -50,12 +50,13 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
 * [ ] **RPCs:** remove all `p_user_id` parameters; use `auth.uid()` inside. Applies to `get_user_favorites`, `sync_user_favorites`, `remove_user_favorite`, `get_user_calibration`, `sync_user_calibration`.
 * [ ] **`upvote_track`:** clamp the delta to ±1 and make it idempotent per user via `user_upvotes (user_id, track_id)` (old item #13).
 * [ ] **`track_genre_flags`:** authenticated insert of own flags only; review and delete restricted to admins.
-* [ ] **`feedback`:** insert-only for users; reading restricted to admins.
+* [x] **`feedback`:** insert-only for users; reading restricted to admins. *(Done early in Phase 0, Nov 20.)*
 * [ ] **Revoke `anon` access** to everything not needed before sign-in (GraphQL exposure lints 0026/0027).
 * [ ] **Server endpoints** `/api/resolve-track` and `/api/playlist-tracks`: require a valid Supabase JWT and add rate limiting so the server can't be used as an open scraping proxy. Add security headers (CSP, HSTS) to `server.js`, and stop returning raw `err.message` to callers.
 * [ ] **Client-side catalog search:** escape `%` and `_` in `ilike` filters (artist/title duplicate checks, search), or move those lookups into RPCs.
 * [ ] **Google access token:** stop persisting it in `localStorage` (`src/services/auth.js`); keep the Supabase session's `provider_token` in memory only.
 * [ ] **Public data exposure:** `local_metadata` (personal library, file paths) and `artist_suggestions` should not be readable without sign-in.
+* [ ] **Scripts and workflows on the service-role key:** once catalog writes are closed to clients, require `SUPABASE_SERVICE_ROLE_KEY` (fail fast if it's missing), then revoke public `EXECUTE` on `get_dynamic_priority_inflation_candidates` and `get_random_unmapped_local_tracks`.
 * [ ] **Verification:** replace `scripts/verify_rls.js` with tests that *fail* if `anon` can read another user's data, write the catalog, or call privileged RPCs. Supabase security advisor must be clean.
 
 ---

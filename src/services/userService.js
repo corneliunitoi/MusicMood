@@ -12,7 +12,7 @@ export const TEST_PERSONAS = [
     {
         key: 'admin_poweruser',
         name: 'Corneliu (Admin)',
-        email: 'corneliunitoi@gmail.com',
+        email: 'admin@musicmood.local',
         role: 'admin',
         user_class: 'poweruser',
         badge: '👑 ADMIN • POWERUSER',
@@ -158,8 +158,7 @@ export async function initUserProfile(googlePayload) {
     }
 
     try {
-        const isTargetAdmin = (googlePayload.email && googlePayload.email.toLowerCase() === 'corneliunitoi@gmail.com');
-        const defaultClass = isTargetAdmin ? 'poweruser' : 'regular';
+        const defaultClass = 'regular';
 
         const { data, error } = await supabase.rpc('resolve_or_create_user', {
             p_google_id: googlePayload.sub,
@@ -187,12 +186,12 @@ export async function initUserProfile(googlePayload) {
             username: data.username || googlePayload.name,
             email: data.email || googlePayload.email,
             avatar_url: data.avatar_url || googlePayload.picture,
-            role: data.role || (isTargetAdmin ? 'admin' : 'user'),
+            role: data.role || 'user',
             user_class: data.user_class || defaultClass,
             discovery_level: data.discovery_level ?? 0.50,
             calibration: calibration || null,
-            isAdmin: (data.role === 'admin' || isTargetAdmin),
-            isPowerUser: (data.user_class === 'poweruser' || isTargetAdmin)
+            isAdmin: data.role === 'admin',
+            isPowerUser: data.user_class === 'poweruser'
         };
 
         // Cross-device synchronization of Sonic Radar calibration
@@ -225,16 +224,16 @@ export async function initUserProfile(googlePayload) {
         return profile;
     } catch (err) {
         console.warn('[UserService] Fallback to in-memory profile:', err.message);
-        const isTargetAdmin = (googlePayload.email && googlePayload.email.toLowerCase() === 'corneliunitoi@gmail.com');
+        // Roles come only from the database; a failed lookup never grants elevated access.
         const fallback = {
             id: 'f7337681-6f7b-4772-852f-4d66317d2bb9',
             username: googlePayload.name || 'Listener',
             email: googlePayload.email || '',
             avatar_url: googlePayload.picture || '',
-            role: isTargetAdmin ? 'admin' : 'user',
-            user_class: isTargetAdmin ? 'poweruser' : 'regular',
-            isAdmin: isTargetAdmin,
-            isPowerUser: isTargetAdmin
+            role: 'user',
+            user_class: 'regular',
+            isAdmin: false,
+            isPowerUser: false
         };
         cachedProfile = fallback;
         localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(fallback));

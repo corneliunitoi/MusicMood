@@ -30,7 +30,7 @@ function getArg(prefix, defaultVal) {
 }
 
 const TARGET_USER = getArg('--user=', 'octakhan888');
-const API_KEY = getArg('--key=', process.env.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8');
+const API_KEY = getArg('--key=', process.env.LASTFM_API_KEY);
 const PAGES_LIMIT = args.includes('--all') ? Infinity : parseInt(getArg('--pages=', '1'), 10);
 const MIN_PLAYS = parseInt(getArg('--min-plays=', '0'), 10);
 const OUTPUT_FILE = getArg('--output=', path.resolve(process.cwd(), `scripts/cache/lastfm_${TARGET_USER}.json`));

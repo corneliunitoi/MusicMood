@@ -18,7 +18,7 @@ function getArg(prefix, defaultVal) {
 const MAX_TRACKS = parseInt(getArg('--max-tracks=', '25'), 10);
 const LIMIT_ARTISTS = parseInt(getArg('--limit=', '25'), 10);
 const IS_DRY_RUN = args.includes('--dry-run');
-const LASTFM_API_KEY = process.env.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8';
+const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));

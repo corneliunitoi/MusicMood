@@ -24,6 +24,9 @@ jobs:
   reconcile:
     name: Reconcile Flags & Disambiguate Catalog
     runs-on: ubuntu-latest
+    env:
+      INPUT_AVATAR_LIMIT: ${{ github.event.inputs.avatar_limit }}
+      INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
     timeout-minutes: 20
 
     steps:
@@ -43,9 +46,9 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
-          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8' }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
         run: |
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "${INPUT_DRY_RUN}" = "true" ]; then
             echo "🔍 Running Staged Genre Healing in DRY-RUN mode..."
             node scripts/healStagedGenres.js --dry-run
           else
@@ -66,7 +69,7 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
         run: |
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "${INPUT_DRY_RUN}" = "true" ]; then
             echo "🔍 Running in DRY-RUN mode..."
             node scripts/reclassifyCatalog.js --loops=2
           else
@@ -87,7 +90,7 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
         run: |
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "${INPUT_DRY_RUN}" = "true" ]; then
             echo "🔍 Running Artist Inflation in DRY-RUN mode..."
             node scripts/inflateArtists.js --dry-run --limit=25 --max-tracks=25
           else
@@ -99,9 +102,9 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
-          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8' }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
         run: |
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "${INPUT_DRY_RUN}" = "true" ]; then
             echo "🔍 Running Staged Artist Ingestion in DRY-RUN mode..."
             node scripts/inflateStagedArtists.js --limit=25 --tracks=10 --dry-run
           else
@@ -123,9 +126,9 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
-          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8' }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
         run: |
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "${INPUT_DRY_RUN}" = "true" ]; then
             echo "🔍 Running Related Artist Discovery in DRY-RUN mode..."
             node scripts/inflateRelatedArtists.js --dry-run --anchors=30 --similar=3 --tracks=25
           else
@@ -138,8 +141,8 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
         run: |
-          AVATAR_LIMIT="${{ github.event.inputs.avatar_limit || '250' }}"
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          AVATAR_LIMIT="${INPUT_AVATAR_LIMIT:-250}"
+          if [ "${INPUT_DRY_RUN}" = "true" ]; then
             echo "🔍 Running Avatar Population in DRY-RUN mode (limit: $AVATAR_LIMIT)..."
             node scripts/populateArtistAvatars.js --limit="$AVATAR_LIMIT" --dry-run
           else
@@ -152,7 +155,7 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
         run: |
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "${INPUT_DRY_RUN}" = "true" ]; then
             echo "🔍 Running Artist Deduplication in DRY-RUN mode..."
             node scripts/mergeDuplicateArtists.js
           else

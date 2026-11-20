@@ -128,6 +128,8 @@ Create a `.env` file in the root directory:
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 VITE_YOUTUBE_CLIENT_ID=your-google-oauth-client-id
+VITE_LASTFM_API_KEY=your-lastfm-api-key   # optional: Last.fm fallback in the client
+LASTFM_API_KEY=your-lastfm-api-key        # scripts and GitHub workflows (repo secret)
 ```
 
 ### 4. Running the Development Server

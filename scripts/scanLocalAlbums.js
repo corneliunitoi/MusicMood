@@ -10,7 +10,7 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduft
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const MANIFEST_PATH = path.resolve(process.cwd(), 'public', 'exploded_albums_manifest.json');
+const MANIFEST_PATH = path.resolve(process.cwd(), 'scripts', 'cache', 'exploded_albums_manifest.json');
 
 const args = process.argv.slice(2);
 function getArg(prefix, defaultVal) {
@@ -55,6 +55,7 @@ function loadManifest() {
 
 function saveManifest(manifest) {
     try {
+        fs.mkdirSync(path.dirname(MANIFEST_PATH), { recursive: true });
         fs.writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2), 'utf8');
     } catch (e) {
         console.warn('⚠️ Could not save manifest:', e.message);

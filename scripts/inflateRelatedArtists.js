@@ -33,7 +33,7 @@ function getArg(prefix, defaultVal) {
     return match ? match.split('=')[1] : defaultVal;
 }
 
-const API_KEY = getArg('--key=', process.env.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8');
+const API_KEY = getArg('--key=', process.env.LASTFM_API_KEY);
 const LIMIT_ANCHORS = parseInt(getArg('--anchors=', '30'), 10);
 const SIMILAR_PER_ANCHOR = parseInt(getArg('--similar=', '3'), 10);
 const TRACKS_PER_ARTIST = parseInt(getArg('--tracks=', '25'), 10);

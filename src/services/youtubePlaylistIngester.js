@@ -126,9 +126,10 @@ export async function fetchArtistCanonicalTracks(artistName, maxTracks = 8) {
     }
 
     // 2. Last.fm fallback if iTunes returned fewer than 3 tracks
-    if (candidates.length < 3) {
+    const lastfmKey = import.meta.env?.VITE_LASTFM_API_KEY;
+    if (candidates.length < 3 && lastfmKey) {
         try {
-            const lastfmUrl = `https://ws.audioscrobbler.com/2.0/?method=artist.gettoptracks&artist=${encodeURIComponent(artistName)}&api_key=d11784f5f2ef96e01a656f80734244e8&format=json&limit=15`;
+            const lastfmUrl = `https://ws.audioscrobbler.com/2.0/?method=artist.gettoptracks&artist=${encodeURIComponent(artistName)}&api_key=${encodeURIComponent(lastfmKey)}&format=json&limit=15`;
             const res = await fetch(lastfmUrl);
             if (res.ok) {
                 const data = await res.json();

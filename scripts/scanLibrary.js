@@ -61,7 +61,7 @@ if (TARGET_GENRE_FILTER && !pathArg) {
 
 // Output statistics file
 const customSuffix = pathArg ? `_custom_${path.basename(LIBRARY_PATH)}` : (TARGET_GENRE_FILTER ? `_${TARGET_GENRE_FILTER}` : '');
-const OUTPUT_FILE = path.join(process.cwd(), 'public', `local_library_stats${customSuffix}.json`);
+const OUTPUT_FILE = path.join(process.cwd(), 'scripts', 'cache', `local_library_stats${customSuffix}.json`);
 const CACHE_DIR = path.join(process.cwd(), 'scripts', 'cache');
 const CACHE_FILE = path.join(CACHE_DIR, 'artist_genre_cache.json');
 
@@ -638,7 +638,7 @@ async function runStaticScanner() {
 
     console.log(`\n🎧 Rejected tracks: ${rejectedTracks.length}`);
     if (rejectedTracks.length > 0) {
-        fs.writeFileSync(path.join(process.cwd(), 'public', 'rejected_tracks.json'), JSON.stringify(rejectedTracks, null, 2));
+        fs.writeFileSync(path.join(process.cwd(), 'scripts', 'cache', 'rejected_tracks.json'), JSON.stringify(rejectedTracks, null, 2));
     }
 
     const outputData = {

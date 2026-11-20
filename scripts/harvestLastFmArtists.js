@@ -30,7 +30,7 @@ function getArg(prefix, defaultVal) {
 }
 
 const TARGET_USER = getArg('--user=', 'octakhan888');
-const API_KEY = getArg('--key=', process.env.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8');
+const API_KEY = getArg('--key=', process.env.LASTFM_API_KEY);
 const ARTIST_OFFSET = parseInt(getArg('--offset=', '0'), 10);
 const ARTIST_COUNT = parseInt(getArg('--count=', '15'), 10);
 const TRACKS_PER_ARTIST = parseInt(getArg('--tracks=', '10'), 10);

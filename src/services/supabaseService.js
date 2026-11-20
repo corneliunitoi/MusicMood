@@ -224,17 +224,7 @@ export async function requestNewArtist(artistName, genreId = 'rock') {
     }
 }
 export async function signInAsGuest() {
-    let { data, error } = await supabase.auth.signInAnonymously();
-
-    if (error && error.message.includes('disabled')) {
-        console.warn("Anonymous sign-ins disabled on Supabase. Falling back to the shared 'testguest@gmail.com' account...");
-        const fallbackLogin = await supabase.auth.signInWithPassword({
-            email: 'testguest@gmail.com',
-            password: 'guestpassword123'
-        });
-        error = fallbackLogin.error;
-        data = fallbackLogin.data;
-    }
+    const { data, error } = await supabase.auth.signInAnonymously();
 
     if (error) {
         console.error("Guest login failed:", error);

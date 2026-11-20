@@ -42,7 +42,7 @@ function getArg(prefix, defaultVal) {
 }
 
 const TARGET_GENRE = getArg('--genre=', 'all').toLowerCase();
-const API_KEY = getArg('--key=', process.env.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8');
+const API_KEY = getArg('--key=', process.env.LASTFM_API_KEY);
 const ARTIST_COUNT = parseInt(getArg('--count=', '200'), 10);
 const TRACKS_PER_ARTIST = parseInt(getArg('--tracks=', '5'), 10);
 const IS_DRY_RUN = args.includes('--dry-run');

@@ -33,6 +33,10 @@ jobs:
   scan-artists:
     name: Scan & Stage Balanced Candidate Artists
     runs-on: ubuntu-latest
+    env:
+      INPUT_COUNT: ${{ github.event.inputs.count }}
+      INPUT_GENRE: ${{ github.event.inputs.genre }}
+      INPUT_MODE: ${{ github.event.inputs.mode }}
     timeout-minutes: 25
 
     steps:
@@ -54,11 +58,11 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
-          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8' }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
         run: |
-          MODE="${{ github.event.inputs.mode || 'balance' }}"
-          COUNT="${{ github.event.inputs.count || '500' }}"
-          GENRE="${{ github.event.inputs.genre || 'blues' }}"
+          MODE="${INPUT_MODE:-balance}"
+          COUNT="${INPUT_COUNT:-500}"
+          GENRE="${INPUT_GENRE:-blues}"
 
           echo "🔍 Scanning artists: mode=$MODE, count=$COUNT, genre=$GENRE..."
           node scripts/scanArtistCandidates.js --mode="$MODE" --count="$COUNT" --genre="$GENRE"

@@ -165,7 +165,7 @@ async function fetchTopSongsFromITunes(artistName) {
     }
 }
 
-const LASTFM_API_KEY = process.env.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8';
+const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
 
 async function fetchTopTracksFromLastFm(artistName, limit = 35) {
     try {
