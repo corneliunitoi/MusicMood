@@ -124,8 +124,17 @@ async function resolveDemoForCandidate(c) {
             })
             .eq('id', c.id);
         return { success: true, title, videoId: match.videoId };
+    } else {
+        // Mark as unresolvable so future runs smoothly proceed to other pending candidates
+        await supabase
+            .from('artist_suggestions')
+            .update({
+                demo_track_title: 'UNRESOLVED',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', c.id);
+        return { success: false };
     }
-    return { success: false };
 }
 
 async function run() {
@@ -146,6 +155,7 @@ async function run() {
             .from('artist_suggestions')
             .select('id, name, primary_genre_id, demo_youtube_id, demo_track_title')
             .is('demo_youtube_id', null)
+            .or('demo_track_title.is.null,demo_track_title.neq.UNRESOLVED')
             .order('request_count', { ascending: false })
             .order('confidence_score', { ascending: false })
             .limit(BATCH_SIZE);

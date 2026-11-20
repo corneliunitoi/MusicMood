@@ -1,0 +1,47 @@
+name: Scheduled Staged Artist Demo Tracks Resolution
+
+on:
+  schedule:
+    # Runs every 2 hours to steadily enrich uncataloged staged artists with demo tracks
+    - cron: '15 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Number of staged artist demos to resolve in this run'
+        required: true
+        type: number
+        default: 500
+
+permissions:
+  contents: read
+
+jobs:
+  populate-demos:
+    name: Resolve & Populate Staged Artist Demos
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Staged Demo Resolution Pipeline
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8' }}
+        run: |
+          LIMIT="${{ github.event.inputs.limit || '500' }}"
+          echo "🎧 Resolving top signature demo tracks for staged artists (limit=$LIMIT)..."
+          node scripts/populateStagedDemos.js --limit="$LIMIT"
