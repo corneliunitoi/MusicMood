@@ -4,10 +4,23 @@
  * Strictly scoped per user ID to guarantee zero bleed-over between users/guests.
  */
 
-import { supabase } from './supabaseService';
+import { supabase, upvoteTrack } from './supabaseService';
 
 const LEGACY_STORAGE_KEY = 'musicmood_favorites';
 const EVENT_NAME = 'musicmood:favorites_updated';
+
+export function getGuestDeviceId() {
+    try {
+        let guestId = localStorage.getItem('musicmood_guest_device_id');
+        if (!guestId || guestId === 'null' || guestId === 'undefined') {
+            guestId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'f7337681-6f7b-4772-852f-4d66317d2bb9';
+            localStorage.setItem('musicmood_guest_device_id', guestId);
+        }
+        return guestId;
+    } catch {
+        return 'f7337681-6f7b-4772-852f-4d66317d2bb9';
+    }
+}
 
 function getActiveUser() {
     try {
@@ -25,7 +38,9 @@ function getActiveUser() {
 
 function getActiveUserId() {
     const user = getActiveUser();
-    return (!user.isGuest && user.id) ? user.id : null;
+    if (!user.isGuest && user.id) return user.id;
+    // For guests, use persistent anonymous device UUID so favorites sync to database
+    return getGuestDeviceId();
 }
 
 function getStorageKey(userId) {
@@ -159,10 +174,19 @@ export function addFavorite(track) {
     const updated = [newFavorite, ...list];
     saveFavorites(updated);
 
-    // Asynchronously sync to Supabase cloud
+    // Asynchronously sync to Supabase cloud (works for both logged-in users and anonymous guests)
     const userId = getActiveUserId();
     if (userId) {
         syncCloudFavorites(userId, [newFavorite]);
+    }
+
+    // A favorite automatically casts an upvote for the track and artist in database
+    if (newFavorite.youtube_video_id && newFavorite.artist) {
+        upvoteTrack({
+            videoId: newFavorite.youtube_video_id,
+            artist: newFavorite.artist,
+            delta: 1
+        }).catch(() => {});
     }
 
     return true;
@@ -218,27 +242,23 @@ export function subscribeFavorites(callback) {
  * isolated strictly to that user's partition.
  */
 export async function loadCloudFavorites(userId) {
-    if (!userId || userId === 'guest') {
-        const guestFavs = getStoredFavorites('guest');
-        saveFavorites(guestFavs, 'guest');
-        return guestFavs;
-    }
+    const effectiveUserId = (!userId || userId === 'guest') ? getGuestDeviceId() : userId;
 
     try {
-        const { data, error } = await supabase.rpc('get_user_favorites', { p_user_id: userId });
+        const { data, error } = await supabase.rpc('get_user_favorites', { p_user_id: effectiveUserId });
         if (error) {
             console.warn('[FavoritesService] Failed to load cloud favorites:', error.message);
-            return getStoredFavorites(userId);
+            return getStoredFavorites(effectiveUserId);
         }
 
         const cloudFavs = Array.isArray(data) ? data : [];
-        const local = getStoredFavorites(userId);
+        const local = getStoredFavorites(effectiveUserId);
 
         if (cloudFavs.length === 0) {
             if (local.length > 0) {
-                syncCloudFavorites(userId, local);
+                syncCloudFavorites(effectiveUserId, local);
             }
-            saveFavorites(local, userId);
+            saveFavorites(local, effectiveUserId);
             return local;
         }
 
@@ -258,17 +278,17 @@ export async function loadCloudFavorites(userId) {
         });
 
         const merged = Array.from(map.values());
-        saveFavorites(merged, userId);
+        saveFavorites(merged, effectiveUserId);
 
         // Push any local items not yet in cloud
         if (merged.length > cloudFavs.length) {
-            syncCloudFavorites(userId, merged);
+            syncCloudFavorites(effectiveUserId, merged);
         }
 
         return merged;
     } catch (e) {
         console.warn('[FavoritesService] Error during cloud favorites hydration:', e);
-        return getStoredFavorites(userId);
+        return getStoredFavorites(effectiveUserId);
     }
 }
 

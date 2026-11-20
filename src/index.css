@@ -15,22 +15,35 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
   background: radial-gradient(circle at 50% -20%, #1e1b4b 0%, #020617 80%);
   overflow-x: hidden;
+  color: #f8fafc;
 }
 
 #root {
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1.25rem 1rem;
   text-align: center;
+}
+
+.hero {
+  min-height: calc(100dvh - 3rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
 h1 {
@@ -439,49 +452,336 @@ h1 {
 
 @media (max-width: 900px) {
   .dashboard-header-simple {
-    gap: 0.85rem;
+    gap: 0.75rem;
+    padding-bottom: 0.85rem;
   }
   .header-actions {
-    justify-content: space-between;
+    justify-content: center;
     width: 100%;
   }
   .header-nav-pills {
-    flex: 1;
-    justify-content: space-around;
+    max-width: 100%;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .header-nav-pills::-webkit-scrollbar {
+    display: none;
   }
   .header-pill-btn {
-    padding: 0.4rem 0.7rem;
+    padding: 0.38rem 0.7rem;
     font-size: 0.82rem;
+  }
+  .pill-label {
+    display: none;
+  }
+  .pill-label-short {
+    display: inline;
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
+  #root {
+    padding: 0.85rem 0.6rem;
+  }
+
+  .hero {
+    min-height: calc(100dvh - 2rem);
+  }
+
+  .glass-card {
+    padding: 2rem 1.25rem;
+    width: 100%;
+  }
+
+  .headspace-header {
+    margin: 1.25rem 0 1rem 0;
+  }
+
+  .headspace-title {
+    font-size: 1.35rem;
+    line-height: 1.25;
+    margin-bottom: 0.25rem;
+  }
+
+  .headspace-subtitle {
+    font-size: 0.82rem;
+    line-height: 1.4;
+    padding: 0 0.5rem;
+  }
+
+  /* Compact top bar */
   .header-top-bar {
     gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: space-between;
   }
+
   .profile-mini {
     font-size: 0.82rem;
     gap: 0.4rem;
   }
+
   .profile-avatar-mini {
     width: 32px;
     height: 32px;
   }
+
+  /* Compact icon-first action buttons */
+  .btn-feedback,
   .btn-signout {
-    padding: 0.3rem 0.65rem;
-    font-size: 0.76rem;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.8rem;
+    min-height: 32px;
+    gap: 0.3rem;
   }
-  .btn-feedback {
-    padding: 0.3rem 0.65rem;
-    font-size: 0.76rem;
+
+  .btn-feedback .feedback-label,
+  .btn-signout .signout-label {
+    display: none; /* Icon-only button on mobile saves 150px! */
   }
+
   .cloud-status {
     display: none;
   }
+
   .header-pill-btn {
-    padding: 0.35rem 0.5rem;
+    padding: 0.35rem 0.55rem;
+    font-size: 0.76rem;
+    gap: 0.25rem;
+  }
+
+  /* Smooth horizontally scrolling tab segments */
+  .mood-category-tabs {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 0.25rem;
+    gap: 0.2rem;
+  }
+
+  .mood-category-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mood-tab-btn {
+    padding: 0.38rem 0.75rem;
+    font-size: 0.8rem;
+    gap: 0.3rem;
+  }
+
+  .mood-tab-icon {
+    font-size: 0.95rem;
+  }
+
+  /* Fluid, compact mood chips shelf */
+  .mood-chips-shelf {
+    gap: 0.5rem 0.6rem;
+    margin-top: 0.9rem;
+    padding: 0 0.25rem;
+  }
+
+  .mood-chip-modern {
+    padding: 0.48rem 0.95rem;
+    font-size: 0.84rem;
+    gap: 0.45rem;
+  }
+
+  /* Player Card Mobile Hierarchy */
+  .player-card {
+    margin: 1.25rem auto;
+    border-radius: 16px;
+    width: 100%;
+  }
+
+  .player-header {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.76rem;
+    gap: 0.4rem;
+  }
+
+  .player-body {
+    padding: 0.85rem 0.75rem 0.65rem 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .player-main-row {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .player-track-info {
+    flex: 1 1 100%;
+    max-width: 100%;
+    justify-content: space-between;
+  }
+
+  .player-thumbnail {
+    width: 46px;
+    height: 46px;
+  }
+
+  .player-title {
+    font-size: 0.9rem;
+  }
+
+  .player-channel {
+    font-size: 0.76rem;
+  }
+
+  .player-transport-controls {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .play-btn-prominent {
+    width: 40px;
+    height: 40px;
+  }
+
+  .player-utility-controls {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    gap: 0.35rem;
+  }
+
+  .player-steering-panel {
+    padding: 0.65rem 0.75rem;
+    gap: 0.65rem;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .player-steering-panel > div {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 480px) {
+  #root {
+    padding: 0.5rem 0.35rem;
+  }
+
+  .headspace-title {
+    font-size: 1.2rem;
+  }
+
+  .headspace-subtitle {
     font-size: 0.78rem;
+  }
+
+  .player-main-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .player-track-info {
+    width: 100%;
+  }
+
+  .player-transport-controls {
+    width: 100%;
+    justify-content: center;
+    gap: 1.25rem;
+  }
+
+  .player-utility-controls {
+    width: 100%;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .mood-chip-modern {
+    padding: 0.42rem 0.8rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* Mobile Landscape Mode (e.g. Galaxy / Pixel in landscape) */
+@media (max-height: 560px) {
+  #root {
+    padding: 0.4rem 0.65rem;
+  }
+
+  .dashboard-header-simple {
+    gap: 0.35rem;
+    padding-bottom: 0.45rem;
+    margin: 0 auto 0.5rem auto;
+  }
+
+  .header-top-bar {
+    gap: 0.35rem;
+  }
+
+  .profile-avatar-mini {
+    width: 26px;
+    height: 26px;
+  }
+
+  .btn-feedback,
+  .btn-signout {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.74rem;
+    min-height: 28px;
+  }
+
+  .btn-feedback .feedback-label,
+  .btn-signout .signout-label {
+    display: none;
+  }
+
+  .headspace-header {
+    margin: 0.35rem 0;
+  }
+
+  .headspace-title {
+    font-size: 1.05rem;
+    margin-bottom: 0.1rem;
+  }
+
+  .headspace-subtitle {
+    display: none;
+  }
+
+  .mood-bar-container {
+    margin-bottom: 0.75rem;
+  }
+
+  .mood-category-tabs {
+    padding: 0.2rem;
+    gap: 0.15rem;
+  }
+
+  .mood-tab-btn {
+    padding: 0.28rem 0.6rem;
+    font-size: 0.76rem;
+  }
+
+  .mood-chips-shelf {
+    margin-top: 0.45rem;
+    gap: 0.35rem;
+  }
+
+  .mood-chip-modern {
+    padding: 0.32rem 0.65rem;
+    font-size: 0.78rem;
+  }
+
+  .player-card {
+    margin: 0.65rem auto;
+  }
+
+  .player-header {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.72rem;
+  }
+
+  .player-body {
+    padding: 0.5rem 0.65rem 0.4rem 0.65rem;
+    gap: 0.5rem;
   }
 }
 

@@ -60,6 +60,36 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.5` — 2026-11-20
+* **Dynamic Elastic Discography Inflation, Anonymous Guest Cloud Engagement & Comprehensive Mobile Responsive Redesign:**
+  * **📈 Dynamic Elastic Discography Inflation Pipeline & Multi-Tier Caps:**
+    * Implemented `public.get_dynamic_priority_inflation_candidates` PostgreSQL SECURITY DEFINER RPC with a 4-tier elastic discography cap based on real listener interest:
+      * *Tier 4 (100 tracks)*: Super-favorites ($\ge 3$ favorited tracks, $\ge 6$ total engagement score, or $\ge 15$ upvotes).
+      * *Tier 3 (75 tracks)*: Strongly engaged ($\ge 2$ favorited tracks, $\ge 4$ total engagement score, or $\ge 8$ upvotes).
+      * *Tier 2 (50 tracks)*: Repeated listener interest ($\ge 2$ total engagement, or $\ge 3$ upvotes).
+      * *Tier 1 (25 tracks)*: Baseline favorites or single upvote.
+      * *Base / Cold Start (10 tracks)*: Default staged candidates strictly capped at 10 tracks to prevent uncontrolled inflation without verified listener demand.
+      * *Custom Override*: Supported manual `custom_track_cap` column in `public.artists`.
+    * Upgraded inflation scripts (`inflateArtists.js`, `inflateRelatedArtists.js`, `inflateUnderrepresentedFavorites.js`) to consume dynamic caps and automatically supplement iTunes catalog hits with Last.fm AudioScrobbler tracks when iTunes has insufficient entries to fill the deficit.
+    * Live verification: **Sonny Rollins** automatically qualified for Tier 4 (100 tracks) and expanded from 57 to 100 verified tracks.
+  * **👻 Anonymous Guest Engagement & Real-Time Cloud Sync:**
+    * Assigned persistent anonymous client device UUIDs (`musicmood_guest_device_id`) in `localStorage` for all guest listeners.
+    * Enhanced `sync_user_favorites` PostgreSQL RPC to auto-provision anonymous guest identities in `public.user_profiles` (`is_guest: true`), enabling guest favorites (❤️) to sync directly into `public.user_favorites` without foreign-key errors.
+    * Integrated dual-action engagement: clicking favorite (❤️) now automatically triggers a real-time database upvote (`upvoteTrack`), boosting both track and artist popularity and affinity scores from any visitor.
+  * **📱 Comprehensive Mobile & Landscape Responsive Redesign:**
+    * Full responsive layout scaling across mobile phones, tablets, and desktop resolutions.
+    * Eliminated root flex-centering on `body`, resolving the critical mobile bug where headers, avatars, and action buttons were pushed into negative scroll space.
+    * Added universal `box-sizing: border-box` and mobile dynamic viewport units (`min-height: 100dvh`) to prevent address-bar layout shifts and horizontal overflow.
+    * Adaptive header navigation: "About", "Feedback", and "Sign Out" collapse to clean icon-first pill buttons on mobile screens, saving $> 150\text{px}$ of horizontal width.
+    * Smooth momentum scrolling (`-webkit-overflow-scrolling: touch`) with hidden scrollbars for `.header-nav-pills` and `.mood-category-tabs`.
+    * Re-architected Player Card (`.player-main-row`) on mobile into thumb-friendly stacked tiers.
+    * Dedicated mobile landscape optimization (`@media (max-height: 560px)`) minimizing vertical margins and hiding auxiliary subtitles so player controls and mood chips stay immediately accessible on screen.
+  * **🐛 Bug Fixes & Catalog Expansion:**
+    * Fixed silent failure in `src/services/supabaseService.js` on artist request submission (`try...catch` replacing invalid `.catch()` on Postgrest filter builder).
+    * Admitted Romanian jazz legend **Anca Parghel** with 25 canonical tracks resolved via iTunes + Last.fm + YouTube InnerTube.
+    * Catalog expanded past **96,222 verified tracks (+2,040 tracks added)** across staged approved artists, related artist discovery, and favorite inflation.
+    * Updated automated GitHub Actions workflow (`.github/workflows/reconcile-flags.yml`) with automated deduplication and synchronized dynamic limits.
+
 ### `v0.8.4a` — 2026-11-13
 * **Automated Staged Ingestion Roadmap Architecture (Option C), Strategic Roadmap Sync & Continuous CUE Ingestion:**
   * **⚖️ Option C: Tiered Hybrid Ingestion Architecture (`ROADMAP.md` Item #19):**

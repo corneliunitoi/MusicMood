@@ -55,7 +55,9 @@ export async function fetchArtistSuggestions(search = '', limit = 250, offset = 
 export async function submitArtistRequest(artistId) {
     try {
         // 1. Try RPC if defined
-        await supabase.rpc('request_staged_artist', { p_artist_id: artistId }).catch(() => {});
+        try {
+            await supabase.rpc('request_staged_artist', { p_artist_id: artistId });
+        } catch {}
 
         // 2. Mark artist as requested and approved in artist_suggestions
         const { error } = await supabase

@@ -16,8 +16,8 @@ function getArg(prefix, defaultVal) {
     return match ? match.split('=')[1] : defaultVal;
 }
 
-const LIMIT_ARTISTS = parseInt(getArg('--limit=', getArg('--artists=', '10')), 10);
-const MAX_TRACKS_PER_ARTIST = parseInt(getArg('--max-tracks=', '10'), 10);
+const LIMIT_ARTISTS = parseInt(getArg('--limit=', getArg('--artists=', '25')), 10);
+const MAX_TRACKS_PER_ARTIST = parseInt(getArg('--max-tracks=', '25'), 10);
 const TARGET_ARTIST = getArg('--artist=', null);
 const TARGET_GENRE = getArg('--genre=', null);
 const IS_DRY_RUN = args.includes('--dry-run');
@@ -165,6 +165,26 @@ async function fetchTopSongsFromITunes(artistName) {
     }
 }
 
+const LASTFM_API_KEY = process.env.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8';
+
+async function fetchTopTracksFromLastFm(artistName, limit = 35) {
+    try {
+        const url = `https://ws.audioscrobbler.com/2.0/?method=artist.gettoptracks&artist=${encodeURIComponent(artistName)}&api_key=${LASTFM_API_KEY}&format=json&limit=${limit}`;
+        const res = await fetch(url, { headers: { 'User-Agent': 'MusicMood/1.0.0' } });
+        if (!res.ok) return [];
+        const data = await res.json();
+        const tracks = data.toptracks?.track || [];
+        const arr = Array.isArray(tracks) ? tracks : [tracks];
+        return arr.map(t => ({
+            title: t.name.trim(),
+            artist: t.artist?.name || artistName,
+            genreHint: null
+        }));
+    } catch {
+        return [];
+    }
+}
+
 async function runInflationPipeline() {
     console.log('=================================================');
     console.log('🚀 MusicMood Artist Discography Inflation Pipeline');
@@ -175,10 +195,10 @@ async function runInflationPipeline() {
     if (IS_DRY_RUN) console.log('   • Mode: DRY RUN (No database inserts)');
     console.log('=================================================\n');
 
-    // 1. Fetch candidate artists (prioritizing 1:1 parity between Upvotes and Unique User Favorites)
+    // 1. Fetch candidate artists (prioritizing 1:1 parity between Upvotes and Unique User Favorites, with elastic tier caps)
     let artists = null;
     try {
-        const { data: rpcArtists, error: rpcErr } = await supabase.rpc('get_priority_inflation_candidates', {
+        const { data: rpcArtists, error: rpcErr } = await supabase.rpc('get_dynamic_priority_inflation_candidates', {
             p_limit: Math.max(LIMIT_ARTISTS * 4, 40),
             p_max_tracks: MAX_TRACKS_PER_ARTIST,
             p_target_genre: TARGET_GENRE,
@@ -187,7 +207,7 @@ async function runInflationPipeline() {
         if (!rpcErr && Array.isArray(rpcArtists) && rpcArtists.length > 0) {
             artists = rpcArtists;
         } else if (rpcErr) {
-            console.warn('[Inflation] RPC candidate fetch notice:', rpcErr.message);
+            console.warn('[Inflation] Dynamic RPC candidate fetch notice:', rpcErr.message);
         }
     } catch (e) {
         console.warn('[Inflation] Falling back to standard query:', e.message);
@@ -196,9 +216,8 @@ async function runInflationPipeline() {
     if (!artists) {
         let query = supabase
             .from('artists')
-            .select('id, name, primary_genre_id, secondary_genre_ids, affinity_score, upvotes, track_count')
+            .select('id, name, primary_genre_id, secondary_genre_ids, affinity_score, upvotes, track_count, custom_track_cap')
             .not('name', 'is', null)
-            .lt('track_count', MAX_TRACKS_PER_ARTIST)
             .order('upvotes', { ascending: false })
             .order('affinity_score', { ascending: false })
             .order('track_count', { ascending: true })
@@ -216,7 +235,10 @@ async function runInflationPipeline() {
             console.error('Failed to query artists:', artErr.message);
             return;
         }
-        artists = fallbackArtists;
+        artists = (fallbackArtists || []).map(a => {
+            const cap = a.custom_track_cap || ((a.upvotes || 0) >= 20 ? 100 : (a.upvotes || 0) >= 5 ? 50 : (a.upvotes || 0) >= 1 ? 25 : MAX_TRACKS_PER_ARTIST);
+            return { ...a, target_track_cap: cap };
+        }).filter(a => (a.track_count || 0) < a.target_track_cap);
     }
 
     if (!artists || artists.length === 0) {
@@ -236,9 +258,11 @@ async function runInflationPipeline() {
         }
 
         const art = artists[i];
+        const targetCap = art.target_track_cap || MAX_TRACKS_PER_ARTIST;
         console.log(`-------------------------------------------------`);
         console.log(`[Artist ${completedArtists + 1}/${LIMIT_ARTISTS}] "${art.name}"`);
         console.log(`   Upvotes: ${art.upvotes || 0} 👍 | Unique Favorites: ${art.unique_favorited_users || 0} ❤️ | Priority Score: ${art.total_priority_score || art.upvotes || 0} pts | Genre: ${art.primary_genre_id || 'unknown'}`);
+        console.log(`   Dynamic Elastic Cap: ${targetCap} tracks (Tier determined by favorites/upvotes)`);
 
         // Get exact current tracks in catalog for this artist
         const { data: existingTracks, error: trkErr } = await supabase
@@ -252,12 +276,18 @@ async function runInflationPipeline() {
         }
 
         const currentCount = existingTracks ? existingTracks.length : 0;
-        const deficit = MAX_TRACKS_PER_ARTIST - currentCount;
+        const deficit = targetCap - currentCount;
 
-        console.log(`   Current Catalog Tracks: ${currentCount} / ${MAX_TRACKS_PER_ARTIST} (Needs +${deficit})`);
+        console.log(`   Current Catalog Tracks: ${currentCount} / ${targetCap} (Needs +${deficit})`);
 
         if (deficit <= 0) {
-            console.log(`   ✅ Already reached cap of ${MAX_TRACKS_PER_ARTIST} tracks. Skipping.`);
+            console.log(`   ✅ Already reached cap of ${targetCap} tracks. Skipping.`);
+            if (!IS_DRY_RUN && (art.track_count || 0) !== currentCount) {
+                await supabase
+                    .from('artists')
+                    .update({ track_count: currentCount })
+                    .eq('id', art.id);
+            }
             continue;
         }
 
@@ -269,19 +299,43 @@ async function runInflationPipeline() {
 
         // Fetch top canonical tracks from iTunes
         console.log(`   🔍 Querying iTunes for top hits...`);
-        const itunesHits = await fetchTopSongsFromITunes(art.name);
+        let topHits = await fetchTopSongsFromITunes(art.name);
 
-        if (itunesHits.length === 0) {
-            console.log(`   ⏭️ No iTunes catalog matches found for ${art.name}. Skipping.`);
+        // Filter and collect missing candidates
+        let missingCandidates = [];
+        const seenInBatch = new Set();
+        for (const hit of topHits) {
+            const clean = hit.title.toLowerCase().replace(/[\(\[].*?[\)\]]/g, '').trim();
+            if (!existingTitles.has(clean) && !seenInBatch.has(clean)) {
+                seenInBatch.add(clean);
+                missingCandidates.push(hit);
+            }
+        }
+
+        // If iTunes doesn't have enough candidates to fulfill the deficit, supplement with Last.fm
+        if (missingCandidates.length < deficit) {
+            console.log(`   📡 iTunes provided ${missingCandidates.length} new hit(s), need ${deficit}. Supplementing with Last.fm...`);
+            const lastFmTracks = await fetchTopTracksFromLastFm(art.name, Math.max(deficit * 2, 50));
+            for (const hit of lastFmTracks) {
+                const clean = hit.title.toLowerCase().replace(/[\(\[].*?[\)\]]/g, '').trim();
+                if (!existingTitles.has(clean) && !seenInBatch.has(clean)) {
+                    seenInBatch.add(clean);
+                    missingCandidates.push(hit);
+                }
+            }
+        }
+
+        if (missingCandidates.length === 0) {
+            console.log(`   ⏭️ No new uncataloged hits found in iTunes or Last.fm for ${art.name}. Skipping.`);
             await sleep(300);
             continue;
         }
 
-        console.log(`   Found ${itunesHits.length} top songs. Resolving missing entries...`);
+        console.log(`   Found ${missingCandidates.length} candidate songs. Resolving missing entries...`);
 
         let addedForArtist = 0;
 
-        for (const hit of itunesHits) {
+        for (const hit of missingCandidates) {
             if (addedForArtist >= deficit) break;
 
             const cleanHitTitle = hit.title.toLowerCase().replace(/[\(\[].*?[\)\]]/g, '').trim();
@@ -346,7 +400,7 @@ async function runInflationPipeline() {
                 .eq('id', art.id);
         }
 
-        console.log(`   🎉 Finished: Added ${addedForArtist} tracks. New total: ${currentCount + addedForArtist}/${MAX_TRACKS_PER_ARTIST}\n`);
+        console.log(`   🎉 Finished: Added ${addedForArtist} tracks. New total: ${currentCount + addedForArtist}/${targetCap}\n`);
         completedArtists++;
         await sleep(500);
     }

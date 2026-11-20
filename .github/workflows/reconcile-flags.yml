@@ -74,6 +74,14 @@ jobs:
             node scripts/reclassifyCatalog.js --apply --loops=2
           fi
 
+      - name: Reconcile & Merge Duplicate Artists
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
+        run: |
+          echo "🧼 Merging duplicate artist clusters and normalizing casing..."
+          node scripts/mergeDuplicateArtists.js --live
+
       - name: Inflate Upvoted & Favorited Artists
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
@@ -81,13 +89,13 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             echo "🔍 Running Artist Inflation in DRY-RUN mode..."
-            node scripts/inflateArtists.js --dry-run --limit=10 --max-tracks=10
+            node scripts/inflateArtists.js --dry-run --limit=25 --max-tracks=25
           else
             echo "🚀 Inflating top upvoted artists..."
-            node scripts/inflateArtists.js --limit=10 --max-tracks=10
+            node scripts/inflateArtists.js --limit=25 --max-tracks=25
           fi
 
-      - name: Ingest User-Requested Staged Artists
+      - name: Ingest Approved Staged Artists
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
@@ -95,10 +103,10 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             echo "🔍 Running Staged Artist Ingestion in DRY-RUN mode..."
-            node scripts/inflateStagedArtists.js --requested-only --limit=15 --tracks=10 --dry-run
+            node scripts/inflateStagedArtists.js --limit=25 --tracks=10 --dry-run
           else
-            echo "🚀 Ingesting user-requested staged artists into permanent catalog..."
-            node scripts/inflateStagedArtists.js --requested-only --limit=15 --tracks=10
+            echo "🚀 Ingesting approved staged artists into permanent catalog..."
+            node scripts/inflateStagedArtists.js --limit=25 --tracks=10
           fi
 
       - name: Ingest Local Lossless CUE Tracks to Catalog
@@ -119,10 +127,10 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             echo "🔍 Running Related Artist Discovery in DRY-RUN mode..."
-            node scripts/inflateRelatedArtists.js --dry-run --anchors=5 --similar=3 --tracks=10
+            node scripts/inflateRelatedArtists.js --dry-run --anchors=30 --similar=3 --tracks=25
           else
             echo "🚀 Ingesting related artists for top upvotes..."
-            node scripts/inflateRelatedArtists.js --anchors=5 --similar=3 --tracks=10
+            node scripts/inflateRelatedArtists.js --anchors=30 --similar=3 --tracks=25
           fi
 
       - name: Populate Missing Artist Avatars (Open-License)
