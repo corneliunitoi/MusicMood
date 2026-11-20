@@ -60,6 +60,29 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.7` — 2026-11-20
+* **Universal Global Search Across Songs & Artists, Scheduled Staged Demo Tracks Resolution, and Authentication Hardening:**
+  * **🔍 Discrete Universal Global Search (`GlobalSearchModal.jsx`):**
+    * Added a discrete `🔍 Search` button in the top header bar alongside *About* and *Feedback*, automatically collapsing to a sleek `🔍` icon on mobile screens.
+    * Integrated global keyboard shortcut: pressing `Ctrl+K` (or `Cmd+K`) anywhere in the app opens/toggles the universal search overlay.
+    * Multi-tier search covering all three domains simultaneously:
+      * **🎵 Playable Songs (`public.tracks`)**: Real-time matching by title and artist. Clicking any song immediately plays it in the persistent player with zero lag via `sessionEngine.playOnDemand()`.
+      * **👤 Catalog Artists (`public.artists`)**: Surfaces admitted catalog artists with genre tags and track counts. Clicking an artist opens Artists Explorer pre-focused on their catalog.
+      * **⏳ Staged Candidates (`public.artist_suggestions`)**: Queries 17,500+ uncataloged staging pool artists with one-tap signature demo track audition (`[▶ Demo]`) and staging inspection.
+    * Added scope filter tabs (`All`, `🎵 Songs`, `👤 Artists`, `⏳ Staged`) with debounced live search and `Escape` key dismissal.
+  * **🎧 Scheduled Staged Artist Demo Tracks Resolution Engine:**
+    * Automated signature demo track resolution for uncataloged staged artists across YouTube Music, iTunes, and Last.fm.
+    * Created dedicated GitHub Actions workflow `.github/workflows/populate-staged-demos.yml` executing every 2 hours (`15 */2 * * *`) with manual trigger (`workflow_dispatch`) support.
+    * Integrated hourly demo population into `.github/workflows/scan-artists-hourly.yml`.
+    * Resolved SQL three-valued logic in `scripts/populateStagedDemos.js` via `.or('demo_track_title.is.null,demo_track_title.neq.UNRESOLVED')`, preventing unresolvable candidates from blocking batch advancement.
+  * **🔑 Google Authentication Hardening & Guest-to-Admin Session Upgrade:**
+    * Configured `requestConfig.prompt = options.prompt !== undefined ? options.prompt : 'select_account'` in `src/services/auth.js` to guarantee the Google OAuth account picker modal appears across mobile and desktop browsers with third-party cookie restrictions.
+    * Added 1-click `🔑 Sign In with Google` pill directly in the header when in Guest mode (`GU Guest User`), upgrading sessions directly into **👑 ADMIN • POWERUSER** and hydrating private playlists without requiring manual signout.
+    * Added bidirectional token synchronization (`onTokenUpdate`) between `src/App.jsx` and `src/components/Dashboard.jsx`.
+    * Implemented CSS safe-area inset top padding (`env(safe-area-inset-top)`) preventing mobile device status bars in landscape orientation from overlapping header navigation actions.
+  * **✨ Artists Explorer Search Clean-Up & Fuzzy Matching:**
+    * Cleaned redundant dashboard search bar, consolidating search into the unified Artists Explorer with fuzzy typo-tolerant matching (Levenshtein distance) across all canonical genres.
+
 ### `v0.8.6a` — 2026-11-20
 * **YouTube Playlist Ingestion Fix & On-The-Spot Artist Inflation with Guardrails:**
   * **⚡ Resolved "The playlist does not exist" Ingestion Failure:**
