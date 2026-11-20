@@ -29,11 +29,12 @@ import {
     subscribeUser
 } from '../services/userService';
 
-function Dashboard({ token, onLogout }) {
+function Dashboard({ token, onLogout, onTokenUpdate }) {
     const [profile, setProfile] = useState(null);
     const [playlists, setPlaylists] = useState([]);
     const [playlistError, setPlaylistError] = useState(null);
     const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(false);
+    const [isAuthenticating, setIsAuthenticating] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -44,6 +45,10 @@ function Dashboard({ token, onLogout }) {
             let activeToken = token;
             if (forceConsent) {
                 activeToken = await requestGoogleLogin({ prompt: 'consent' });
+                if (onTokenUpdate) onTokenUpdate(activeToken);
+                const profileData = await fetchUserProfile(activeToken);
+                const resolvedUser = await initUserProfile(profileData);
+                setProfile({ ...profileData, ...resolvedUser });
             }
             const data = await fetchUserPlaylists(activeToken);
             setPlaylists(data || []);
@@ -53,6 +58,24 @@ function Dashboard({ token, onLogout }) {
             setPlaylistError(err.message);
         } finally {
             setIsLoadingPlaylists(false);
+        }
+    };
+
+    const handleGoogleSignIn = async () => {
+        setIsAuthenticating(true);
+        try {
+            const newToken = await requestGoogleLogin({ prompt: 'select_account' });
+            if (newToken) {
+                if (onTokenUpdate) onTokenUpdate(newToken);
+                const profileData = await fetchUserProfile(newToken);
+                const resolvedUser = await initUserProfile(profileData);
+                setProfile({ ...profileData, ...resolvedUser });
+                await refreshPlaylists();
+            }
+        } catch (err) {
+            console.warn('[Dashboard] Direct Google Sign-In error:', err.message);
+        } finally {
+            setIsAuthenticating(false);
         }
     };
 
@@ -366,6 +389,33 @@ function Dashboard({ token, onLogout }) {
                                     REGULAR
                                 </span>
                             ) : null}
+
+                            {/* Prominent Google Sign-In button for Guest users */}
+                            {(profile.isGuest || token === 'guest' || profile.role === 'guest') && (
+                                <button
+                                    type="button"
+                                    className="btn-google-signin-pill"
+                                    onClick={handleGoogleSignIn}
+                                    disabled={isAuthenticating}
+                                    style={{
+                                        background: 'linear-gradient(135deg, #4285F4, #34A853)',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        borderRadius: '9999px',
+                                        padding: '0.2rem 0.65rem',
+                                        fontSize: '0.72rem',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.35rem',
+                                        boxShadow: '0 2px 6px rgba(66, 133, 244, 0.35)'
+                                    }}
+                                    title="Sign in with your Google account to unlock Admin & YouTube playlists"
+                                >
+                                    <span>{isAuthenticating ? '⏳ Signing in...' : '🔑 Sign In with Google'}</span>
+                                </button>
+                            )}
 
                             {/* Test Persona Switcher for Feature Validation */}
                             {(isAdmin() || isTestUserActive()) && (

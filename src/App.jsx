@@ -41,7 +41,7 @@ function App() {
 
   if (token) {
     return (
-      <Dashboard token={token} onLogout={handleLogout} />
+      <Dashboard token={token} onLogout={handleLogout} onTokenUpdate={(newToken) => setToken(newToken)} />
     );
   }
 

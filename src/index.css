@@ -221,6 +221,7 @@ h1 {
   flex-direction: column;
   align-items: center;
   gap: 0.95rem;
+  padding-top: max(0.25rem, env(safe-area-inset-top, 0px));
   padding-bottom: 1.35rem;
   margin: 0 auto 1.5rem auto;
   max-width: 860px;
@@ -703,11 +704,12 @@ h1 {
 /* Mobile Landscape Mode (e.g. Galaxy / Pixel in landscape) */
 @media (max-height: 560px) {
   #root {
-    padding: 0.4rem 0.65rem;
+    padding: max(0.4rem, env(safe-area-inset-top, 0.4rem)) max(0.65rem, env(safe-area-inset-right, 0.65rem)) max(0.4rem, env(safe-area-inset-bottom, 0.4rem)) max(0.65rem, env(safe-area-inset-left, 0.65rem));
   }
 
   .dashboard-header-simple {
     gap: 0.35rem;
+    padding-top: max(0.15rem, env(safe-area-inset-top, 0px));
     padding-bottom: 0.45rem;
     margin: 0 auto 0.5rem auto;
   }

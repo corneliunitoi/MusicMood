@@ -63,11 +63,9 @@ export async function requestGoogleLogin(options = {}) {
                 }
             });
 
-            // Suppress redundant consent prompt unless explicitly requested (e.g., granting scopes)
+            // Ensure the Google account picker / consent popup is displayed reliably across mobile & desktop
             const requestConfig = {};
-            if (options.prompt) {
-                requestConfig.prompt = options.prompt;
-            }
+            requestConfig.prompt = options.prompt !== undefined ? options.prompt : 'select_account';
             tokenClient.requestAccessToken(requestConfig);
         } catch (e) {
             reject(e);
