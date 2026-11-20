@@ -296,13 +296,19 @@ async function loadAllArtists(force = false) {
     return fetchAllPromise;
 }
 
-export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistName, initialSearchQuery = '' }) {
+export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistName, initialSearchQuery = '', initialGenre = 'all' }) {
     const [artists, setArtists] = useState(cachedAllArtists || []);
     const [isLoading, setIsLoading] = useState(!cachedAllArtists);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState(initialSearchQuery || '');
     const [searchFilterView, setSearchFilterView] = useState('all'); // 'all' | 'staged' | 'catalog'
-    const [selectedGenre, setSelectedGenre] = useState('all');
+    const [selectedGenre, setSelectedGenre] = useState(initialGenre || 'all');
+
+    useEffect(() => {
+        if (initialGenre) {
+            setSelectedGenre(initialGenre);
+        }
+    }, [initialGenre]);
     const [selectedArtist, setSelectedArtist] = useState(null);
     const [artistTracks, setArtistTracks] = useState([]);
     const [isLoadingTracks, setIsLoadingTracks] = useState(false);

@@ -195,6 +195,25 @@ export default function WelcomeSplash({ onStartTour, onClose }) {
                             Choose Familiar (1 hop), Balanced (2 hops), or Deep Cuts to govern exactly how far the engine wanders.
                         </div>
                     </div>
+
+                    {/* Pillar 4 */}
+                    <div
+                        style={{
+                            background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.08), rgba(168, 85, 247, 0.08))',
+                            border: '1px solid rgba(236, 72, 153, 0.3)',
+                            borderRadius: '16px',
+                            padding: '1.1rem 1rem',
+                            transition: 'all 0.2s ease'
+                        }}
+                    >
+                        <div style={{ fontSize: '1.4rem', marginBottom: '0.4rem' }}>💎</div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#fbcfe8', marginBottom: '0.25rem' }}>
+                            Discover New Artists to Your Liking
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: '#cbd5e1', lineHeight: '1.45' }}>
+                            Audition 17,500+ uncataloged gems in Potential Matches with instant demo playback and vote to admit favorites into rotation.
+                        </div>
+                    </div>
                 </div>
 
                 {/* Call to Action Footer */}

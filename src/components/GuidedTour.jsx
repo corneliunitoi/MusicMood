@@ -10,15 +10,24 @@ const TOUR_STEPS = [
     {
         id: 'calibrate',
         targetSelector: '[data-tour="calibrate"]',
-        badge: 'Step 1 of 6',
+        badge: 'Step 1 of 7',
         icon: '🎛️',
         title: 'Sculpt Your Sound Baseline',
         description: 'Most streaming apps lock you into a hidden profile you cannot see or change. The Calibrate tool lets you visibly drag a 6-point sound polygon and filter out hard dealbreakers like harsh screaming or mumble autotune so they never play.'
     },
     {
+        id: 'artists',
+        targetSelector: '[data-tour="artists"]',
+        badge: 'Step 2 of 7 — ✨ Fresh Discovery',
+        icon: '💎',
+        title: 'Discover New Artists to Your Liking',
+        isFlashy: true,
+        description: 'Tired of the same artists on repeat? Dive into Potential Matches—a treasure trove of 17,500+ uncataloged gems! Hit "Roll 50 Fresh" to audition instant demo tracks, discover incredible new artists matching your vibe, and vote with 1-click "+ Request" to admit them directly into the catalog.'
+    },
+    {
         id: 'playlists',
         targetSelector: '[data-tour="playlists"]',
-        badge: 'Step 2 of 6',
+        badge: 'Step 3 of 7',
         icon: '📥',
         title: 'Bring Your Music Library In',
         description: 'You do not have to start from scratch. Connect your YouTube library to import existing playlists directly into MusicMood. The engine indexes your favorite tracks across our 115-genre harmonic taxonomy with zero Google API quota usage.'
@@ -26,7 +35,7 @@ const TOUR_STEPS = [
     {
         id: 'mood-bar',
         targetSelector: '[data-tour="mood-bar"]',
-        badge: 'Step 3 of 6',
+        badge: 'Step 4 of 7',
         icon: '🧠',
         title: 'Listen by Emotion, Not Rigid Genres',
         description: 'Choose how you want to feel right now across Focus, Chill, Energetic, Happy, Sad, or Party. Each mood is anchored to your calibrated Home genre—so clicking "Focus" instantly delivers your concentration flow state (e.g. Baroque or Lo-Fi Beats).'
@@ -34,7 +43,7 @@ const TOUR_STEPS = [
     {
         id: 'player',
         targetSelector: '[data-tour="player"]',
-        badge: 'Step 4 of 6',
+        badge: 'Step 5 of 7',
         icon: '🎧',
         title: 'Music That Never Gets Stale',
         description: 'We built MusicMood to eliminate streaming fatigue. The player constantly rotates artists and styles in the background so you never get trapped hearing the same five songs on repeat.'
@@ -42,7 +51,7 @@ const TOUR_STEPS = [
     {
         id: 'surprise-me',
         targetSelector: '[data-tour="surprise-me"]',
-        badge: 'Step 5 of 6',
+        badge: 'Step 6 of 7',
         icon: '🎲',
         title: 'Instant Variety on Demand',
         description: 'Ready for something different? Hit "Surprise Me" to leap to a new genre that naturally fits your flow—no jarring tempo drops, no mood killers.'
@@ -50,14 +59,14 @@ const TOUR_STEPS = [
     {
         id: 'discovery',
         targetSelector: '[data-tour="discovery"]',
-        badge: 'Step 6 of 6',
+        badge: 'Step 7 of 7',
         icon: '🧭',
         title: 'You Control the Exploration Horizon',
         description: 'You set the leash on how adventurous playback is allowed to be: Familiar keeps jumps to 1-hop sister genres, Balanced bridges adjacent styles within 2 hops, and Deep Cuts explores the outer edges of the graph.'
     }
 ];
 
-export default function GuidedTour({ onFinish, onOpenCalibrate }) {
+export default function GuidedTour({ onFinish, onOpenCalibrate, onOpenArtists }) {
     const [stepIndex, setStepIndex] = useState(0);
     const [targetRect, setTargetRect] = useState(null);
     const cardRef = useRef(null);
@@ -176,8 +185,10 @@ export default function GuidedTour({ onFinish, onOpenCalibrate }) {
                         width: `${targetRect.width + 12}px`,
                         height: `${targetRect.height + 12}px`,
                         borderRadius: '14px',
-                        border: '2px solid #a855f7',
-                        boxShadow: '0 0 0 9999px rgba(5, 7, 15, 0.72), 0 0 25px rgba(168, 85, 247, 0.65)',
+                        border: currentStep.isFlashy ? '2px solid #ec4899' : '2px solid #a855f7',
+                        boxShadow: currentStep.isFlashy
+                            ? '0 0 0 9999px rgba(5, 7, 15, 0.72), 0 0 35px rgba(236, 72, 153, 0.85), 0 0 15px rgba(168, 85, 247, 0.7)'
+                            : '0 0 0 9999px rgba(5, 7, 15, 0.72), 0 0 25px rgba(168, 85, 247, 0.65)',
                         pointerEvents: 'none',
                         zIndex: 2450,
                         transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
@@ -194,11 +205,15 @@ export default function GuidedTour({ onFinish, onOpenCalibrate }) {
             >
                 <div
                     style={{
-                        background: 'linear-gradient(145deg, rgba(24, 20, 60, 0.98), rgba(15, 23, 42, 0.98))',
-                        border: '1px solid rgba(168, 85, 247, 0.45)',
+                        background: currentStep.isFlashy
+                            ? 'linear-gradient(145deg, rgba(38, 16, 68, 0.98), rgba(15, 23, 42, 0.98))'
+                            : 'linear-gradient(145deg, rgba(24, 20, 60, 0.98), rgba(15, 23, 42, 0.98))',
+                        border: currentStep.isFlashy ? '1px solid rgba(236, 72, 153, 0.65)' : '1px solid rgba(168, 85, 247, 0.45)',
                         borderRadius: '18px',
                         padding: '1.25rem',
-                        boxShadow: '0 20px 45px -10px rgba(0, 0, 0, 0.8), 0 0 30px rgba(168, 85, 247, 0.35)',
+                        boxShadow: currentStep.isFlashy
+                            ? '0 20px 45px -10px rgba(0, 0, 0, 0.8), 0 0 40px rgba(236, 72, 153, 0.4), 0 0 20px rgba(168, 85, 247, 0.35)'
+                            : '0 20px 45px -10px rgba(0, 0, 0, 0.8), 0 0 30px rgba(168, 85, 247, 0.35)',
                         color: '#f8fafc',
                         textAlign: 'left'
                     }}
@@ -210,9 +225,9 @@ export default function GuidedTour({ onFinish, onOpenCalibrate }) {
                                 fontSize: '0.72rem',
                                 fontWeight: '700',
                                 textTransform: 'uppercase',
-                                color: '#d8b4fe',
-                                background: 'rgba(168, 85, 247, 0.18)',
-                                border: '1px solid rgba(168, 85, 247, 0.35)',
+                                color: currentStep.isFlashy ? '#fbcfe8' : '#d8b4fe',
+                                background: currentStep.isFlashy ? 'rgba(236, 72, 153, 0.22)' : 'rgba(168, 85, 247, 0.18)',
+                                border: currentStep.isFlashy ? '1px solid rgba(236, 72, 153, 0.5)' : '1px solid rgba(168, 85, 247, 0.35)',
                                 borderRadius: '999px',
                                 padding: '0.2rem 0.55rem'
                             }}
@@ -240,15 +255,53 @@ export default function GuidedTour({ onFinish, onOpenCalibrate }) {
                     {/* Step Title */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.45rem' }}>
                         <span style={{ fontSize: '1.25rem' }}>{currentStep.icon}</span>
-                        <h2 style={{ fontSize: '1rem', fontWeight: '700', color: '#ffffff', margin: 0 }}>
+                        <h2 style={{
+                            fontSize: '1.02rem',
+                            fontWeight: '800',
+                            color: currentStep.isFlashy ? '#fdf2f8' : '#ffffff',
+                            margin: 0
+                        }}>
                             {currentStep.title}
                         </h2>
                     </div>
 
                     {/* Step Description */}
-                    <p style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.5', margin: '0 0 1.1rem 0' }}>
+                    <p style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.5', margin: '0 0 1rem 0' }}>
                         {currentStep.description}
                     </p>
+
+                    {/* Quick Launch Button for Artists Step */}
+                    {currentStep.id === 'artists' && onOpenArtists && (
+                        <div style={{ marginBottom: '0.9rem' }}>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onOpenArtists();
+                                    onFinish();
+                                }}
+                                style={{
+                                    width: '100%',
+                                    background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '0.45rem 0.85rem',
+                                    color: '#ffffff',
+                                    fontSize: '0.8rem',
+                                    fontWeight: '700',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.45rem',
+                                    boxShadow: '0 4px 15px rgba(236, 72, 153, 0.45)',
+                                    transition: 'all 0.15s'
+                                }}
+                            >
+                                <span>🎲</span>
+                                <span>Explore Potential Matches Now →</span>
+                            </button>
+                        </div>
+                    )}
 
                     {/* Navigation Buttons & Progress Dots */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.75rem' }}>

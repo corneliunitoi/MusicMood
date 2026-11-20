@@ -138,10 +138,12 @@ function Dashboard({ token, onLogout, onTokenUpdate }) {
     const showFavorites = activeTopPanel === 'favorites';
     const showArtists = activeTopPanel === 'artists';
     const [artistToOpen, setArtistToOpen] = useState(null);
+    const [artistsInitialGenre, setArtistsInitialGenre] = useState('all');
 
     const handleOpenArtist = (artistName) => {
         if (!artistName) return;
         setArtistToOpen(artistName);
+        setArtistsInitialGenre('all');
         setActiveTopPanel('artists');
     };
 
@@ -586,9 +588,13 @@ function Dashboard({ token, onLogout, onTokenUpdate }) {
                         <button
                             type="button"
                             className={`header-pill-btn ${showArtists ? 'active' : ''}`}
-                            onClick={() => toggleTopPanel('artists')}
+                            onClick={() => {
+                                setArtistsInitialGenre('all');
+                                toggleTopPanel('artists');
+                            }}
                             aria-selected={showArtists}
-                            title="Browse catalog artists by genre"
+                            title="Browse catalog artists & discover potential matches"
+                            data-tour="artists"
                         >
                             <span className="pill-icon">👤</span>
                             <span className="pill-label">Artists</span>
@@ -644,6 +650,7 @@ function Dashboard({ token, onLogout, onTokenUpdate }) {
                 {/* ARTISTS EXPLORER */}
                 {showArtists && (
                     <ArtistsExplorer
+                        initialGenre={artistsInitialGenre}
                         initialArtistName={artistToOpen}
                         onPlayTrack={(track) => {
                             setActiveTrack(track);
@@ -772,6 +779,11 @@ function Dashboard({ token, onLogout, onTokenUpdate }) {
                         onOpenCalibrate={() => {
                             finishTour();
                             setActiveTopPanel('calibrate');
+                        }}
+                        onOpenArtists={() => {
+                            finishTour();
+                            setArtistsInitialGenre('potential');
+                            setActiveTopPanel('artists');
                         }}
                     />
                 )}
