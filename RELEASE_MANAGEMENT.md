@@ -60,6 +60,26 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.7a` — 2026-11-20
+* **Security Hardening — Phase 0 (Emergency Fixes):**
+  * **🗄️ Database privileges (live project, recorded in `supabase/migrations/`):**
+    * Revoked `TRUNCATE`, `TRIGGER` and `REFERENCES` from `anon` and `authenticated` on all `public` tables, plus default privileges for new tables. Row Level Security does not apply to `TRUNCATE`, so the publishable key could previously empty any table in one call.
+    * Revoked public `EXECUTE` on `resolve_or_create_test_user` (could mint admin profiles), the four trigger functions and the unused `get_priority_inflation_candidates`.
+    * Pinned `search_path = public` on the 8 functions flagged by the Supabase security advisor.
+    * Revoked API access to the unused `history` and `music_users` tables.
+    * Made `public.feedback` insert-only for clients (signed-in users could previously read every comment).
+    * Banned the shared `testguest` auth account, whose password was committed to the repository (it had never signed in).
+  * **🔑 Secrets & personal data:**
+    * Removed the hard-coded Last.fm API key from the client, scripts and workflows. It is now read from `VITE_LASTFM_API_KEY` (client) and `LASTFM_API_KEY` (scripts and the GitHub secret).
+    * Removed the guest password fallback from `src/services/supabaseService.js` and deleted `scripts/createGuest.js`.
+    * Removed email-based admin detection; roles now come only from `public.user_profiles`.
+    * Stopped publishing personal library dumps from `public/` (NAS paths in `exploded_albums_manifest.json`); scanner output now goes to the gitignored `scripts/cache/`.
+  * **⚙️ CI & dependencies:**
+    * GitHub workflows pass `workflow_dispatch` inputs through `env:` instead of interpolating them into shell scripts (shell-injection fix).
+    * `npm audit fix`: resolved the high-severity `music-metadata` and moderate `file-type` advisories (0 vulnerabilities).
+  * **🗺️ Roadmap:** Reprioritized `ROADMAP.md` on security and stability (Phases 0–3) before the Android migration; all feature work is frozen.
+  * **Unchanged by design:** guest upvotes and favorites keep working (verified as the `anon` role). Guest favorites already use per-device IDs (since `v0.8.5`); listening history and calibration still use the shared guest ID until the Supabase Auth migration (Phase 1).
+
 ### `v0.8.7` — 2026-11-20
 * **Universal Global Search Across Songs & Artists, Scheduled Staged Demo Tracks Resolution, and Authentication Hardening:**
   * **🔍 Discrete Universal Global Search (`GlobalSearchModal.jsx`):**
