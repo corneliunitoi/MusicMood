@@ -1184,32 +1184,33 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
                         </div>
                     </div>
 
-                    {!searchQuery && (
-                        <button
-                            type="button"
-                            onClick={() => handleRollFifty()}
-                            disabled={isRolling}
-                            style={{
-                                background: isRolling ? 'rgba(139, 92, 246, 0.35)' : 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-                                color: '#ffffff',
-                                border: 'none',
-                                borderRadius: '8px',
-                                padding: '0.35rem 0.85rem',
-                                fontSize: '0.78rem',
-                                fontWeight: '700',
-                                cursor: isRolling ? 'wait' : 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.4rem',
-                                boxShadow: '0 2px 10px rgba(139, 92, 246, 0.35)',
-                                transition: 'all 0.15s'
-                            }}
-                            title="Roll 50 fresh random staged candidates with playable demos"
-                        >
-                            <span style={{ display: 'inline-block', transform: isRolling ? 'rotate(180deg)' : 'none', transition: 'transform 0.4s' }}>🎲</span>
-                            <span>{isRolling ? 'Rolling...' : 'Roll 50 Fresh'}</span>
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (searchQuery) setSearchQuery('');
+                            handleRollFifty();
+                        }}
+                        disabled={isRolling}
+                        style={{
+                            background: isRolling ? 'rgba(139, 92, 246, 0.35)' : 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '0.35rem 0.85rem',
+                            fontSize: '0.78rem',
+                            fontWeight: '700',
+                            cursor: isRolling ? 'wait' : 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            boxShadow: '0 2px 10px rgba(139, 92, 246, 0.35)',
+                            transition: 'all 0.15s'
+                        }}
+                        title="Roll 50 fresh random staged candidates with playable demos"
+                    >
+                        <span style={{ display: 'inline-block', transform: isRolling ? 'rotate(180deg)' : 'none', transition: 'transform 0.4s' }}>🎲</span>
+                        <span>{isRolling ? 'Rolling...' : 'Roll 50 Fresh'}</span>
+                    </button>
                 </div>
             ) : (
                 /* Results Count */
