@@ -2,13 +2,12 @@
  * inflateStagedArtists.js
  * 
  * Takes approved artists from `public.artist_suggestions`, resolves their
- * top iconic studio tracks via YouTube Music InnerTube, and admits them
- * directly into `public.artists` and `public.tracks`.
+ * top iconic studio tracks via iTunes + Last.fm + YouTube Music InnerTube,
+ * and admits them directly into `public.artists` and `public.tracks`.
  * 
  * Usage:
- *   node scripts/inflateStagedArtists.js --status=approved --tracks=5
- *   node scripts/inflateStagedArtists.js --batch=kexp-artists-2026-11-13 --limit=10 --tracks=5
- *   node scripts/inflateStagedArtists.js --batch=kexp-artists-2026-11-13 --limit=5 --dry-run
+ *   node scripts/inflateStagedArtists.js --status=approved --tracks=10 --limit=50
+ *   node scripts/inflateStagedArtists.js --all --tracks=10
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -34,6 +33,7 @@ const STATUS = getArg('--status=', 'approved');
 const LIMIT = parseInt(getArg('--limit=', '50'), 10);
 const TRACKS_PER_ARTIST = parseInt(getArg('--tracks=', '10'), 10);
 const IS_DRY_RUN = args.includes('--dry-run');
+const ALL_MODE = args.includes('--all');
 const API_KEY = process.env.LASTFM_API_KEY || 'd11784f5f2ef96e01a656f80734244e8';
 
 function sleep(ms) {
@@ -42,8 +42,8 @@ function sleep(ms) {
 
 function titlesMatch(targetTitle, ytVideoTitle) {
     if (!targetTitle || !ytVideoTitle) return false;
-    const cleanTarget = targetTitle.toLowerCase().replace(/[^a-z0-9]/gi, ' ').trim();
-    const cleanYt = ytVideoTitle.toLowerCase().replace(/[^a-z0-9]/gi, ' ').trim();
+    const cleanTarget = targetTitle.toLowerCase().replace(/[^a-z0-9а-яё]/gi, ' ').trim();
+    const cleanYt = ytVideoTitle.toLowerCase().replace(/[^a-z0-9а-яё]/gi, ' ').trim();
     if (cleanYt.includes(cleanTarget) || cleanTarget.includes(cleanYt)) return true;
     const targetWords = cleanTarget.split(/\s+/).filter(w => w.length > 2);
     if (targetWords.length === 0) return true;
@@ -115,20 +115,81 @@ async function resolveInnertube(artist, trackName) {
     }
 }
 
-async function fetchTopTracksFromLastFm(artistName, limit = 15) {
+async function fetchTopSongsFromItunes(artistName, limit = 25) {
+    try {
+        const url = `https://itunes.apple.com/search?term=${encodeURIComponent(artistName)}&entity=song&limit=${limit}`;
+        const res = await fetch(url);
+        if (!res.ok) return [];
+        const data = await res.json();
+        if (!data.results || !Array.isArray(data.results)) return [];
+
+        const cleanArtistLower = artistName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const matched = data.results.filter(item => {
+            if (!item.trackName || !item.artistName) return false;
+            const itemArtist = item.artistName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return itemArtist === cleanArtistLower ||
+                   itemArtist.includes(cleanArtistLower) ||
+                   cleanArtistLower.includes(itemArtist);
+        });
+
+        const seen = new Set();
+        const songs = [];
+        for (const item of matched) {
+            const cleanTitle = item.trackName.replace(/[\(\[].*?[\)\]]/g, '').trim().toLowerCase();
+            if (!seen.has(cleanTitle)) {
+                seen.add(cleanTitle);
+                songs.push({ title: item.trackName });
+            }
+        }
+        return songs;
+    } catch {
+        return [];
+    }
+}
+
+async function fetchTopTracksFromLastFm(artistName, limit = 25) {
     const url = `https://ws.audioscrobbler.com/2.0/?method=artist.gettoptracks&artist=${encodeURIComponent(artistName)}&api_key=${API_KEY}&format=json&limit=${limit}`;
     try {
         const res = await fetch(url, { headers: { 'User-Agent': 'MusicMood/1.0.0' } });
         if (!res.ok) return [];
         const data = await res.json();
         const tracks = data.toptracks?.track || [];
-        return tracks.map(t => ({
-            title: t.name.trim(),
-            listeners: parseInt(t.listeners || '0', 10)
-        }));
+        const arr = Array.isArray(tracks) ? tracks : [tracks];
+        return arr.map(t => ({
+            title: t.name ? t.name.trim() : ''
+        })).filter(t => t.title.length > 0);
     } catch {
         return [];
     }
+}
+
+async function getCandidateTracks(artistName, targetCount = 20) {
+    const itunesSongs = await fetchTopSongsFromItunes(artistName, 25);
+    const seen = new Set(itunesSongs.map(s => s.title.toLowerCase().replace(/[\(\[].*?[\)\]]/g, '').trim()));
+    const candidates = [...itunesSongs];
+
+    if (candidates.length < targetCount) {
+        const lastfmTracks = await fetchTopTracksFromLastFm(artistName, 25);
+        for (const lt of lastfmTracks) {
+            const clean = lt.title.toLowerCase().replace(/[\(\[].*?[\)\]]/g, '').trim();
+            if (!seen.has(clean)) {
+                seen.add(clean);
+                candidates.push({ title: lt.title });
+            }
+        }
+    }
+    return candidates;
+}
+
+// Cache valid genres from DB
+let validDbGenres = null;
+async function getValidGenre(genreId) {
+    if (!validDbGenres) {
+        const { data } = await supabase.from('genres').select('id');
+        validDbGenres = new Set((data || []).map(g => g.id));
+    }
+    if (genreId && validDbGenres.has(genreId)) return genreId;
+    return 'rock'; // Safe canonical fallback
 }
 
 async function run() {
@@ -136,150 +197,211 @@ async function run() {
     console.log('🎵 INFLATING APPROVED STAGED ARTISTS INTO PRODUCTION');
     console.log(`   Status Filter: ${STATUS}`);
     console.log(`   Batch:         ${BATCH_ID || 'ALL'}`);
-    console.log(`   Limit:         ${LIMIT} artists`);
-    console.log(`   Tracks/Artist: ${TRACKS_PER_ARTIST} iconic tracks`);
+    console.log(`   Limit:         ${ALL_MODE ? 'ALL APPROVED' : LIMIT + ' artists'}`);
+    console.log(`   Tracks/Artist: At least ${TRACKS_PER_ARTIST} iconic tracks`);
     console.log(`   Mode:          ${IS_DRY_RUN ? 'DRY RUN (Preview Only)' : 'LIVE COMMITS'}`);
     console.log('================================================================\n');
 
-    let query = supabase
-        .from('artist_suggestions')
-        .select('*')
-        .neq('status', 'inflated');
-
-    if (args.includes('--requested-only')) {
-        query = query.eq('is_requested', true);
-    } else {
-        query = query.or('is_requested.eq.true,status.eq.approved');
-    }
-
-    query = query
-        .order('is_requested', { ascending: false })
-        .order('last_requested_at', { ascending: false, nullsFirst: false })
-        .order('confidence_score', { ascending: false })
-        .limit(LIMIT);
-
-    if (BATCH_ID) query = query.eq('batch_id', BATCH_ID);
-
-    const { data: stagedArtists, error } = await query;
-    if (error || !stagedArtists || stagedArtists.length === 0) {
-        console.log('ℹ️ No eligible staged artists found to inflate.');
-        return;
-    }
-
-    console.log(`Found ${stagedArtists.length} artists ready for track inflation.\n`);
-
     let totalInflatedArtists = 0;
     let totalInflatedTracks = 0;
+    let page = 0;
 
-    for (const artist of stagedArtists) {
-        console.log(`----------------------------------------------------------------`);
-        console.log(`[${totalInflatedArtists + 1}/${stagedArtists.length}] Inflating "${artist.name}" (${artist.primary_genre_id || 'rock'})`);
+    while (true) {
+        page++;
+        let query = supabase
+            .from('artist_suggestions')
+            .select('*')
+            .neq('status', 'inflated')
+            .eq('status', STATUS)
+            .order('is_requested', { ascending: false })
+            .order('confidence_score', { ascending: false })
+            .limit(ALL_MODE ? 50 : LIMIT);
 
-        // 1. Ensure artist in public.artists
-        let artistRecord = null;
-        if (!IS_DRY_RUN) {
-            const { data: existingArt } = await supabase
-                .from('artists')
-                .select('id, name, track_count')
-                .ilike('name', artist.name)
-                .limit(1);
+        if (BATCH_ID) query = query.eq('batch_id', BATCH_ID);
 
-            if (existingArt?.[0]) {
-                artistRecord = existingArt[0];
-            } else {
-                let slug = artist.slug || artist.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                if (!slug) slug = 'artist-' + Date.now();
-
-                const { data: newArt } = await supabase
-                    .from('artists')
-                    .insert({
-                        name: artist.name,
-                        slug,
-                        primary_genre_id: artist.primary_genre_id || 'rock',
-                        secondary_genre_ids: artist.secondary_genre_ids || [],
-                        mbid: artist.mbid || null,
-                        affinity_score: 50,
-                        track_count: 0
-                    })
-                    .select()
-                    .maybeSingle();
-
-                artistRecord = newArt;
-            }
+        const { data: stagedArtists, error } = await query;
+        if (error) {
+            console.error('Error fetching staged artists:', error);
+            break;
         }
 
-        // 2. Fetch top iconic tracks
-        const candidates = await fetchTopTracksFromLastFm(artist.name, 15);
-        await sleep(150);
+        if (!stagedArtists || stagedArtists.length === 0) {
+            console.log('ℹ️ No more eligible staged artists found to inflate.');
+            break;
+        }
 
-        let tracksAdded = 0;
-        const genreNode = GENRE_NODES[artist.primary_genre_id] || {};
-        const defaultEnergy = genreNode.energy || 0.6;
-        const defaultInstrumental = genreNode.vocal === 'instrumental';
+        console.log(`[Batch #${page}] Processing ${stagedArtists.length} approved staged artists...\n`);
 
-        for (const trk of candidates) {
-            if (tracksAdded >= TRACKS_PER_ARTIST) break;
+        for (const artist of stagedArtists) {
+            const canonicalGenre = await getValidGenre(artist.primary_genre_id);
+            console.log(`----------------------------------------------------------------`);
+            console.log(`[#${totalInflatedArtists + 1}] Processing "${artist.name}" (${canonicalGenre})`);
 
-            const gate = isSongCandidate({ title: trk.title, artist: artist.name });
-            if (!gate.pass) continue;
-
-            const videoId = await resolveInnertube(artist.name, trk.title);
-            if (!videoId || videoId.length !== 11) continue;
-
-            console.log(`   ⭐ [${tracksAdded + 1}/${TRACKS_PER_ARTIST}] "${trk.title}" -> ${videoId}`);
-
+            // 1. Ensure artist exists in public.artists
+            let artistRecord = null;
             if (!IS_DRY_RUN) {
-                const { error: insErr } = await supabase
-                    .from('tracks')
-                    .insert({
-                        artist: artist.name,
-                        artist_id: artistRecord?.id || null,
-                        title: trk.title,
-                        youtube_video_id: videoId,
-                        primary_genre_id: artist.primary_genre_id || 'rock',
-                        secondary_genre_ids: artist.secondary_genre_ids || [],
-                        energy: defaultEnergy,
-                        is_instrumental: defaultInstrumental,
-                        source: 'staged_artist_inflation'
-                    });
+                const { data: existingArt } = await supabase
+                    .from('artists')
+                    .select('id, name, track_count')
+                    .ilike('name', artist.name)
+                    .limit(1);
 
-                if (!insErr) tracksAdded++;
-            } else {
-                tracksAdded++;
+                if (existingArt?.[0]) {
+                    artistRecord = existingArt[0];
+                } else {
+                    let slug = artist.slug || artist.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                    if (!slug) slug = 'artist-' + Date.now();
+
+                    const { data: newArt, error: insArtErr } = await supabase
+                        .from('artists')
+                        .insert({
+                            name: artist.name,
+                            slug,
+                            primary_genre_id: canonicalGenre,
+                            secondary_genre_ids: [],
+                            affinity_score: 50,
+                            track_count: 0
+                        })
+                        .select()
+                        .maybeSingle();
+
+                    if (insArtErr) {
+                        console.warn(`   ⚠️ Artist insert notice for "${artist.name}":`, insArtErr.message);
+                    }
+                    artistRecord = newArt;
+                }
             }
+
+            // 2. Check existing tracks in public.tracks
+            let existingVideoIds = new Set();
+            let currentTrackCount = 0;
+
+            if (artistRecord?.id) {
+                const { data: exTracks } = await supabase
+                    .from('tracks')
+                    .select('id, youtube_video_id')
+                    .eq('artist_id', artistRecord.id);
+
+                if (exTracks) {
+                    currentTrackCount = exTracks.length;
+                    exTracks.forEach(t => {
+                        if (t.youtube_video_id) existingVideoIds.add(t.youtube_video_id);
+                    });
+                }
+            }
+
+            if (currentTrackCount >= TRACKS_PER_ARTIST) {
+                console.log(`   ✓ "${artist.name}" already has ${currentTrackCount} tracks in catalog.`);
+                if (!IS_DRY_RUN) {
+                    await supabase
+                        .from('artist_suggestions')
+                        .update({
+                            status: 'inflated',
+                            promoted_artist_id: artistRecord?.id || null,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', artist.id);
+                }
+                totalInflatedArtists++;
+                continue;
+            }
+
+            const neededTracks = TRACKS_PER_ARTIST - currentTrackCount;
+            console.log(`   Catalog tracks: ${currentTrackCount}. Gathering +${neededTracks} tracks to reach minimum ${TRACKS_PER_ARTIST}...`);
+
+            // 3. Fetch candidate tracks from iTunes + Last.fm
+            const candidates = await getCandidateTracks(artist.name, neededTracks + 10);
             await sleep(150);
-        }
 
-        if (!IS_DRY_RUN && artistRecord?.id && tracksAdded > 0) {
-            await supabase
-                .from('artists')
-                .update({
-                    track_count: (artistRecord.track_count || 0) + tracksAdded,
-                    last_inflated_at: new Date().toISOString()
-                })
-                .eq('id', artistRecord.id);
+            let tracksAdded = 0;
+            const genreNode = GENRE_NODES[canonicalGenre] || {};
+            const defaultEnergy = genreNode.energy || 0.6;
+            const defaultInstrumental = genreNode.vocal === 'instrumental';
 
-            await supabase
-                .from('artist_suggestions')
-                .update({
-                    status: 'inflated',
-                    promoted_artist_id: artistRecord.id,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', artist.id);
-        }
+            for (const trk of candidates) {
+                if (tracksAdded >= neededTracks) break;
 
-        if (tracksAdded > 0) {
+                const gate = isSongCandidate({ title: trk.title, artist: artist.name });
+                if (!gate.pass) continue;
+
+                const videoId = await resolveInnertube(artist.name, trk.title);
+                if (!videoId || videoId.length !== 11 || existingVideoIds.has(videoId)) continue;
+
+                existingVideoIds.add(videoId);
+                console.log(`   ⭐ [${currentTrackCount + tracksAdded + 1}/${TRACKS_PER_ARTIST}] "${trk.title}" -> ${videoId}`);
+
+                if (!IS_DRY_RUN) {
+                    // Insert into public.tracks
+                    const { error: insErr } = await supabase
+                        .from('tracks')
+                        .insert({
+                            artist: artist.name,
+                            artist_id: artistRecord?.id || null,
+                            title: trk.title,
+                            youtube_video_id: videoId,
+                            primary_genre_id: canonicalGenre,
+                            secondary_genre_ids: [],
+                            energy: defaultEnergy,
+                            is_instrumental: defaultInstrumental,
+                            source: 'staged_artist_inflation'
+                        });
+
+                    if (!insErr) {
+                        tracksAdded++;
+                        // Also register in local_metadata archive
+                        try {
+                            await supabase
+                                .from('local_metadata')
+                                .insert({
+                                    artist: artist.name,
+                                    track_name: trk.title,
+                                    genre: canonicalGenre,
+                                    source: 'staged_artist_inflation',
+                                    youtube_video_id: videoId
+                                });
+                        } catch {}
+                    }
+                } else {
+                    tracksAdded++;
+                }
+                await sleep(180);
+            }
+
+            // 4. Update track counts and stage status
+            if (!IS_DRY_RUN && artistRecord?.id) {
+                const finalCount = currentTrackCount + tracksAdded;
+                await supabase
+                    .from('artists')
+                    .update({
+                        track_count: finalCount,
+                        last_inflated_at: new Date().toISOString()
+                    })
+                    .eq('id', artistRecord.id);
+
+                await supabase
+                    .from('artist_suggestions')
+                    .update({
+                        status: 'inflated',
+                        promoted_artist_id: artistRecord.id,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', artist.id);
+            }
+
             totalInflatedArtists++;
             totalInflatedTracks += tracksAdded;
-            console.log(`   🎉 Finished "${artist.name}": +${tracksAdded} tracks.`);
+            console.log(`   🎉 Finished "${artist.name}": +${tracksAdded} new tracks added (total in catalog: ${currentTrackCount + tracksAdded}).\n`);
+
+            await sleep(200);
         }
 
-        await sleep(200);
+        if (!ALL_MODE) break;
     }
 
     console.log('\n================================================================');
-    console.log(`🏁 INFLATION COMPLETED: +${totalInflatedArtists} artists inflated with +${totalInflatedTracks} tracks.`);
+    console.log(`🏁 INFLATION COMPLETED`);
+    console.log(`   • Total Artists Inflated: ${totalInflatedArtists}`);
+    console.log(`   • Total Tracks Ingested:  +${totalInflatedTracks}`);
     console.log('================================================================\n');
 }
 

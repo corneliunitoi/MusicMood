@@ -36,6 +36,8 @@
     "resolve:flags:apply": "node scripts/resolveFlaggedTracks.js --apply",
     "populate:avatars": "node scripts/populateArtistAvatars.js",
     "populate:demos": "node scripts/populateStagedDemos.js",
+    "inflate:staged": "node scripts/inflateStagedArtists.js --status=approved --tracks=10",
+    "inflate:staged:all": "node scripts/inflateStagedArtists.js --status=approved --tracks=10 --all",
     "seed:staged": "node scripts/seedStagedTopArtists.js",
     "seed:staged:dry": "node scripts/seedStagedTopArtists.js --dry-run"
   },
