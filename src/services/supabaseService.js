@@ -34,7 +34,8 @@ export async function fetchArtistSuggestions(search = '', limit = 250, offset = 
             .range(offset, offset + limit - 1);
 
         if (search && search.trim()) {
-            query = query.ilike('name', `%${search.trim()}%`);
+            const clean = search.trim();
+            query = query.or(`name.ilike.%${clean}%,primary_genre_id.ilike.%${clean}%`);
         }
 
         const { data, error } = await query;

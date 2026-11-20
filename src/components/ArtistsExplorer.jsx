@@ -218,11 +218,12 @@ async function loadAllArtists(force = false) {
     return fetchAllPromise;
 }
 
-export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistName }) {
+export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistName, initialSearchQuery = '' }) {
     const [artists, setArtists] = useState(cachedAllArtists || []);
     const [isLoading, setIsLoading] = useState(!cachedAllArtists);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQuery] = useState(initialSearchQuery || '');
+    const [searchFilterView, setSearchFilterView] = useState('all'); // 'all' | 'staged' | 'catalog'
     const [selectedGenre, setSelectedGenre] = useState('all');
     const [selectedArtist, setSelectedArtist] = useState(null);
     const [artistTracks, setArtistTracks] = useState([]);
@@ -282,6 +283,12 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
             }
         }
     }, [initialArtistName, artists]);
+
+    useEffect(() => {
+        if (initialSearchQuery) {
+            setSearchQuery(initialSearchQuery);
+        }
+    }, [initialSearchQuery]);
 
     const handlePlayDemo = async (artist, e) => {
         if (e) e.stopPropagation();
@@ -710,23 +717,32 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
 
         // When searching, find staged candidates matching the search query across all 11,000+ candidates
         const matchingStaged = formatStaged(stagedArtists).filter(a => {
-            const parent = getParentGenre(a.primary_genre_id);
-            // If user filtered by a specific parent genre, only restrict staged if catalog matches exist;
-            // if 0 catalog matches in that genre, allow staged matches from any genre so the user finds what they searched!
-            if (selectedGenre !== 'all' && parent !== selectedGenre && catalogMatches.length > 0) {
-                return false;
-            }
             const normA = normalizeArtistKey(a.name);
             return normA.includes(normQuery) ||
                 a.name.toLowerCase().includes(query) ||
                 (a.primary_genre_id && a.primary_genre_id.toLowerCase().includes(query));
         });
 
+        if (searchFilterView === 'staged') {
+            return matchingStaged.length > 0
+                ? [
+                    { id: '__staged_only_header__', isSectionHeader: true, title: 'Found in Staging', count: matchingStaged.length, isStagedOnly: true },
+                    ...matchingStaged
+                ]
+                : [];
+        }
+
+        if (searchFilterView === 'catalog') {
+            return catalogMatches;
+        }
+
+        // Default 'all' view: STAGED FIRST so user immediately sees & can request candidates without scrolling past 50+ catalog cards!
         if (catalogMatches.length > 0 && matchingStaged.length > 0) {
             return [
-                ...catalogMatches,
                 { id: '__staged_header__', isSectionHeader: true, title: 'Available to Request from Staging', count: matchingStaged.length, isAvailable: true },
-                ...matchingStaged
+                ...matchingStaged,
+                { id: '__catalog_header__', isSectionHeader: true, title: 'Verified Catalog Artists', count: catalogMatches.length, isCatalog: true },
+                ...catalogMatches
             ];
         } else if (catalogMatches.length === 0 && matchingStaged.length > 0) {
             return [
@@ -736,7 +752,35 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
         }
 
         return catalogMatches;
-    }, [artists, stagedArtists, selectedGenre, searchQuery, requestedArtists]);
+    }, [artists, stagedArtists, selectedGenre, searchQuery, requestedArtists, searchFilterView]);
+
+    // Fast search count breakdown for filter pills
+    const searchCounts = useMemo(() => {
+        if (!searchQuery.trim()) return { staged: 0, catalog: 0, total: 0 };
+        const query = searchQuery.trim().toLowerCase();
+        const normQuery = normalizeArtistKey(searchQuery);
+        const catalogNameSet = new Set(artists.map(a => normalizeArtistKey(a.name)));
+
+        const catCount = artists.filter(artist => {
+            const parent = getParentGenre(artist.primary_genre_id);
+            if (selectedGenre !== 'all' && parent !== selectedGenre) return false;
+            const normA = normalizeArtistKey(artist.name);
+            return normA.includes(normQuery) || artist.name.toLowerCase().includes(query);
+        }).length;
+
+        const stagedCount = stagedArtists.filter(a => {
+            if (a.is_requested || (a.request_count && a.request_count > 0)) return false;
+            const normA = normalizeArtistKey(a.name);
+            const lowerA = a.name ? a.name.toLowerCase().trim() : '';
+            if (requestedArtists[a.id] || (lowerA && requestedArtists[lowerA]) || (normA && requestedArtists[normA])) return false;
+            if (normA && catalogNameSet.has(normA)) return false;
+            return normA.includes(normQuery) ||
+                a.name.toLowerCase().includes(query) ||
+                (a.primary_genre_id && a.primary_genre_id.toLowerCase().includes(query));
+        }).length;
+
+        return { staged: stagedCount, catalog: catCount, total: catCount + stagedCount };
+    }, [searchQuery, artists, stagedArtists, selectedGenre, requestedArtists]);
 
     // Paginated slice for smooth 60fps rendering
     const displayedArtists = useMemo(() => {
@@ -951,6 +995,86 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
                 })}
             </div>
 
+            {/* Search Scope Filter Tabs (Shown when typing in Search Bar) */}
+            {searchQuery.trim() && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    marginBottom: '0.65rem',
+                    padding: '0.35rem 0.65rem',
+                    background: 'rgba(30, 41, 59, 0.6)',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    flexWrap: 'wrap'
+                }}>
+                    <span style={{ fontSize: '0.74rem', color: '#94a3b8', marginRight: '0.2rem' }}>Search results:</span>
+                    <button
+                        onClick={() => setSearchFilterView('all')}
+                        style={{
+                            background: searchFilterView === 'all' ? '#6366f1' : 'transparent',
+                            color: searchFilterView === 'all' ? '#fff' : '#cbd5e1',
+                            border: searchFilterView === 'all' ? '1px solid #818cf8' : '1px solid rgba(255,255,255,0.12)',
+                            borderRadius: '9999px',
+                            padding: '0.2rem 0.65rem',
+                            fontSize: '0.74rem',
+                            fontWeight: searchFilterView === 'all' ? '700' : '500',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem'
+                        }}
+                    >
+                        <span>✨</span>
+                        <span>All Matches ({searchCounts.total})</span>
+                    </button>
+                    <button
+                        onClick={() => setSearchFilterView('staged')}
+                        style={{
+                            background: searchFilterView === 'staged' ? '#10b981' : 'transparent',
+                            color: searchFilterView === 'staged' ? '#fff' : '#cbd5e1',
+                            border: searchFilterView === 'staged' ? '1px solid #34d399' : '1px solid rgba(255,255,255,0.12)',
+                            borderRadius: '9999px',
+                            padding: '0.2rem 0.65rem',
+                            fontSize: '0.74rem',
+                            fontWeight: searchFilterView === 'staged' ? '700' : '500',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem'
+                        }}
+                    >
+                        <span>⏳</span>
+                        <span>Staged Requests ({searchCounts.staged})</span>
+                    </button>
+                    <button
+                        onClick={() => setSearchFilterView('catalog')}
+                        style={{
+                            background: searchFilterView === 'catalog' ? '#3b82f6' : 'transparent',
+                            color: searchFilterView === 'catalog' ? '#fff' : '#cbd5e1',
+                            border: searchFilterView === 'catalog' ? '1px solid #60a5fa' : '1px solid rgba(255,255,255,0.12)',
+                            borderRadius: '9999px',
+                            padding: '0.2rem 0.65rem',
+                            fontSize: '0.74rem',
+                            fontWeight: searchFilterView === 'catalog' ? '700' : '500',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem'
+                        }}
+                    >
+                        <span>👥</span>
+                        <span>In Catalog ({searchCounts.catalog})</span>
+                    </button>
+                    {isLoadingStaged && (
+                        <span style={{ fontSize: '0.72rem', color: '#a5b4fc', marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <span className="spinner" style={{ width: '0.75rem', height: '0.75rem', borderWidth: '1.5px' }}></span>
+                            Searching 11,896 staged...
+                        </span>
+                    )}
+                </div>
+            )}
+
             {/* Results Count */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem', fontSize: '0.76rem', color: '#94a3b8' }}>
                 <span>
@@ -966,6 +1090,11 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
                 <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                     <span className="spinner" style={{ display: 'inline-block', width: '1.75rem', height: '1.75rem', marginBottom: '0.5rem' }}></span>
                     <div style={{ fontSize: '0.85rem' }}>Loading all {artists.length ? artists.length.toLocaleString() : 'catalog'} artists...</div>
+                </div>
+            ) : isLoadingStaged && filteredArtists.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2rem 1rem', background: 'rgba(30, 41, 59, 0.35)', borderRadius: '12px', border: '1px dashed rgba(255, 255, 255, 0.15)' }}>
+                    <span className="spinner" style={{ display: 'inline-block', width: '1.5rem', height: '1.5rem', marginBottom: '0.5rem' }}></span>
+                    <div style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>Searching 11,896 staged artists in library...</div>
                 </div>
             ) : filteredArtists.length === 0 ? (
                 <div style={{
