@@ -63,7 +63,7 @@ export async function fetchArtistSuggestions(search = '', limit = 250, offset = 
 /**
  * Fetches a random slice of N staged artists with playable demo tracks for crate digging
  */
-export async function fetchRandomStagedArtists(limit = 5, genre = null) {
+export async function fetchRandomStagedArtists(limit = 50, genre = null) {
     try {
         let countQuery = supabase
             .from('artist_suggestions')
