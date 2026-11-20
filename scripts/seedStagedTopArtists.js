@@ -16,9 +16,9 @@ function getArg(prefix, defaultVal) {
     return match ? match.split('=')[1] : defaultVal;
 }
 
-const LIMIT_PER_GENRE = parseInt(getArg('--limit=', '50'), 10);
+const LIMIT_PER_GENRE = parseInt(getArg('--limit=', '75'), 10);
 const TARGET_GENRE = getArg('--genre=', null);
-const MIN_STAGED = parseInt(getArg('--min-staged=', '300'), 10);
+const MIN_STAGED = parseInt(getArg('--min-staged=', '1000'), 10);
 const IS_DRY_RUN = args.includes('--dry-run');
 
 function sleep(ms) {
@@ -73,7 +73,6 @@ const GENRE_TAG_MAP = {
     synth_pop: 'synthpop',
     dance_pop: 'dance pop',
     indie_pop: 'indie pop',
-    dream_pop: 'dream pop',
     art_pop: 'art pop',
 
     // 5. Hip-Hop
@@ -82,24 +81,19 @@ const GENRE_TAG_MAP = {
     lofi_hiphop: 'lo-fi',
     conscious_hiphop: 'conscious hip hop',
     trap_modern: 'trap',
-    underground_rap: 'underground hip hop',
 
     // 6. R&B / Soul / Funk
     rnb_soul: 'soul',
     funk: 'funk',
-    motown: 'motown',
     neo_soul: 'neo-soul',
-    contemporary_rnb: 'contemporary r&b',
 
     // 7. Jazz
     jazz: 'jazz',
     bebop_jazz: 'bebop',
-    hard_bop: 'hard bop',
     cool_jazz: 'cool jazz',
     modal_jazz: 'modal jazz',
     free_jazz: 'free jazz',
     bossa_nova_jazz: 'bossa nova',
-    fusion_jazz: 'jazz fusion',
     smooth_jazz: 'smooth jazz',
     big_band: 'big band',
 
@@ -115,7 +109,6 @@ const GENRE_TAG_MAP = {
     baroque: 'baroque',
     romantic: 'romantic classical',
     neo_classical: 'neoclassical',
-    minimalism: 'minimalism',
     cinematic_orchestral: 'soundtrack',
 
     // 10. Folk
@@ -130,7 +123,6 @@ const GENRE_TAG_MAP = {
     country: 'country',
     classic_country: 'classic country',
     outlaw_country: 'outlaw country',
-    alt_country: 'alt-country',
     americana: 'americana',
 
     // 12. World & Reggae
@@ -156,6 +148,30 @@ const GENRE_TAG_MAP = {
     darkwave: 'darkwave'
 };
 
+function isCleanArtist(name) {
+    if (!name || typeof name !== 'string') return false;
+    const clean = name.trim();
+    if (clean.length < 2 || clean.length > 60) return false;
+    if (/^[0-9\s._\-#+&/\\()]+$/.test(clean)) return false;
+
+    const lower = clean.toLowerCase();
+    const junkPatterns = [
+        /^unknown(\s*artist)?$/i, /^various(\s*artists)?$/i, /^va$/i, /^soundtrack/i,
+        /^ost$/i, /^compilation/i, /^top\s*(\d+|\w+)/i, /^billboard/i,
+        /^greatest\s*hits/i, /^topic$/i, /^(audio|clip|video|music)$/i,
+        /karaoke/i, /tribute/i, /instrumental version/i
+    ];
+    if (junkPatterns.some(pat => pat.test(lower))) return false;
+
+    const noisePatterns = [
+        /\b(interview|podcast|livestream|live\s*stream|reaction|review|tutorial|unboxing|teaser|trailer|audiobook|talk\s*show|episode|season)\b/i
+    ];
+    if (noisePatterns.some(pat => pat.test(lower))) return false;
+
+    return true;
+}
+
+// 1. Last.fm Tag Artists
 async function fetchTopArtistsFromLastFm(genreTag, limit = 50) {
     try {
         const url = `https://ws.audioscrobbler.com/2.0/?method=tag.gettopartists&tag=${encodeURIComponent(genreTag)}&api_key=${LASTFM_API_KEY}&format=json&limit=${limit}`;
@@ -163,9 +179,63 @@ async function fetchTopArtistsFromLastFm(genreTag, limit = 50) {
         if (!res.ok) return [];
         const data = await res.json();
         const artists = data.topartists?.artist || [];
-        return Array.isArray(artists) ? artists : [artists];
-    } catch (e) {
-        console.warn(`[LastFM] Error fetching top artists for tag "${genreTag}":`, e.message);
+        return (Array.isArray(artists) ? artists : [artists]).map(a => ({ name: a.name, source: 'lastfm' }));
+    } catch {
+        return [];
+    }
+}
+
+// 2. Apple Music / iTunes Search API (Artists & Songs)
+async function fetchArtistsFromAppleMusic(genreTag, limit = 40) {
+    const list = [];
+    try {
+        const artistUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(genreTag)}&entity=musicArtist&limit=${limit}`;
+        const aRes = await fetch(artistUrl);
+        if (aRes.ok) {
+            const aData = await aRes.json();
+            for (const item of (aData.results || [])) {
+                if (item.artistName) list.push({ name: item.artistName, source: 'apple_music' });
+            }
+        }
+        const songUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(genreTag)}&entity=song&limit=${limit}`;
+        const sRes = await fetch(songUrl);
+        if (sRes.ok) {
+            const sData = await sRes.json();
+            for (const item of (sData.results || [])) {
+                if (item.artistName) list.push({ name: item.artistName, source: 'apple_music' });
+            }
+        }
+    } catch {}
+    return list;
+}
+
+// 3. Discogs Database Search API
+async function fetchArtistsFromDiscogs(genreTag, limit = 30) {
+    try {
+        const url = `https://api.discogs.com/database/search?q=${encodeURIComponent(genreTag)}&type=artist&per_page=${limit}`;
+        const res = await fetch(url, { headers: { 'User-Agent': 'MusicMoodDiscovery/1.0' } });
+        if (!res.ok) return [];
+        const data = await res.json();
+        const results = data.results || [];
+        return results.map(r => {
+            const cleanTitle = (r.title || '').replace(/\s*\(\d+\)$/, '').trim();
+            return { name: cleanTitle, source: 'discogs' };
+        });
+    } catch {
+        return [];
+    }
+}
+
+// 4. Deezer Public Search API
+async function fetchArtistsFromDeezer(genreTag, limit = 30) {
+    try {
+        const url = `https://api.deezer.com/search/artist?q=${encodeURIComponent(genreTag)}&limit=${limit}`;
+        const res = await fetch(url);
+        if (!res.ok) return [];
+        const data = await res.json();
+        const results = data.data || [];
+        return results.map(a => ({ name: a.name, source: 'deezer' }));
+    } catch {
         return [];
     }
 }
@@ -242,17 +312,30 @@ async function run() {
 
         console.log(`[Genre ${genresProcessed + 1}] "${genreId}" (tag: "${tag}") — Current Staging: ${currentCount}`);
 
-        const topArtists = await fetchTopArtistsFromLastFm(tag, LIMIT_PER_GENRE);
-        if (topArtists.length === 0) {
-            console.log(`   ⏭️ No artists returned for "${tag}". Skipping.`);
+        const [lastfmList, appleList, discogsList, deezerList] = await Promise.all([
+            fetchTopArtistsFromLastFm(tag, LIMIT_PER_GENRE),
+            fetchArtistsFromAppleMusic(tag, Math.min(LIMIT_PER_GENRE, 40)),
+            fetchArtistsFromDiscogs(tag, 25),
+            fetchArtistsFromDeezer(tag, 25)
+        ]);
+
+        const rawArtists = [
+            ...lastfmList,
+            ...appleList,
+            ...discogsList,
+            ...deezerList
+        ];
+
+        if (rawArtists.length === 0) {
+            console.log(`   ⏭️ No artists returned across public sources for "${tag}". Skipping.`);
             await sleep(250);
             continue;
         }
 
         const newCandidates = [];
-        for (const a of topArtists) {
+        for (const a of rawArtists) {
             const rawName = a.name?.trim();
-            if (!rawName) continue;
+            if (!rawName || !isCleanArtist(rawName)) continue;
             const norm = rawName.toLowerCase();
 
             if (existingNames.has(norm)) {
@@ -263,19 +346,18 @@ async function run() {
             newCandidates.push({
                 name: rawName,
                 slug: rawName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
-                mbid: a.mbid && a.mbid.length === 36 ? a.mbid : null,
                 primary_genre_id: genreId,
                 secondary_genre_ids: [],
                 status: 'pending',
                 is_requested: false,
                 request_count: 0,
-                confidence_score: 85,
+                confidence_score: 90,
                 batch_id: `seed_top_${genreId}_${dateStr}`,
-                source: 'lastfm_top_artists'
+                source: a.source || 'multi_source'
             });
         }
 
-        console.log(`   Found ${topArtists.length} top artists from Last.fm -> ${newCandidates.length} new uncataloged candidates.`);
+        console.log(`   Queried Last.fm (${lastfmList.length}), Apple Music (${appleList.length}), Discogs (${discogsList.length}), Deezer (${deezerList.length}) -> +${newCandidates.length} clean new candidates.`);
 
         if (newCandidates.length > 0 && !IS_DRY_RUN) {
             // Batch insert in chunks of 50
@@ -298,7 +380,7 @@ async function run() {
         }
 
         genresProcessed++;
-        await sleep(350); // Respectful rate limit for Last.fm API
+        await sleep(350); // Respectful rate limit across public APIs
     }
 
     console.log('================================================================');

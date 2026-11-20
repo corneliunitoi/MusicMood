@@ -101,8 +101,6 @@ function Dashboard({ token, onLogout }) {
     const showFavorites = activeTopPanel === 'favorites';
     const showArtists = activeTopPanel === 'artists';
     const [artistToOpen, setArtistToOpen] = useState(null);
-    const [mainSearchQuery, setMainSearchQuery] = useState('');
-    const [artistSearchFromMain, setArtistSearchFromMain] = useState('');
 
     const handleOpenArtist = (artistName) => {
         if (!artistName) return;
@@ -572,7 +570,6 @@ function Dashboard({ token, onLogout }) {
                 {showArtists && (
                     <ArtistsExplorer
                         initialArtistName={artistToOpen}
-                        initialSearchQuery={artistSearchFromMain || mainSearchQuery}
                         onPlayTrack={(track) => {
                             setActiveTrack(track);
                             sessionEngine.playOnDemand(track);
@@ -585,74 +582,8 @@ function Dashboard({ token, onLogout }) {
                         onClose={() => {
                             setActiveTopPanel(null);
                             setArtistToOpen(null);
-                            setArtistSearchFromMain('');
                         }}
                     />
-                )}
-
-                {/* MAIN SEARCH BAR (Instant Artist & Staged Requests Search from Home) */}
-                {!showWizard && !showPlaylists && !showFavorites && !showArtists && (
-                    <div className="main-search-bar-row fade-in" style={{
-                        maxWidth: '680px',
-                        margin: '0.35rem auto 1.15rem auto',
-                        padding: '0 1rem',
-                        boxSizing: 'border-box',
-                        width: '100%'
-                    }}>
-                        <div style={{ position: 'relative', width: '100%' }}>
-                            <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.6, fontSize: '1rem', pointerEvents: 'none' }}>🔍</span>
-                            <input
-                                type="text"
-                                value={mainSearchQuery}
-                                onChange={(e) => setMainSearchQuery(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && mainSearchQuery.trim()) {
-                                        setArtistSearchFromMain(mainSearchQuery);
-                                        setActiveTopPanel('artists');
-                                    }
-                                }}
-                                placeholder="Search any artist (e.g. Buzzcocks, Queen, Clan of Xymox, Sonny Rollins)..."
-                                style={{
-                                    width: '100%',
-                                    padding: '0.65rem 4.5rem 0.65rem 2.6rem',
-                                    background: 'rgba(30, 41, 59, 0.75)',
-                                    border: '1px solid rgba(255, 255, 255, 0.16)',
-                                    borderRadius: '12px',
-                                    color: '#f8fafc',
-                                    fontSize: '0.9rem',
-                                    outline: 'none',
-                                    backdropFilter: 'blur(12px)',
-                                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-                                    boxSizing: 'border-box',
-                                    transition: 'border-color 0.2s, box-shadow 0.2s'
-                                }}
-                            />
-                            {mainSearchQuery ? (
-                                <button
-                                    onClick={() => {
-                                        setArtistSearchFromMain(mainSearchQuery);
-                                        setActiveTopPanel('artists');
-                                    }}
-                                    style={{
-                                        position: 'absolute',
-                                        right: '0.45rem',
-                                        top: '50%',
-                                        transform: 'translateY(-50%)',
-                                        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        color: '#fff',
-                                        padding: '0.35rem 0.75rem',
-                                        fontSize: '0.78rem',
-                                        fontWeight: '600',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Search
-                                </button>
-                            ) : null}
-                        </div>
-                    </div>
                 )}
 
                 {/* HEADSPACE SELECTION */}

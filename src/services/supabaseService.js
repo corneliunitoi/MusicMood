@@ -35,7 +35,17 @@ export async function fetchArtistSuggestions(search = '', limit = 250, offset = 
 
         if (search && search.trim()) {
             const clean = search.trim();
-            query = query.or(`name.ilike.%${clean}%,primary_genre_id.ilike.%${clean}%`);
+            const words = clean.split(/\s+/).filter(w => w.length >= 3);
+            if (words.length > 1) {
+                const orParts = [
+                    `name.ilike.%${clean}%`,
+                    `primary_genre_id.ilike.%${clean}%`,
+                    ...words.map(w => `name.ilike.%${w}%`)
+                ];
+                query = query.or(orParts.join(','));
+            } else {
+                query = query.or(`name.ilike.%${clean}%,primary_genre_id.ilike.%${clean}%`);
+            }
         }
 
         const { data, error } = await query;

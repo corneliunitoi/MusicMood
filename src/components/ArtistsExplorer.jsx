@@ -101,6 +101,84 @@ export function normalizeArtistKey(name) {
 }
 
 /**
+ * Fast Levenshtein distance algorithm for typo-tolerant artist matching
+ */
+export function levenshteinDistance(a, b) {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    const row = [];
+    for (let j = 0; j <= b.length; j++) row[j] = j;
+    for (let i = 1; i <= a.length; i++) {
+        let prev = i;
+        for (let j = 1; j <= b.length; j++) {
+            let val;
+            if (a.charAt(i - 1) === b.charAt(j - 1)) {
+                val = row[j - 1];
+            } else {
+                val = Math.min(row[j - 1] + 1, prev + 1, row[j] + 1);
+            }
+            row[j - 1] = prev;
+            prev = val;
+        }
+        row[b.length] = prev;
+    }
+    return row[b.length];
+}
+
+/**
+ * Multi-layer typo-tolerant artist search matcher:
+ * 1. Substring & normalized key match (fastest)
+ * 2. Genre taxonomy match
+ * 3. Full-phrase Levenshtein edit distance (handles typos like "bling guardian" -> "blind guardian")
+ * 4. Word-by-word token matching
+ */
+export function matchesArtistSearch(artistName, query, primaryGenreId = '') {
+    if (!query || !query.trim()) return true;
+    if (!artistName) return false;
+
+    const lowerName = artistName.toLowerCase().trim();
+    const cleanQuery = query.toLowerCase().trim();
+    const normA = normalizeArtistKey(artistName);
+    const normQ = normalizeArtistKey(query);
+
+    // 1. Direct or normalized substring match
+    if (lowerName.includes(cleanQuery) || normA.includes(normQ) || cleanQuery.includes(lowerName)) {
+        return true;
+    }
+
+    // 2. Genre match
+    if (primaryGenreId && primaryGenreId.toLowerCase().includes(cleanQuery)) {
+        return true;
+    }
+
+    // 3. Typo-tolerant Levenshtein distance on normalized phrase
+    if (normQ.length >= 4) {
+        const fullDist = levenshteinDistance(normQ, normA);
+        const maxDist = normQ.length <= 6 ? 1 : 2;
+        if (fullDist <= maxDist) return true;
+    }
+
+    // 4. Token / word-level fuzzy match (e.g. "bling guardian" -> "bling" matches "blind", "guardian" matches "guardian")
+    const qWords = normQ.split(/\s+/).filter(w => w.length >= 3);
+    const aWords = normA.split(/\s+/).filter(w => w.length >= 3);
+
+    if (qWords.length > 0 && aWords.length > 0) {
+        const allWordsMatched = qWords.every(qw => {
+            return aWords.some(aw => {
+                if (aw.includes(qw) || qw.includes(aw)) return true;
+                const dist = levenshteinDistance(qw, aw);
+                const allowed = qw.length <= 5 ? 1 : 2;
+                return dist <= allowed;
+            });
+        });
+        if (allWordsMatched) return true;
+    }
+
+    return false;
+}
+
+/**
  * Scores artist name quality: favors proper mixed casing, proper accents, and standard hyphens
  * Penalizes ALL-CAPS (e.g. PINK FLOYD), all-lowercase, CJK mojibake, and odd unicode dashes
  */
@@ -643,12 +721,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
         if (selectedGenre === 'potential') {
             const mapped = formatStaged(stagedArtists);
             if (query) {
-                return mapped.filter(a => {
-                    const normA = normalizeArtistKey(a.name);
-                    return normA.includes(normQuery) ||
-                        a.name.toLowerCase().includes(query) ||
-                        (a.primary_genre_id && a.primary_genre_id.toLowerCase().includes(query));
-                });
+                return mapped.filter(a => matchesArtistSearch(a.name, query, a.primary_genre_id));
             }
             return mapped;
         }
@@ -666,19 +739,9 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
 
             if (!query) return latestSorted;
 
-            const catalogFiltered = latestSorted.filter(artist => {
-                const normA = normalizeArtistKey(artist.name);
-                return normA.includes(normQuery) ||
-                    artist.name.toLowerCase().includes(query) ||
-                    (artist.primary_genre_id && artist.primary_genre_id.toLowerCase().includes(query));
-            });
+            const catalogFiltered = latestSorted.filter(artist => matchesArtistSearch(artist.name, query, artist.primary_genre_id));
 
-            const matchingStaged = formatStaged(stagedArtists).filter(a => {
-                const normA = normalizeArtistKey(a.name);
-                return normA.includes(normQuery) ||
-                    a.name.toLowerCase().includes(query) ||
-                    (a.primary_genre_id && a.primary_genre_id.toLowerCase().includes(query));
-            });
+            const matchingStaged = formatStaged(stagedArtists).filter(a => matchesArtistSearch(a.name, query, a.primary_genre_id));
 
             if (catalogFiltered.length > 0 && matchingStaged.length > 0) {
                 return [
@@ -698,14 +761,13 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
         // 3. Standard Genre Filtering (e.g. 'all', 'rock', 'metal', etc.)
         const catalogMatches = artists.filter(artist => {
             const parent = getParentGenre(artist.primary_genre_id);
-            if (selectedGenre !== 'all' && parent !== selectedGenre) {
+            // In pure browse mode (no search query), respect the selected genre tab.
+            // When user enters an active search query, search globally so matches in other genres aren't hidden!
+            if (!query && selectedGenre !== 'all' && parent !== selectedGenre) {
                 return false;
             }
             if (query) {
-                const normA = normalizeArtistKey(artist.name);
-                if (!normA.includes(normQuery) && !artist.name.toLowerCase().includes(query)) {
-                    return false;
-                }
+                return matchesArtistSearch(artist.name, query, artist.primary_genre_id);
             }
             return true;
         });
@@ -716,12 +778,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
         }
 
         // When searching, find staged candidates matching the search query across all 11,000+ candidates
-        const matchingStaged = formatStaged(stagedArtists).filter(a => {
-            const normA = normalizeArtistKey(a.name);
-            return normA.includes(normQuery) ||
-                a.name.toLowerCase().includes(query) ||
-                (a.primary_genre_id && a.primary_genre_id.toLowerCase().includes(query));
-        });
+        const matchingStaged = formatStaged(stagedArtists).filter(a => matchesArtistSearch(a.name, query, a.primary_genre_id));
 
         if (searchFilterView === 'staged') {
             return matchingStaged.length > 0
@@ -763,9 +820,8 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
 
         const catCount = artists.filter(artist => {
             const parent = getParentGenre(artist.primary_genre_id);
-            if (selectedGenre !== 'all' && parent !== selectedGenre) return false;
-            const normA = normalizeArtistKey(artist.name);
-            return normA.includes(normQuery) || artist.name.toLowerCase().includes(query);
+            if (!query && selectedGenre !== 'all' && parent !== selectedGenre) return false;
+            return matchesArtistSearch(artist.name, query, artist.primary_genre_id);
         }).length;
 
         const stagedCount = stagedArtists.filter(a => {
@@ -774,9 +830,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
             const lowerA = a.name ? a.name.toLowerCase().trim() : '';
             if (requestedArtists[a.id] || (lowerA && requestedArtists[lowerA]) || (normA && requestedArtists[normA])) return false;
             if (normA && catalogNameSet.has(normA)) return false;
-            return normA.includes(normQuery) ||
-                a.name.toLowerCase().includes(query) ||
-                (a.primary_genre_id && a.primary_genre_id.toLowerCase().includes(query));
+            return matchesArtistSearch(a.name, query, a.primary_genre_id);
         }).length;
 
         return { staged: stagedCount, catalog: catCount, total: catCount + stagedCount };
