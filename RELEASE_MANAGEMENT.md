@@ -60,6 +60,20 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.6a` — 2026-11-20
+* **YouTube Playlist Ingestion Fix & On-The-Spot Artist Inflation with Guardrails:**
+  * **⚡ Resolved "The playlist does not exist" Ingestion Failure:**
+    * Integrated YouTube Music InnerTube Browse (`/youtubei/v1/browse`) as the primary tier-1 zero-quota playlist resolver in both Vite dev server (`vite.config.js`) and production Express (`server.js`).
+    * Resolves up to 100 tracks in ~200ms via pure JSON without touching official Google Data API quota or failing on YouTube web HTML structure changes.
+    * Fixed silent 401 token expiry in `src/services/youtube.js`: now catches expired Google OAuth tokens explicitly instead of silently falling back to unauthenticated web scrapers on private playlists.
+    * Added actionable 1-click `🔑 Reconnect YouTube` action button and pro-tip ("Set playlist to Unlisted on YouTube to ingest directly without auth") in `src/components/PlaylistView.jsx`.
+  * **🌱 On-The-Spot Artist Inflation During Playlist Ingestion:**
+    * Automated on-the-spot artist inflation in `src/services/youtubePlaylistIngester.js` whenever imported tracks contain artists not yet present in `public.artists`.
+    * Implemented strict musical artist guardrails (`isInflateCandidate`) preventing noise/placeholders (`"Unknown Artist"`, `"Various Artists"`, numeric junk, livestreams, reaction videos, interviews, podcasts, compilations, and top charts).
+    * Pulls canonical top tracks from iTunes Search API (with Last.fm fallback), capped at 8 canonical songs per new artist to ensure lightning-fast ingestion without delays.
+    * Resolves YouTube video IDs via `/api/resolve-track` and persists tracks to `public.tracks` and `public.local_metadata`, automatically updating `public.artists.track_count`.
+    * Added live progress updates (`Auto-inflating artist: <name>...`) and a celebratory completion banner highlighting the number of auto-inflated artists and canonical tracks added.
+
 ### `v0.8.6` — 2026-11-20
 * **Unified Main Search Across Catalog & Staging, Home Dashboard Search Bar & Multi-Genre Pre-Population Seeding:**
   * **🔍 Top-Priority Staged Artist Discovery Across Main Catalog & Staging:**

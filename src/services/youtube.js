@@ -88,7 +88,14 @@ export const fetchPlaylistItems = async (playlistId, token, maxResults = 50) => 
             });
 
             if (!response.ok) {
-                console.warn(`[YouTubeService] Official API failed for playlist ${playlistId}. Falling back to zero-quota resolver...`);
+                if (response.status === 401) {
+                    const authErr = new Error('Your YouTube session has expired. Please re-authenticate your Google account to access your private playlists.');
+                    authErr.status = 401;
+                    authErr.isAuthError = true;
+                    throw authErr;
+                }
+
+                console.warn(`[YouTubeService] Official API returned ${response.status} for playlist ${playlistId}. Falling back to zero-quota resolver...`);
                 const zqRes = await fetch(`/api/playlist-tracks?playlistId=${encodeURIComponent(playlistId)}`);
                 if (zqRes.ok) {
                     const zqData = await zqRes.json();
@@ -100,7 +107,8 @@ export const fetchPlaylistItems = async (playlistId, token, maxResults = 50) => 
                         thumbnail: t.thumbnail
                     }));
                 }
-                break;
+                const errData = await zqRes.json().catch(() => ({}));
+                throw new Error(errData.error || `Could not fetch playlist items (Status: ${response.status})`);
             }
 
             const data = await response.json();
@@ -132,6 +140,9 @@ export const fetchPlaylistItems = async (playlistId, token, maxResults = 50) => 
         } while (nextPageToken);
     } catch (err) {
         console.warn('[YouTubeService] Error in fetchPlaylistItems:', err);
+        if (err.isAuthError || allItems.length === 0) {
+            throw err;
+        }
     }
 
     return allItems;

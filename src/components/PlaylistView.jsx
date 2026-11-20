@@ -110,14 +110,26 @@ function PlaylistView({
                     }
                 } catch (apiErr) {
                     console.warn('[PlaylistView] OAuth playlist fetch notice:', apiErr.message);
+                    if (apiErr.isAuthError || apiErr.status === 401) {
+                        throw apiErr;
+                    }
                 }
             }
 
             // 2. If no tracks loaded yet (e.g. guest, public URL, or API rate limit), use zero-quota scraper
             if (loadedTracks.length === 0) {
-                const data = await fetchPlaylistTracks(cleanId);
-                resolvedTitle = data.title || resolvedTitle;
-                loadedTracks = data.tracks || [];
+                try {
+                    const data = await fetchPlaylistTracks(cleanId);
+                    resolvedTitle = data.title || resolvedTitle;
+                    loadedTracks = data.tracks || [];
+                } catch (scrapeErr) {
+                    if (scrapeErr.message && (scrapeErr.message.includes('not exist') || scrapeErr.message.includes('private'))) {
+                        throw new Error(
+                            "This playlist is private or inaccessible without authentication. Please click 'Reconnect YouTube' below to refresh your Google session, or change playlist visibility to 'Unlisted' on YouTube to ingest directly."
+                        );
+                    }
+                    throw scrapeErr;
+                }
             }
 
             if (loadedTracks.length === 0) {
@@ -359,8 +371,27 @@ function PlaylistView({
                     </div>
 
                     {error && (
-                        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', borderRadius: '12px', padding: '0.75rem 1rem', marginBottom: '1.5rem', color: '#fca5a5' }}>
-                            ⚠️ {error}
+                        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', borderRadius: '12px', padding: '1rem', marginBottom: '1.5rem', color: '#fca5a5' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                                <div style={{ flex: '1 1 300px' }}>
+                                    <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>⚠️ {error}</div>
+                                    {(error.toLowerCase().includes('private') || error.toLowerCase().includes('not exist') || error.toLowerCase().includes('expired') || error.toLowerCase().includes('permission')) && (
+                                        <div style={{ fontSize: '0.82rem', color: '#f8fafc', opacity: 0.9 }}>
+                                            💡 <strong>Quick Fix:</strong> Reconnect YouTube to renew your token, or set your playlist to <em>Unlisted</em> on YouTube to ingest directly without auth.
+                                        </div>
+                                    )}
+                                </div>
+                                {(error.toLowerCase().includes('private') || error.toLowerCase().includes('not exist') || error.toLowerCase().includes('expired') || error.toLowerCase().includes('permission')) && onRefreshPlaylists && (
+                                    <button
+                                        type="button"
+                                        className="btn-primary"
+                                        onClick={() => onRefreshPlaylists(true)}
+                                        style={{ fontSize: '0.82rem', padding: '0.45rem 1rem', borderRadius: '8px', cursor: 'pointer' }}
+                                    >
+                                        🔑 Reconnect YouTube
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -816,7 +847,7 @@ function PlaylistView({
                     {isIngesting && ingestProgress && (
                         <div style={{ background: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.3)', borderRadius: '12px', padding: '1rem', margin: '1rem 0' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.4rem', color: '#e9d5ff' }}>
-                                <span>Ingesting tracks into Supabase...</span>
+                                <span>Ingesting tracks & auto-inflating new artists...</span>
                                 <span>{ingestProgress.current} / {ingestProgress.total}</span>
                             </div>
                             <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -831,15 +862,28 @@ function PlaylistView({
                             </div>
                             <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.5rem' }}>
                                 🟢 {ingestProgress.newlyAdded} newly added • ⚪ {ingestProgress.duplicates} existing
+                                {ingestProgress.inflatedArtistsCount > 0 && ` • ✨ ${ingestProgress.inflatedArtistsCount} new artists auto-inflated (+${ingestProgress.inflatedTracksCount} catalog tracks)`}
                             </div>
+                            {ingestProgress.statusMessage && (
+                                <div style={{ fontSize: '0.78rem', color: '#c084fc', marginTop: '0.35rem', fontStyle: 'italic' }}>
+                                    {ingestProgress.statusMessage}
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {/* Ingestion Finished Success Banner */}
                     {ingestResult && (
                         <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', borderRadius: '12px', padding: '1rem', margin: '1rem 0', color: '#6ee7b7' }}>
-                            🎉 <strong>Ingestion Complete!</strong> Successfully mapped <strong>{ingestResult.newlyAdded}</strong> new tracks into your database with permanent zero-quota YouTube video IDs.
-                            {ingestResult.duplicates > 0 && <span> ({ingestResult.duplicates} already present in catalog).</span>}
+                            <div>
+                                🎉 <strong>Ingestion Complete!</strong> Successfully mapped <strong>{ingestResult.newlyAdded}</strong> new tracks into your database with permanent zero-quota YouTube video IDs.
+                                {ingestResult.duplicates > 0 && <span> ({ingestResult.duplicates} already present in catalog).</span>}
+                            </div>
+                            {ingestResult.inflatedArtistsCount > 0 && (
+                                <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(16, 185, 129, 0.3)', color: '#c084fc', fontSize: '0.9rem' }}>
+                                    ✨ <strong>On-The-Spot Artist Inflation:</strong> Discovered and auto-inflated <strong>{ingestResult.inflatedArtistsCount}</strong> new artists (+<strong>{ingestResult.inflatedTracksCount}</strong> canonical discography tracks) into your permanent library!
+                                </div>
+                            )}
                         </div>
                     )}
 

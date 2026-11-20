@@ -149,6 +149,75 @@ function parseTitleAndArtist(rawTitle, rawAuthor) {
     return { artist: artist || rawAuthor || 'Unknown Artist', title: title || rawTitle };
 }
 
+async function scrapePlaylistViaInnertube(playlistId) {
+    const browseId = playlistId.startsWith('VL') ? playlistId : 'VL' + playlistId;
+    const res = await fetch('https://music.youtube.com/youtubei/v1/browse', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Origin': 'https://music.youtube.com',
+            'Referer': 'https://music.youtube.com/'
+        },
+        body: JSON.stringify({
+            context: { client: { clientName: 'WEB_REMIX', clientVersion: '1.20240101.01.00', hl: 'en', gl: 'US' } },
+            browseId: browseId
+        })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+
+    let title = 'YouTube Playlist';
+    function findTitle(obj) {
+        if (!obj || typeof obj !== 'object' || title !== 'YouTube Playlist') return;
+        if (obj.musicResponsiveHeaderRenderer) {
+            title = obj.musicResponsiveHeaderRenderer.title?.runs?.[0]?.text || title;
+            return;
+        }
+        if (obj.musicDetailHeaderRenderer) {
+            title = obj.musicDetailHeaderRenderer.title?.runs?.[0]?.text || title;
+            return;
+        }
+        for (const v of Object.values(obj)) findTitle(v);
+    }
+    findTitle(data);
+
+    const tracks = [];
+    const seenIds = new Set();
+
+    function extract(obj) {
+        if (!obj || typeof obj !== 'object') return;
+        if (obj.musicResponsiveListItemRenderer) {
+            const item = obj.musicResponsiveListItemRenderer;
+            const flexCols = item.flexColumns || [];
+            const trackTitle = flexCols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || '';
+            const authorRuns = flexCols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+            const author = authorRuns
+                .map(r => (r.text || '').trim())
+                .filter(t => t && !/^(song|video|album|artist|single|ep|•|·|\s*)$/i.test(t))[0] || 'Unknown Artist';
+            const videoId = item.playlistItemData?.videoId || item.doubleTapCommand?.watchEndpoint?.videoId;
+            if (videoId && videoId.length === 11 && !seenIds.has(videoId)) {
+                seenIds.add(videoId);
+                tracks.push({
+                    videoId,
+                    title: trackTitle,
+                    artist: author,
+                    rawTitle: trackTitle,
+                    thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+                });
+            }
+            return;
+        }
+        for (const v of Object.values(obj)) extract(v);
+    }
+    extract(data);
+
+    if (tracks.length > 0) {
+        return { title, tracks };
+    }
+    return null;
+}
+
 async function scrapePlaylistTracks(playlistIdOrUrl) {
     let playlistId = playlistIdOrUrl;
     if (playlistId.includes('list=')) {
@@ -156,6 +225,17 @@ async function scrapePlaylistTracks(playlistIdOrUrl) {
         if (match) playlistId = match[1];
     }
 
+    // Tier 1: Try YouTube Music InnerTube Browse first (fast, structured JSON, zero quota)
+    try {
+        const innerResult = await scrapePlaylistViaInnertube(playlistId);
+        if (innerResult && innerResult.tracks && innerResult.tracks.length > 0) {
+            return innerResult;
+        }
+    } catch (innerErr) {
+        // Continue to standard HTML scrape fallback
+    }
+
+    // Tier 2: YouTube Web HTML Scraper fallback
     const url = `https://www.youtube.com/playlist?list=${playlistId}`;
     const response = await fetch(url, {
         headers: {
