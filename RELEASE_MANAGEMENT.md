@@ -60,6 +60,29 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.6` — 2026-11-20
+* **Unified Main Search Across Catalog & Staging, Home Dashboard Search Bar & Multi-Genre Pre-Population Seeding:**
+  * **🔍 Top-Priority Staged Artist Discovery Across Main Catalog & Staging:**
+    * Integrated all **11,896** staged candidates into the main search engine—searchable from the default "All Artists" view and every genre family without needing to toggle the "Potential Matches" tab.
+    * Pinned matching staged candidates **prominently at the top of the search grid** (`⏳ Available to Request from Staging`) ahead of catalog matches, ensuring listeners can immediately audition (`[▶ Try]`) and request (`[+ Request]`) uncataloged artists without scrolling past dozens of catalog entries.
+    * Added dedicated 3-way search scope toggle pills:
+      * `✨ All Matches ({total})`: Combined view with staged candidates prioritized on top.
+      * `⏳ Staged Requests ({count})`: Isolated view of pending candidates awaiting admission.
+      * `👥 In Catalog ({count})`: Filtered view of admitted catalog artists with verified tracks.
+    * Upgraded search query engine to support multi-field search against both canonical name and subgenre taxonomy (`.or(name.ilike.%query%,primary_genre_id.ilike.%query%)`), allowing queries like `"darkwave"`, `"krautrock"`, or `"reggae"` to surface corresponding staged artists.
+    * Added live asynchronous loading state (`⏳ Searching 11,896 staged...`) to eliminate premature empty state flashes while querying Supabase.
+  * **🏠 Home Dashboard Main Search Bar:**
+    * Placed a global quick-search bar directly on the Home Dashboard above the Headspace selection row.
+    * Listeners can search any artist across both catalog and staging directly from the landing page. Pressing `Enter` or clicking `Search` opens Artists Explorer pre-filtered with immediate results.
+  * **✨ On-Demand Custom Artist Ingestion Request:**
+    * When a listener searches for an obscure or unlisted artist not found in catalog or staging, an instant action button appears: `✨ Request "<name>" to be added to catalog`.
+    * Submitting the request automatically provisions the artist into `public.artist_suggestions` with `is_requested: true, status: 'approved'`, queuing them at top priority for the next scheduled inflation runner.
+  * **🌱 Multi-Genre Top Artists Seeding & Catalog Milestones:**
+    * Created `scripts/seedStagedTopArtists.js` (`npm run seed:staged`) to systematically populate staging queues across underrepresented genre families (Darkwave, Krautrock, Shoegaze, Reggae, Celtic, Post-Punk, Power Metal, Thrash Metal, Neo-Jazz).
+    * Seeded **+1,389 new canonical artists** with full deduplication against existing catalog and staging tables.
+    * Admitted **John Mayall & The Bluesbreakers** to `public.artists` with 25 canonical tracks (*"Hideaway"*, *"All Your Love"*, etc.).
+    * Catalog expanded to **96,679 verified tracks** (+457 new tracks inflated via automated GitHub Actions cloud runner).
+
 ### `v0.8.5` — 2026-11-20
 * **Dynamic Elastic Discography Inflation, Anonymous Guest Cloud Engagement & Comprehensive Mobile Responsive Redesign:**
   * **📈 Dynamic Elastic Discography Inflation Pipeline & Multi-Tier Caps:**
