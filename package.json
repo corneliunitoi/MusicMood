@@ -35,6 +35,7 @@
     "resolve:flags": "node scripts/resolveFlaggedTracks.js",
     "resolve:flags:apply": "node scripts/resolveFlaggedTracks.js --apply",
     "populate:avatars": "node scripts/populateArtistAvatars.js",
+    "populate:demos": "node scripts/populateStagedDemos.js",
     "seed:staged": "node scripts/seedStagedTopArtists.js",
     "seed:staged:dry": "node scripts/seedStagedTopArtists.js --dry-run"
   },
