@@ -125,6 +125,39 @@ export async function rejectArtistSuggestion(artistId) {
         return { success: false, error: e.message };
     }
 }
+
+/**
+ * Requests an artist not currently present in the staging queue to be added and queued for ingestion
+ */
+export async function requestNewArtist(artistName, genreId = 'rock') {
+    if (!artistName || !artistName.trim()) return { success: false, error: 'Artist name required' };
+    const cleanName = artistName.trim();
+    const slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `artist-${Date.now()}`;
+
+    try {
+        const { data, error } = await supabase.from('artist_suggestions').insert({
+            name: cleanName,
+            slug: `${slug}-${Date.now().toString().slice(-4)}`,
+            primary_genre_id: genreId || 'rock',
+            confidence_score: 95,
+            status: 'approved',
+            is_requested: true,
+            request_count: 1,
+            source: 'user_search_request',
+            batch_id: `user_request_${Date.now()}`,
+            last_requested_at: new Date().toISOString()
+        }).select();
+
+        if (error) {
+            console.error('[supabaseService] Error requesting new artist:', error);
+            return { success: false, error: error.message };
+        }
+        return { success: true, data: data?.[0] };
+    } catch (e) {
+        console.error('[supabaseService] Error requesting new artist:', e);
+        return { success: false, error: e.message };
+    }
+}
 export async function signInAsGuest() {
     let { data, error } = await supabase.auth.signInAnonymously();
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { supabase, fetchArtistSuggestions, submitArtistRequest, rejectArtistSuggestion, fetchRequestedArtistIdentifiers } from '../services/supabaseService';
+import { supabase, fetchArtistSuggestions, submitArtistRequest, rejectArtistSuggestion, fetchRequestedArtistIdentifiers, requestNewArtist } from '../services/supabaseService';
 import { GENRE_NODES } from '../services/tasteGraph';
 import { sessionEngine } from '../services/sessionStateMachine';
 import { resolveArtistAvatarOnDemand } from '../services/avatarService';
@@ -236,6 +236,8 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
     const [isLoadingMoreStaged, setIsLoadingMoreStaged] = useState(false);
     const [demoPlayingId, setDemoPlayingId] = useState(null);
     const [dismissingIds, setDismissingIds] = useState(new Set());
+    const [isSubmittingCustom, setIsSubmittingCustom] = useState(false);
+    const [customRequested, setCustomRequested] = useState({});
     const [requestedArtists, setRequestedArtists] = useState(() => {
         try {
             const saved = localStorage.getItem('musicmood_requested_artists');
@@ -419,6 +421,33 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
         }
     };
 
+    const handleRequestCustomArtist = async (name) => {
+        if (!name || !name.trim()) return;
+        const clean = name.trim();
+        const key = clean.toLowerCase();
+        setIsSubmittingCustom(true);
+        try {
+            const safeGenre = (selectedGenre && selectedGenre !== 'all' && selectedGenre !== 'potential' && selectedGenre !== 'latest')
+                ? selectedGenre
+                : 'rock';
+            const res = await requestNewArtist(clean, safeGenre);
+            if (res.success) {
+                setCustomRequested(prev => ({ ...prev, [key]: true }));
+                setRequestedArtists(prev => {
+                    const next = { ...prev, [key]: true, [normalizeArtistKey(clean)]: true };
+                    try {
+                        localStorage.setItem('musicmood_requested_artists', JSON.stringify(next));
+                    } catch {}
+                    return next;
+                });
+            }
+        } catch (e) {
+            console.error('[ArtistsExplorer] Custom request failed:', e);
+        } finally {
+            setIsSubmittingCustom(false);
+        }
+    };
+
     // Fetch staged suggestions on mount and when searchQuery changes
     useEffect(() => {
         let isMounted = true;
@@ -567,11 +596,11 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
     const filteredArtists = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
         const normQuery = normalizeArtistKey(searchQuery);
+        const catalogNameSet = new Set(artists.map(a => normalizeArtistKey(a.name)));
 
-        // 1. "Potential Matches" Tab: artists currently sitting in staging awaiting ingestion
-        if (selectedGenre === 'potential') {
-            const catalogNameSet = new Set(artists.map(a => normalizeArtistKey(a.name)));
-            const mapped = stagedArtists
+        // Helper to map and sanitize staged artists
+        const formatStaged = (list) => {
+            return list
                 .filter(a => {
                     if (a.is_requested || (a.request_count && a.request_count > 0)) return false;
                     const normA = normalizeArtistKey(a.name);
@@ -581,26 +610,31 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
                     return true;
                 })
                 .map(a => {
-                const parent = getParentGenre(a.primary_genre_id);
-                const safeGenre = a.primary_genre_id && a.primary_genre_id !== 'other'
-                    ? a.primary_genre_id
-                    : (parent && parent !== 'other' ? parent : 'rock');
+                    const parent = getParentGenre(a.primary_genre_id);
+                    const safeGenre = a.primary_genre_id && a.primary_genre_id !== 'other'
+                        ? a.primary_genre_id
+                        : (parent && parent !== 'other' ? parent : 'rock');
 
-                return {
-                    id: a.id,
-                    name: a.name,
-                    primary_genre_id: safeGenre,
-                    is_staged: true,
-                    status: a.status,
-                    confidence_score: a.confidence_score,
-                    source: a.source,
-                    is_requested: a.is_requested || !!requestedArtists[a.id || a.name],
-                    request_count: a.request_count || 0,
-                    demo_youtube_id: a.demo_youtube_id || null,
-                    demo_track_title: a.demo_track_title || null,
-                    track_count: 0
-                };
-            });
+                    return {
+                        id: a.id,
+                        name: a.name,
+                        primary_genre_id: safeGenre,
+                        is_staged: true,
+                        status: a.status,
+                        confidence_score: a.confidence_score,
+                        source: a.source,
+                        is_requested: a.is_requested || !!requestedArtists[a.id || a.name],
+                        request_count: a.request_count || 0,
+                        demo_youtube_id: a.demo_youtube_id || null,
+                        demo_track_title: a.demo_track_title || null,
+                        track_count: 0
+                    };
+                });
+        };
+
+        // 1. "Potential Matches" Tab: artists currently sitting in staging awaiting ingestion
+        if (selectedGenre === 'potential') {
+            const mapped = formatStaged(stagedArtists);
             if (query) {
                 return mapped.filter(a => {
                     const normA = normalizeArtistKey(a.name);
@@ -623,19 +657,39 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
                 })
                 .slice(0, 50);
 
-            if (query) {
-                return latestSorted.filter(artist => {
-                    const normA = normalizeArtistKey(artist.name);
-                    return normA.includes(normQuery) ||
-                        artist.name.toLowerCase().includes(query) ||
-                        (artist.primary_genre_id && artist.primary_genre_id.toLowerCase().includes(query));
-                });
+            if (!query) return latestSorted;
+
+            const catalogFiltered = latestSorted.filter(artist => {
+                const normA = normalizeArtistKey(artist.name);
+                return normA.includes(normQuery) ||
+                    artist.name.toLowerCase().includes(query) ||
+                    (artist.primary_genre_id && artist.primary_genre_id.toLowerCase().includes(query));
+            });
+
+            const matchingStaged = formatStaged(stagedArtists).filter(a => {
+                const normA = normalizeArtistKey(a.name);
+                return normA.includes(normQuery) ||
+                    a.name.toLowerCase().includes(query) ||
+                    (a.primary_genre_id && a.primary_genre_id.toLowerCase().includes(query));
+            });
+
+            if (catalogFiltered.length > 0 && matchingStaged.length > 0) {
+                return [
+                    ...catalogFiltered,
+                    { id: '__staged_header__', isSectionHeader: true, title: 'Available to Request from Staging', count: matchingStaged.length, isAvailable: true },
+                    ...matchingStaged
+                ];
+            } else if (catalogFiltered.length === 0 && matchingStaged.length > 0) {
+                return [
+                    { id: '__staged_only_header__', isSectionHeader: true, title: 'Found in Staging', count: matchingStaged.length, isStagedOnly: true },
+                    ...matchingStaged
+                ];
             }
-            return latestSorted;
+            return catalogFiltered;
         }
 
-        // 3. Standard Genre Filtering
-        return artists.filter(artist => {
+        // 3. Standard Genre Filtering (e.g. 'all', 'rock', 'metal', etc.)
+        const catalogMatches = artists.filter(artist => {
             const parent = getParentGenre(artist.primary_genre_id);
             if (selectedGenre !== 'all' && parent !== selectedGenre) {
                 return false;
@@ -648,7 +702,41 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
             }
             return true;
         });
-    }, [artists, stagedArtists, selectedGenre, searchQuery]);
+
+        // When not searching, return standard catalog matches
+        if (!query) {
+            return catalogMatches;
+        }
+
+        // When searching, find staged candidates matching the search query across all 11,000+ candidates
+        const matchingStaged = formatStaged(stagedArtists).filter(a => {
+            const parent = getParentGenre(a.primary_genre_id);
+            // If user filtered by a specific parent genre, only restrict staged if catalog matches exist;
+            // if 0 catalog matches in that genre, allow staged matches from any genre so the user finds what they searched!
+            if (selectedGenre !== 'all' && parent !== selectedGenre && catalogMatches.length > 0) {
+                return false;
+            }
+            const normA = normalizeArtistKey(a.name);
+            return normA.includes(normQuery) ||
+                a.name.toLowerCase().includes(query) ||
+                (a.primary_genre_id && a.primary_genre_id.toLowerCase().includes(query));
+        });
+
+        if (catalogMatches.length > 0 && matchingStaged.length > 0) {
+            return [
+                ...catalogMatches,
+                { id: '__staged_header__', isSectionHeader: true, title: 'Available to Request from Staging', count: matchingStaged.length, isAvailable: true },
+                ...matchingStaged
+            ];
+        } else if (catalogMatches.length === 0 && matchingStaged.length > 0) {
+            return [
+                { id: '__staged_only_header__', isSectionHeader: true, title: 'Found in Staging', count: matchingStaged.length, isStagedOnly: true },
+                ...matchingStaged
+            ];
+        }
+
+        return catalogMatches;
+    }, [artists, stagedArtists, selectedGenre, searchQuery, requestedArtists]);
 
     // Paginated slice for smooth 60fps rendering
     const displayedArtists = useMemo(() => {
@@ -787,7 +875,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={selectedGenre === 'potential' ? "Search potential matches sitting in staging..." : "Search artist name (e.g., Pink Floyd, Miles Davis, Chopin, Tipper)..."}
+                    placeholder={selectedGenre === 'potential' ? "Search potential matches sitting in staging..." : "Search artists across catalog and staging (e.g., Pink Floyd, Buzzcocks, Clan of Xymox)..."}
                     style={{
                         width: '100%',
                         padding: '0.45rem 1rem 0.45rem 2.4rem',
@@ -866,7 +954,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
             {/* Results Count */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem', fontSize: '0.76rem', color: '#94a3b8' }}>
                 <span>
-                    Showing <strong>{displayedArtists.length}</strong> of <strong>{filteredArtists.length.toLocaleString()}</strong> artist(s)
+                    Showing <strong>{displayedArtists.filter(a => !a.isSectionHeader).length}</strong> of <strong>{filteredArtists.filter(a => !a.isSectionHeader).length.toLocaleString()}</strong> artist(s)
                 </span>
                 {searchQuery && (
                     <span>Filtered by: &ldquo;{searchQuery}&rdquo;</span>
@@ -894,6 +982,42 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
                     <p style={{ margin: '0 auto 0.75rem auto', maxWidth: '420px', color: '#94a3b8', fontSize: '0.8rem' }}>
                         We couldn&apos;t find &ldquo;{searchQuery}&rdquo; in this category.
                     </p>
+                    {searchQuery.trim().length >= 2 && (
+                        <div style={{ marginTop: '0.85rem' }}>
+                            <button
+                                onClick={() => handleRequestCustomArtist(searchQuery)}
+                                disabled={isSubmittingCustom || customRequested[searchQuery.toLowerCase().trim()]}
+                                style={{
+                                    background: customRequested[searchQuery.toLowerCase().trim()]
+                                        ? 'rgba(16, 185, 129, 0.25)'
+                                        : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                    border: customRequested[searchQuery.toLowerCase().trim()]
+                                        ? '1px solid #10b981'
+                                        : '1px solid rgba(255, 255, 255, 0.2)',
+                                    borderRadius: '8px',
+                                    color: customRequested[searchQuery.toLowerCase().trim()] ? '#34d399' : '#ffffff',
+                                    padding: '0.45rem 1.15rem',
+                                    fontSize: '0.82rem',
+                                    fontWeight: '600',
+                                    cursor: customRequested[searchQuery.toLowerCase().trim()] ? 'default' : 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.4rem',
+                                    transition: 'all 0.2s',
+                                    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)'
+                                }}
+                            >
+                                <span>{customRequested[searchQuery.toLowerCase().trim()] ? '✓' : '✨'}</span>
+                                <span>
+                                    {customRequested[searchQuery.toLowerCase().trim()]
+                                        ? `Request queued for "${searchQuery}"!`
+                                        : isSubmittingCustom
+                                        ? 'Submitting request...'
+                                        : `Request "${searchQuery}" to be added to catalog`}
+                                </span>
+                            </button>
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div
@@ -909,6 +1033,36 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
                     }}
                 >
                     {displayedArtists.map(artist => {
+                        if (artist.isSectionHeader) {
+                            return (
+                                <div
+                                    key={artist.id}
+                                    style={{
+                                        gridColumn: '1 / -1',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '0.45rem 0.75rem',
+                                        margin: artist.isStagedOnly ? '0 0 0.35rem 0' : '0.65rem 0 0.25rem 0',
+                                        background: artist.isStagedOnly ? 'rgba(16, 185, 129, 0.12)' : 'rgba(99, 102, 241, 0.12)',
+                                        border: artist.isStagedOnly ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(99, 102, 241, 0.3)',
+                                        borderRadius: '8px',
+                                        boxSizing: 'border-box'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <span style={{ fontSize: '0.9rem' }}>⏳</span>
+                                        <span style={{ fontSize: '0.82rem', fontWeight: '600', color: artist.isStagedOnly ? '#6ee7b7' : '#c7d2fe' }}>
+                                            {artist.isStagedOnly ? `Found ${artist.count} Staged Candidate${artist.count > 1 ? 's' : ''}` : `Available to Request from Staging (${artist.count})`}
+                                        </span>
+                                        <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                            — {artist.isStagedOnly ? 'Not in catalog yet. Click "+ Request" to admit & inflate!' : 'Click "+ Request" to prioritize for catalog admission'}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        }
+
                         const parent = getParentGenre(artist.primary_genre_id);
                         const genreObj = PARENT_GENRES.find(p => p.id === parent) || PARENT_GENRES[0];
                         const effectiveAvatar = avatarOverrides[artist.name] !== 'FALLBACK'
