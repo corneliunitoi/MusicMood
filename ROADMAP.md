@@ -21,7 +21,7 @@ Live-database findings (Nov 20 audit): RLS is enabled on all 17 tables, but gran
 * [ ] **Rotate the Last.fm API key** and remove the hard-coded fallbacks in `src/` and `.github/workflows/`.
 * [ ] **Remove the shared guest password** (`guestpassword123`) from `src/services/supabaseService.js` and `scripts/createGuest.js`, and disable that account.
 * [ ] **Remove hard-coded admin email checks** (`isTargetAdmin`) and personal email from the client bundle.
-* [ ] **Workflows:** fail fast when `SUPABASE_SERVICE_ROLE_KEY` is missing instead of silently falling back to the publishable key.
+* [ ] **Workflows:** fail fast when `SUPABASE_SERVICE_ROLE_KEY` is missing instead of silently falling back to the publishable key. Pass `github.event.inputs.*` through `env:` instead of interpolating them into `run:` scripts (shell injection).
 * [ ] **Drop or lock unused tables** `history` and `music_users`, after confirming nothing reads them.
 * [ ] **Patch dependencies:** `npm audit fix` (high: `music-metadata`, moderate: `file-type`).
 
@@ -52,7 +52,10 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
 * [ ] **`track_genre_flags`:** authenticated insert of own flags only; review and delete restricted to admins.
 * [ ] **`feedback`:** insert-only for users; reading restricted to admins.
 * [ ] **Revoke `anon` access** to everything not needed before sign-in (GraphQL exposure lints 0026/0027).
-* [ ] **Server endpoints** `/api/resolve-track` and `/api/playlist-tracks`: require a valid Supabase JWT, add rate limiting, and add security headers (CSP, HSTS) to `server.js`.
+* [ ] **Server endpoints** `/api/resolve-track` and `/api/playlist-tracks`: require a valid Supabase JWT and add rate limiting so the server can't be used as an open scraping proxy. Add security headers (CSP, HSTS) to `server.js`, and stop returning raw `err.message` to callers.
+* [ ] **Client-side catalog search:** escape `%` and `_` in `ilike` filters (artist/title duplicate checks, search), or move those lookups into RPCs.
+* [ ] **Google access token:** stop persisting it in `localStorage` (`src/services/auth.js`); keep the Supabase session's `provider_token` in memory only.
+* [ ] **Public data exposure:** `local_metadata` (personal library, file paths) and `artist_suggestions` should not be readable without sign-in.
 * [ ] **Verification:** replace `scripts/verify_rls.js` with tests that *fail* if `anon` can read another user's data, write the catalog, or call privileged RPCs. Supabase security advisor must be clean.
 
 ---
@@ -80,10 +83,10 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
 
 Starts only after Phases 0–3 are complete.
 
-* [ ] **Gate (decide before any Android code): playback model.** The current hidden 1×1 off-screen YouTube player and InnerTube scraping violate YouTube API terms and Google Play policy. Choose a compliant model (visible ≥200×200 foreground YouTube player via the official API, a streaming partner SDK, or a licensed catalog).
 * [ ] **Engine portability:** extract the state machine / taste graph into pure logic, free of `localStorage`, `window` and direct Supabase calls.
 * [ ] **Android client** (TWA, Capacitor, or native), with Google sign-in via Credential Manager + `supabase.auth.signInWithIdToken`.
-* [ ] **Play Store requirements:** privacy policy URL, in-app and web account deletion, Data Safety form, target API level.
+
+> Google Play / YouTube policy compliance (playback model, store listing requirements) is intentionally out of scope for now and will be planned separately after the security work.
 
 ---
 
