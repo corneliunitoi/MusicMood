@@ -42,6 +42,7 @@ Live-database findings (Nov 20 audit): RLS is enabled on all 17 tables, but gran
 
 Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profiles is linked to a real `auth.users` row; identity is asserted by the client.
 
+* [ ] **Custom domain (do this first):** buy a proper domain to replace `musicmood-ghx2.onrender.com` and point it at Render, which supports custom domains with free TLS. Do it before the Supabase Auth setup, because the domain feeds into the Google OAuth authorized origins and redirect URIs, the Supabase Site URL and redirect allow-list, and later the privacy policy URL and Android app links. Update the hard-coded Render URL in `scripts/scrapeLastFmArtists.js` and set the Render URL to redirect to the new domain.
 * [ ] **Google provider in Supabase:** enable it under Auth → Providers, add the Google OAuth client ID/secret, and register the Supabase callback URL in Google Cloud Console.
 * [ ] **Web sign-in:** `supabase.auth.signInWithOAuth({ provider: 'google', scopes: 'youtube.readonly' })`, using `session.provider_token` for playlist import. (Android will later use Credential Manager + `signInWithIdToken` against the same backend.)
 * [ ] **Guests:** `signInAnonymously()` per guest, and `linkIdentity()` to upgrade a guest to Google while keeping their data. Remove the shared guest ID `f7337681-…`.
