@@ -6,6 +6,17 @@
 
 Order is strict: each phase depends on the one before it.
 
+### 🏷️ Release plan to `1.0`
+
+Every fix ships as a letter release within `0.8.7x`, following [RELEASE_MANAGEMENT.md](RELEASE_MANAGEMENT.md). The version ceiling lock stays in place: no `0.9.0` and no other minor or major bump until all major issues below are fixed. `1.0.0` is reserved for the launch once Phases 0–3 are complete.
+
+| Release | Scope |
+|---|---|
+| `v0.8.7a` | Phase 0: emergency hardening |
+| `v0.8.7b`… | Phase 1: Supabase Auth, with one letter per shippable step (sign-in, guests, roles, user migration) |
+| next letters | Phase 2: RLS and RPC rewrite, then Phase 3 stability fixes, each in small letter releases |
+| `v1.0.0` | All major issues fixed; launch baseline for the Android migration |
+
 ---
 
 ## 🚨 Phase 0 — Emergency Hardening (no client changes required)
