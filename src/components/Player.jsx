@@ -713,14 +713,17 @@ function Player({ initialTrack, token, onOpenArtist }) {
             return next;
         });
 
-        // Notify backend & bump artist/track popularity in database
-        await upvoteTrack({
+        // One vote per listener per track; guests count 0.25; max 100 votes per 30 minutes
+        const result = await upvoteTrack({
             videoId: currentTrackKey,
             artist: currentTrack.artist,
             delta: willBeUpvoted ? 1 : -1
         });
 
-        if (willBeUpvoted) {
+        if (result?.error === 'rate_limited') {
+            setErrorMessage('⏳ Vote limit reached (100 per 30 minutes). Try again a bit later.');
+            setTimeout(() => setErrorMessage(null), 4000);
+        } else if (willBeUpvoted) {
             setErrorMessage(`👍 Upvoted! Boosted ${currentTrack.artist || 'artist'} in Taste Graph`);
             setTimeout(() => setErrorMessage(null), 3000);
         }

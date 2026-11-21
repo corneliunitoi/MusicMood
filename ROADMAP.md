@@ -49,7 +49,7 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
 * [ ] **Client identity:** replace `getResolvedUserId()` and the localStorage profile with the Supabase session. Remove `isAdmin()`/role checks that read localStorage. *(Code ready (Nov 21). The session user id is held in memory; the localStorage profile is a display cache only.)*
 * [x] **Profile creation** via the `handle_new_user` trigger on `auth.users`. *(Done Nov 21: `on_auth_user_created_profile` and `on_auth_identity_created_profile` triggers, plus `get_my_profile()` self-heal.)*
 * [x] **Roles:** move `role` / `user_class` into a `user_roles` table that only the service role can write; add an `is_admin()` SQL helper. Users must not be able to edit their own role. *(Done Nov 21 with a different design: the `trg_protect_profile_privileges` trigger blocks client writes to role, user_class, google_id and is_guest, and `is_admin()` was added. No separate table needed.)*
-* [ ] **Remove** `resolve_or_create_user` (both overloads) and `resolve_or_create_test_user`. Remove the test-persona switcher from the production build. *(Persona switcher removed from the client (Nov 21). The RPCs are dropped in the release after the new sign-in is live, so open old tabs keep working until then.)*
+* [x] **Remove** `resolve_or_create_user` (both overloads) and `resolve_or_create_test_user`. Remove the test-persona switcher from the production build. *(Persona switcher removed from the client (Nov 21). The RPCs are dropped in the release after the new sign-in is live, so open old tabs keep working until then.)* *(RPCs dropped in v0.8.7d.)*
 * [ ] **Migrate the 2 real users** with a one-off SQL script: re-point `user_favorites`, `listening_history`, `user_dealbreakers`, `user_mood_genre_affinities`, `feedback` and calibration to the new `auth.users` IDs. Decide what happens to the 2,186 history rows under the old shared guest ID. *(Automated Nov 21: `claim_legacy_profile()` merges a legacy profile into the new account on the user's first Google sign-in, matched by the verified Google user id. Shared-guest history stays orphaned.)*
 
 ---
@@ -75,8 +75,8 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
 * [ ] **Baseline migration:** dump the live schema (tables, policies, functions, triggers) into `supabase/migrations/` so the database can be rebuilt from the repo. Retire `schema_v2.sql` / `setup_taste_graph.sql` as sources of truth.
 * [x] **Catalog tables** (`tracks`, `artists`, `local_metadata`, `artist_suggestions`, `track_suggestions`, `track_subgenres`, `genres`, `moods`): read-only for clients. Writes only via the service role (scripts/workflows) or narrow vetted RPCs. Drop every `USING (true)` insert/update/delete policy. *(Done in v0.8.7c.)*
 * [ ] **User tables:** `auth.uid() = user_id` for every operation. Drop `Allow anon insert/select on listening_history`.
-* [ ] **RPCs:** remove all `p_user_id` parameters; use `auth.uid()` inside. Applies to `get_user_favorites`, `sync_user_favorites`, `remove_user_favorite`, `get_user_calibration`, `sync_user_calibration`.
-* [ ] **`upvote_track`:** clamp the delta to ±1 and make it idempotent per user via `user_upvotes (user_id, track_id)` (old item #13).
+* [x] **RPCs:** remove all `p_user_id` parameters; use `auth.uid()` inside. Applies to `get_user_favorites`, `sync_user_favorites`, `remove_user_favorite`, `get_user_calibration`, `sync_user_calibration`. *(Done in v0.8.7d.)*
+* [x] **`upvote_track`:** clamp the delta to ±1 and make it idempotent per user via `user_upvotes (user_id, track_id)` (old item #13). *(Done in v0.8.7d.)*
 * [ ] **`track_genre_flags`:** authenticated insert of own flags only; review and delete restricted to admins.
 * [x] **`feedback`:** insert-only for users; reading restricted to admins. *(Done early in Phase 0, Nov 20.)*
 * [ ] **Revoke `anon` access** to everything not needed before sign-in (GraphQL exposure lints 0026/0027).
@@ -84,7 +84,7 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
 * [ ] **Client-side catalog search:** escape `%` and `_` in `ilike` filters (artist/title duplicate checks, search), or move those lookups into RPCs.
 * [ ] **Google access token:** stop persisting it in `localStorage` (`src/services/auth.js`); keep the Supabase session's `provider_token` in memory only.
 * [ ] **Public data exposure:** `local_metadata` (personal library, file paths) and `artist_suggestions` should not be readable without sign-in.
-* [ ] **Scripts and workflows on the service-role key:** once catalog writes are closed to clients, require `SUPABASE_SERVICE_ROLE_KEY` (fail fast if it's missing), then revoke public `EXECUTE` on `get_dynamic_priority_inflation_candidates` and `get_random_unmapped_local_tracks`.
+* [x] **Scripts and workflows on the service-role key:** once catalog writes are closed to clients, require `SUPABASE_SERVICE_ROLE_KEY` (fail fast if it's missing), then revoke public `EXECUTE` on `get_dynamic_priority_inflation_candidates` and `get_random_unmapped_local_tracks`. *(Done in v0.8.7c/d.)*
 * [ ] **Verification:** replace `scripts/verify_rls.js` with tests that *fail* if `anon` can read another user's data, write the catalog, or call privileged RPCs. Supabase security advisor must be clean.
 
 ---
@@ -488,6 +488,7 @@ graph TD
 * [x] **v0.8.7a:** Security Hardening Phase 0 — revoked TRUNCATE/TRIGGER/REFERENCES from API roles, locked admin-minting and trigger RPCs, pinned function search_path, write-only feedback, removed committed secrets and personal library dumps, workflow shell-injection fix, 0 npm vulnerabilities.
 * [x] **v0.8.7b:** Supabase Auth as the only identity source — Google sign-in via Supabase OAuth, per-device anonymous guests with in-place Google upgrade, automatic legacy-profile migration, client-proof roles, guest favorites cloud-sync fix.
 * [x] **v0.8.7c:** Catalog lockdown — clients add-only, admin-only edits/deletes, playback-error reports instead of global deletes, scripts and workflows on the service-role key.
+* [x] **v0.8.7d:** User-scoped favorites/calibration RPCs, one vote per user per track, 0.25 guest weight, 100-per-30-minutes rate limits, favorites double-count fix, legacy identity RPCs removed.
 
 ---
 

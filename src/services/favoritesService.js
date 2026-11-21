@@ -4,7 +4,7 @@
  * (Google users and anonymous guests alike) so nothing bleeds between accounts.
  */
 
-import { supabase, upvoteTrack, getActiveUserId as getSessionUserId } from './supabaseService';
+import { supabase, getActiveUserId as getSessionUserId } from './supabaseService';
 
 const LEGACY_STORAGE_KEY = 'musicmood_favorites';
 const EVENT_NAME = 'musicmood:favorites_updated';
@@ -105,14 +105,8 @@ export function addFavorite(track) {
         syncCloudFavorites(userId, [newFavorite]);
     }
 
-    // A favorite automatically casts an upvote for the track and artist in database
-    if (newFavorite.youtube_video_id && newFavorite.artist) {
-        upvoteTrack({
-            videoId: newFavorite.youtube_video_id,
-            artist: newFavorite.artist,
-            delta: 1
-        }).catch(() => {});
-    }
+    // Track/artist popularity is updated by the database trigger on user_favorites
+    // (weighted: guests count 0.25; capped at 100 influencing favorites per 30 minutes).
 
     return true;
 }

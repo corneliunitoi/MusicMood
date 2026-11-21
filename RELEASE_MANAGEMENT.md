@@ -60,6 +60,16 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.7d` — 2026-11-21
+* **Security Hardening — Phase 2b (User-Scoped RPCs, Fair Voting & Rate Limits):**
+  * **🗳️ One vote per listener per track** (`public.user_upvotes`): repeated upvotes on the same track are ignored, and the vote size sent by the client is ignored, so a single account can no longer inflate a track (it previously accepted any delta, e.g. 1,000,000).
+  * **⚖️ Guest weighting:** anonymous guests' upvotes, favorites and listening-history likes count **0.25**; Google users count **1.0**. Precise weighted totals live in the new `tracks.upvote_score` / `artists.upvote_score` columns (seeded from existing counts); `upvotes` stays as their rounded value for existing readers.
+  * **⏱️ Rate limits:** at most **100** upvotes per 30 minutes per account (the player shows a message when reached). Favorites and history likes still save beyond that, but only the first 100 in 30 minutes move track/artist scores.
+  * **🐛 Favorites were counted twice:** the favorites trigger and an extra client upvote both bumped popularity. Only the (weighted) trigger counts now.
+  * **🔐 User data RPCs act only on the signed-in user:** `get_user_favorites`, `sync_user_favorites`, `remove_user_favorite`, `get_user_calibration` and `sync_user_calibration` ignore the client-supplied user id and use `auth.uid()`. Previously anyone could read or write another user's favorites and calibration.
+  * **🧹 Removed** the legacy `resolve_or_create_user` (both overloads) and `resolve_or_create_test_user`, which let anyone claim the admin profile by email. Script-only RPCs (`get_dynamic_priority_inflation_candidates`, `get_random_unmapped_local_tracks`) are restricted to the service role; visitors without a session can no longer read per-user tables.
+  * Verified with rolled-back tests on the live database: one vote per track, 0.25 guest weight, rate limit at 100, user scoping, no-session access blocked, existing favorites intact.
+
 ### `v0.8.7c` — 2026-11-21
 * **Security Hardening — Phase 2a (Catalog Lockdown):**
   * **🗄️ Row Level Security (`supabase/migrations/20261121201808_catalog_lockdown.sql`):**
