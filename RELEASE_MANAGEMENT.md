@@ -60,6 +60,11 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.8a` — 2026-11-21
+* **Privacy Policy & Terms of Service pages:**
+  * Added `/privacy.html` and `/terms.html`, describing what the app actually collects (Google profile basics, anonymous guest ids, listening history, favorites, votes, calibration, feedback, optional YouTube playlist access), where it is stored (Supabase EU West, Render, Google/YouTube), and how to request export or deletion.
+  * Linked from the sign-in screen. Required for publishing the Google OAuth app and, later, for the Play Store.
+
 ### `v0.8.8` — 2026-11-21
 * **Security & Stability Milestone (completes the `v0.8.7a`–`v0.8.7h` hardening series) plus Phase 3 clean-up:**
   * **🔐 Sign-in no longer needs Google verification:** Google sign-in now asks only for basic profile scopes (name, email, picture). YouTube access (`youtube.readonly`, a sensitive scope that requires Google app verification) is requested separately, only when a listener imports their YouTube playlists ("Connect YouTube" / "Grant YouTube Permission & Load"). Once the Google OAuth app is published, anyone can sign in; previously only listed test users could.

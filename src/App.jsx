@@ -160,6 +160,11 @@ function App() {
               <span>Questions or Feedback? Let us know</span>
             </button>
           </div>
+          <div style={{ marginTop: '0.75rem', fontSize: '0.78rem', color: '#94a3b8' }}>
+            <a href="/privacy.html" style={{ color: '#94a3b8' }}>Privacy Policy</a>
+            {' · '}
+            <a href="/terms.html" style={{ color: '#94a3b8' }}>Terms of Service</a>
+          </div>
         </div>
       </section>
 
