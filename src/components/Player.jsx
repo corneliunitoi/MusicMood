@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase, upvoteTrack, flagTrackMisclassification } from '../services/supabaseService';
+import { upvoteTrack, flagTrackMisclassification, reportPlaybackProblem } from '../services/supabaseService';
 import { sessionEngine } from '../services/sessionStateMachine';
 import { GENRE_NODES } from '../services/tasteGraph';
 import { jitEngine } from '../services/jitEngine';
@@ -344,25 +344,18 @@ function Player({ initialTrack, token, onOpenArtist }) {
                             sessionEngine.queue = (sessionEngine.queue || []).filter(t => t.id !== failedVideoId && t.youtube_video_id !== failedVideoId);
                         }
 
-                        // 2. Automated Self-Healing: Purge unplayable video from Supabase tracks catalog
+                        // 2. Report the unplayable video. Errors like 150 are often region- or
+                        //    device-specific, so one listener's failure must not remove the
+                        //    track for everyone; reports are reviewed by an admin job.
                         if (failedTrack?.dbId || failedVideoId) {
-                            try {
-                                console.warn(`[SelfHealing] Purging unplayable video from catalog: ${failedVideoId} (code ${code})`);
-                                if (failedTrack?.dbId) {
-                                    await supabase.from('tracks').delete().eq('id', failedTrack.dbId);
-                                } else if (failedVideoId) {
-                                    await supabase.from('tracks').delete().eq('youtube_video_id', failedVideoId);
-                                }
-                            } catch (e) {
-                                console.warn('[SelfHealing] Non-fatal purge warning:', e.message);
-                            }
+                            reportPlaybackProblem({ trackId: failedTrack?.dbId, videoId: failedVideoId, errorCode: code });
                         }
 
                         let msg = 'Track playback error.';
                         if (code === 101 || code === 150) {
-                            msg = 'Embedding restricted by owner. Auto-healed & skipping to next track...';
+                            msg = 'Embedding restricted by owner. Reported & skipping to next track...';
                         } else if (code === 100) {
-                            msg = 'Video unavailable. Auto-healed & skipping to next track...';
+                            msg = 'Video unavailable. Reported & skipping to next track...';
                         }
                         setErrorMessage(msg);
 

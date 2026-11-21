@@ -6,7 +6,7 @@ import { normalizeGenre, ARTIST_CANONICAL_GENRES } from '../src/services/genreNo
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co';
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6';
+const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY) || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const CLASSICAL_PATTERN = /chopin|liszt|schumann|schubert|tchaikovsky|rachmanin|brahms|mussorgsky|grieg|dvorak|dvořák|rubinstein|horowitz|berliner philharmoniker|claudio abado|orchestra|philharmonic|rossini|beethoven|mozart|bach|vivaldi|handel|puccini|verdi|bizet|donizetti|bellini|segovia|mendelssohn|sibelius/i;

@@ -6,7 +6,7 @@ import { normalizeGenre, isSongCandidate } from '../src/services/genreNormalizer
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co';
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6';
+const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY) || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const args = process.argv.slice(2);

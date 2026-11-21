@@ -4,6 +4,7 @@ import { supabase, fetchArtistSuggestions, fetchRandomStagedArtists, submitArtis
 import { GENRE_NODES } from '../services/tasteGraph';
 import { sessionEngine } from '../services/sessionStateMachine';
 import { resolveArtistAvatarOnDemand } from '../services/avatarService';
+import { isAdmin } from '../services/userService';
 
 // 14 High-Level Parent Genre Families (Zero subgenre clutter) + Latest Ingestion & Staging Categories
 const PARENT_GENRES = [
@@ -508,8 +509,8 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
         });
         setRolledArtists(prev => prev.filter(a => (a.id || a.name) !== key));
 
-        // Persist rejection to Supabase so it's permanently filtered out
-        if (artist.id) {
+        // Admins reject for everyone; for other listeners the dismissal only affects their own view
+        if (artist.id && isAdmin()) {
             rejectArtistSuggestion(artist.id).catch(err => {
                 console.error('[ArtistsExplorer] Failed to reject artist in Supabase:', err);
             });

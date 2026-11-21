@@ -124,21 +124,11 @@ export async function fetchRandomStagedArtists(limit = 50, genre = null) {
  */
 export async function submitArtistRequest(artistId) {
     try {
-        // 1. Try RPC if defined
-        try {
-            await supabase.rpc('request_staged_artist', { p_artist_id: artistId });
-        } catch {}
-
-        // 2. Mark artist as requested and approved in artist_suggestions
-        const { error } = await supabase
-            .from('artist_suggestions')
-            .update({
-                is_requested: true,
-                status: 'approved',
-                last_requested_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', artistId);
+        // request_staged_artist marks the candidate as requested/approved and bumps request_count
+        const { data, error } = await supabase.rpc('request_staged_artist', { p_artist_id: artistId });
+        if (!error && data && data.success === false) {
+            return { success: false, error: data.error || 'Artist not found' };
+        }
 
         if (error) {
             console.error('[supabaseService] Error submitting artist request:', error);
@@ -172,7 +162,7 @@ export async function fetchRequestedArtistIdentifiers() {
 }
 
 /**
- * Rejects and dismisses a staged artist suggestion so they never appear again
+ * Rejects a staged artist suggestion for everyone (admin only; enforced by RLS).
  */
 export async function rejectArtistSuggestion(artistId) {
     try {
@@ -392,6 +382,26 @@ export async function submitUserFeedback({ name, comment }) {
         throw error;
     }
     return true;
+}
+
+/**
+ * Reports a video that failed to play. Admin tooling reviews reports instead of
+ * clients deleting catalog tracks.
+ */
+export async function reportPlaybackProblem({ trackId, videoId, errorCode }) {
+    if (!getResolvedUserId()) return;
+    try {
+        const { error } = await supabase
+            .from('track_playback_reports')
+            .insert({
+                track_id: trackId || null,
+                youtube_video_id: videoId || null,
+                error_code: Number.isFinite(errorCode) ? errorCode : null
+            });
+        if (error) console.warn('[PlaybackReport] Could not report playback problem:', error.message);
+    } catch (e) {
+        console.warn('[PlaybackReport] Exception:', e);
+    }
 }
 
 /**

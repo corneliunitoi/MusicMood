@@ -7,7 +7,6 @@
  * on demand, updates the UI immediately, and saves the link to Supabase.
  */
 
-import { supabase } from './supabaseService';
 
 // In-memory session cache of resolved avatars
 const resolvedCache = new Map();
@@ -196,15 +195,8 @@ export async function resolveArtistAvatarOnDemand(artist) {
             if (pic) {
                 resolvedCache.set(artistName, pic);
 
-                // Asynchronously persist to Supabase in the background
-                if (artist.id) {
-                    supabase
-                        .from('artists')
-                        .update({ avatar_url: pic, updated_at: new Date().toISOString() })
-                        .eq('id', artist.id)
-                        .catch(() => {});
-                }
-
+                // Cached in memory only; avatars are persisted by the scheduled
+                // populate-artist-avatars job (clients cannot write to artists).
                 inFlightRequests.delete(artistName);
                 return pic;
             }

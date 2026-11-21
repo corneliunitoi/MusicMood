@@ -21,7 +21,7 @@ import { normalizeArtistKey, scoreArtistNameQuality, pickCanonicalArtist } from 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY);
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const IS_LIVE = process.argv.includes('--live');

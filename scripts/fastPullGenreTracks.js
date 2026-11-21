@@ -8,7 +8,7 @@ import { resolveYouTubeTrack, resolveInnertubeTrack } from './resolveVideoIds.js
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co';
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6';
+const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY) || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const headers = { 'User-Agent': 'MusicMood/1.0.0 ( contact@musicmood.local )' };

@@ -60,6 +60,21 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.7c` — 2026-11-21
+* **Security Hardening — Phase 2a (Catalog Lockdown):**
+  * **🗄️ Row Level Security (`supabase/migrations/20261121130000_catalog_lockdown.sql`):**
+    * Signed-in users and guests can **add** to the catalog (tracks, artists, archive rows) and fill in a **missing** YouTube video id, but can no longer edit or delete existing catalog rows.
+    * Deleting tracks and moderating artist suggestions, genre flags and playback reports is admin-only (`is_admin()`).
+    * Users can request artists (new requests, or `request_staged_artist` for staged ones) and manage only their own genre flags.
+    * Visitors without a session can read the catalog and send feedback, nothing else. Closed anonymous read/write access to everyone's listening history.
+  * **🎧 No more client-side deletions:**
+    * A YouTube playback error no longer deletes the track for everyone (errors like 150 are often region- or device-specific). The app files a report in the new `track_playback_reports` table instead.
+    * Disliking a JIT-discovered track only steers the current session; it no longer removes the track from the catalog.
+    * Dismissing a staged artist only hides it for that listener; rejecting for everyone is admin-only.
+    * Removed client writes to `artists.track_count` (kept by trigger) and `artists.avatar_url` (kept by the scheduled avatar job).
+  * **⚙️ Scripts & workflows:** all catalog scripts prefer `SUPABASE_SERVICE_ROLE_KEY`; scheduled workflows require the `SUPABASE_SERVICE_ROLE_KEY` repository secret and fail fast without it.
+  * Verified with 23 rolled-back permission checks against the live database (guest, admin and no-session roles).
+
 ### `v0.8.7b` — 2026-11-21
 * **Security Hardening — Phase 1 (Supabase Auth as the Only Identity Source):**
   * **🔐 Sign-in through Supabase Auth:**

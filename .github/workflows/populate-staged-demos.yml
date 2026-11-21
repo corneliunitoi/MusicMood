@@ -20,10 +20,18 @@ jobs:
     name: Resolve & Populate Staged Artist Demos
     runs-on: ubuntu-latest
     env:
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       INPUT_LIMIT: ${{ github.event.inputs.limit }}
     timeout-minutes: 25
 
     steps:
+      - name: Require service-role key
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::Repository secret SUPABASE_SERVICE_ROLE_KEY is missing. Catalog writes require it (clients are read/add-only since v0.8.7c)."
+            exit 1
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v4
 

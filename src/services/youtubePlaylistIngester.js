@@ -230,23 +230,7 @@ export async function inflateNewArtistOnTheSpot({ artistName, artistId, primaryG
         }
     }
 
-    if (addedCount > 0 && artistId) {
-        try {
-            const { data: curArtist } = await supabase
-                .from('artists')
-                .select('track_count')
-                .eq('id', artistId)
-                .single();
-
-            const curCount = curArtist?.track_count || 1;
-            await supabase
-                .from('artists')
-                .update({ track_count: curCount + addedCount })
-                .eq('id', artistId);
-        } catch (e) {
-            console.warn(`[Ingester] Could not update track_count for ${artistName}:`, e.message);
-        }
-    }
+    // artists.track_count is maintained by the trg_update_artist_track_count trigger on tracks.
 
     return { added: addedCount };
 }

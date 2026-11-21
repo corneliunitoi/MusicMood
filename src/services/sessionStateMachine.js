@@ -647,16 +647,9 @@ class SessionStateMachine {
             this.state.recentArtists.push(track.artist.toLowerCase());
         }
 
-        // 3. Keep active genre stable; only blacklist artist and notify
+        // 3. Keep active genre stable; only blacklist artist and notify.
+        //    A dislike only steers this session; it never removes catalog tracks for other listeners.
         this.notify();
-
-        // 4. JIT Safety Purge: If track was organically discovered by JIT, immediately purge it from catalog!
-        if (track.dbId && (track.source?.startsWith('jit') || track.source === 'jit_player_expansion' || track.source === 'jit_local_archive' || track.source === 'jit_musicbrainz')) {
-            console.log(`[JIT Safety Purge 🗑️] Disliked JIT track "${track.artist} - ${track.title}". Removing from public.tracks...`);
-            supabase.from('tracks').delete().eq('id', track.dbId).then(() => {
-                console.log(`[JIT Safety Purge 🗑️] Successfully purged track ${track.dbId} from database.`);
-            }).catch(e => console.warn('[JIT Purge Error]:', e));
-        }
     }
 
     getMaxDwell() {

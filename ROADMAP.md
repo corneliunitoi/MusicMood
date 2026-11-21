@@ -73,7 +73,7 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
 **Live check, Nov 21** (simulated anonymous guest, rolled back): a guest can still insert, update and delete any `tracks` row, update any `artists` and `local_metadata` row, delete any `artist_suggestions` row, read another user's favorites via `get_user_favorites(other_id)`, and upvote with a delta of 1,000,000. Guests can't read others' listening history. Everything in the ❌ rows is closed in this phase.
 
 * [ ] **Baseline migration:** dump the live schema (tables, policies, functions, triggers) into `supabase/migrations/` so the database can be rebuilt from the repo. Retire `schema_v2.sql` / `setup_taste_graph.sql` as sources of truth.
-* [ ] **Catalog tables** (`tracks`, `artists`, `local_metadata`, `artist_suggestions`, `track_suggestions`, `track_subgenres`, `genres`, `moods`): read-only for clients. Writes only via the service role (scripts/workflows) or narrow vetted RPCs. Drop every `USING (true)` insert/update/delete policy.
+* [x] **Catalog tables** (`tracks`, `artists`, `local_metadata`, `artist_suggestions`, `track_suggestions`, `track_subgenres`, `genres`, `moods`): read-only for clients. Writes only via the service role (scripts/workflows) or narrow vetted RPCs. Drop every `USING (true)` insert/update/delete policy. *(Done in v0.8.7c.)*
 * [ ] **User tables:** `auth.uid() = user_id` for every operation. Drop `Allow anon insert/select on listening_history`.
 * [ ] **RPCs:** remove all `p_user_id` parameters; use `auth.uid()` inside. Applies to `get_user_favorites`, `sync_user_favorites`, `remove_user_favorite`, `get_user_calibration`, `sync_user_calibration`.
 * [ ] **`upvote_track`:** clamp the delta to ±1 and make it idempotent per user via `user_upvotes (user_id, track_id)` (old item #13).
@@ -91,7 +91,7 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
 
 ## 🧱 Phase 3 — Stability
 
-* [ ] **No client-side catalog deletes:** replace the global purges in `Player.jsx` (playback errors) and `sessionStateMachine.js` (dislike → delete JIT track) with an `unplayable_reports` flag reviewed by a job. One user's region lock must not delete a track for everyone.
+* [x] **No client-side catalog deletes:** replace the global purges in `Player.jsx` (playback errors) and `sessionStateMachine.js` (dislike → delete JIT track) with an `unplayable_reports` flag reviewed by a job. One user's region lock must not delete a track for everyone. *(Done in v0.8.7c.)*
 * [ ] **Listening history actually records:** handle tracks without a `dbId` (`track_id` is `NOT NULL`), and align mood IDs; `sad` and `party` are missing from the `moods` table, so inserts fail silently today.
 * [ ] **Single mood/genre vocabulary:** reconcile `moods.js`, `MOOD_GENRE_MAP` in `tasteGraph.js` and the `moods`/`genres` tables. Remove dead genre IDs (`dream_pop`, `motown`, `90s_alt`, `space_rock`, `rnb_contemporary`, `fingerstyle`, `acoustic_guitar`).
 * [ ] **Column naming:** `local_metadata.youtube_id` vs `youtube_video_id`; pick one and migrate.
@@ -486,6 +486,7 @@ graph TD
 * [x] **v0.8.7:** Production Inflation of Approved Staged Candidates (10+ tracks per admitted artist via iTunes + Last.fm + InnerTube), Unified 50-Artist Roll Section inside Potential Matches with 0 duplicate boxes, and Guided Spotlight Tour Potential Matches Discovery Onboarding Step.
 * [x] **v0.8.7a:** Security Hardening Phase 0 — revoked TRUNCATE/TRIGGER/REFERENCES from API roles, locked admin-minting and trigger RPCs, pinned function search_path, write-only feedback, removed committed secrets and personal library dumps, workflow shell-injection fix, 0 npm vulnerabilities.
 * [x] **v0.8.7b:** Supabase Auth as the only identity source — Google sign-in via Supabase OAuth, per-device anonymous guests with in-place Google upgrade, automatic legacy-profile migration, client-proof roles, guest favorites cloud-sync fix.
+* [x] **v0.8.7c:** Catalog lockdown — clients add-only, admin-only edits/deletes, playback-error reports instead of global deletes, scripts and workflows on the service-role key.
 
 ---
 
