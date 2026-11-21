@@ -56,6 +56,22 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
 
 ## 🛡️ Phase 2 — Row Level Security & RPC Rewrite
 
+**Target permissions** (guests and Google users are both `authenticated`; guests have `is_anonymous = true`):
+
+| Action | Guest | Google user | Admin |
+|---|:---:|:---:|:---:|
+| Read catalog (tracks, artists, genres, moods, staged candidates) | ✅ | ✅ | ✅ |
+| Own favorites, own listening history, own calibration | ✅ | ✅ | ✅ |
+| Upvote a track (once per track, ±1) | ✅ | ✅ | ✅ |
+| Suggest / request an artist (insert only, rate-limited) | ✅ | ✅ | ✅ |
+| Flag a wrong genre (own flags only) | ✅ | ✅ | ✅ |
+| Send feedback (insert only) | ✅ | ✅ | ✅ |
+| Read other users' data | ❌ | ❌ | dashboard only |
+| Insert / update / delete catalog rows (tracks, artists, local_metadata) | ❌ | ❌ | via service role / admin RPCs |
+| Edit or delete suggestions, flags, feedback | ❌ | ❌ | ✅ |
+
+**Live check, Nov 21** (simulated anonymous guest, rolled back): a guest can still insert, update and delete any `tracks` row, update any `artists` and `local_metadata` row, delete any `artist_suggestions` row, read another user's favorites via `get_user_favorites(other_id)`, and upvote with a delta of 1,000,000. Guests can't read others' listening history. Everything in the ❌ rows is closed in this phase.
+
 * [ ] **Baseline migration:** dump the live schema (tables, policies, functions, triggers) into `supabase/migrations/` so the database can be rebuilt from the repo. Retire `schema_v2.sql` / `setup_taste_graph.sql` as sources of truth.
 * [ ] **Catalog tables** (`tracks`, `artists`, `local_metadata`, `artist_suggestions`, `track_suggestions`, `track_subgenres`, `genres`, `moods`): read-only for clients. Writes only via the service role (scripts/workflows) or narrow vetted RPCs. Drop every `USING (true)` insert/update/delete policy.
 * [ ] **User tables:** `auth.uid() = user_id` for every operation. Drop `Allow anon insert/select on listening_history`.
