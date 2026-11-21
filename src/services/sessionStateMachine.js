@@ -11,7 +11,7 @@
  */
 
 import { supabase, startPlay, updatePlay, apiFetch } from './supabaseService.js';
-import { GENRE_FAMILIES, GENRE_NODES, getGraphDistance, getVectorDeviation, getMoodCompatibleGenres, getPoleForGenre, violatesDealbreakers, normalizeWeights } from './tasteGraph.js';
+import { GENRE_FAMILIES, GENRE_NODES, MOOD_DEFAULT_HOME, resolveMoodId, getGraphDistance, getVectorDeviation, getMoodCompatibleGenres, getPoleForGenre, violatesDealbreakers, normalizeWeights } from './tasteGraph.js';
 import { isSongCandidate, isAiGenerated, normalizeGenre } from './genreNormalizer.js';
 import { allMoods } from './moods.js';
 import { jitEngine } from './jitEngine.js';
@@ -150,7 +150,12 @@ class SessionStateMachine {
         try {
             if (typeof localStorage !== 'undefined') {
                 const raw = localStorage.getItem(SESSION_STATE_KEY);
-                if (raw) return JSON.parse(raw);
+                if (raw) {
+                    const saved = JSON.parse(raw);
+                    // Sessions saved on a retired mood continue on its replacement
+                    if (saved && saved.currentMood) saved.currentMood = resolveMoodId(saved.currentMood);
+                    return saved;
+                }
             }
         } catch (e) {
             console.error('Failed to parse session state:', e);
@@ -260,8 +265,17 @@ class SessionStateMachine {
      * Predicts what the user wants to hear for a given mood by calculating composite affinity
      * across their 6-point Sonic Radar star, normalized node weights, anchors, energy delta, and fatigue.
      */
-    predictBestGenreForMood(moodId, customRadar = null, customWeights = null) {
+    predictBestGenreForMood(rawMoodId, customRadar = null, customWeights = null) {
+        const moodId = resolveMoodId(rawMoodId);
         const moodObj = allMoods.find(m => m.id === moodId);
+
+        // Before a listener has calibrated a taste profile, use the mood's curated default home
+        if (!customRadar && !this.calibration?.radarValues && MOOD_DEFAULT_HOME[moodId]) {
+            const fallback = MOOD_DEFAULT_HOME[moodId];
+            if (!violatesDealbreakers(GENRE_NODES[fallback]?.label, fallback, this.calibration?.dealbreakers)) {
+                return fallback;
+            }
+        }
         const moodCompatible = getMoodCompatibleGenres(moodId) || [];
         
         // Filter out dealbreakers
@@ -379,9 +393,13 @@ class SessionStateMachine {
      * Returns the user's calibrated Home Anchor genre for a given mood.
      * Falls back to predictive scoring if no explicit Home is calibrated.
      */
-    getHomeGenreForMood(moodId) {
-        if (this.calibration.homeGenres && this.calibration.homeGenres[moodId]) {
-            return this.calibration.homeGenres[moodId];
+    getHomeGenreForMood(rawMoodId) {
+        const moodId = resolveMoodId(rawMoodId);
+        const homes = this.calibration.homeGenres || {};
+        // A home pinned on a retired mood still applies to the mood it merged into
+        const pinned = homes[moodId] || homes[rawMoodId];
+        if (pinned && GENRE_NODES[pinned]) {
+            return pinned;
         }
         return this.predictBestGenreForMood(moodId);
     }
@@ -412,7 +430,8 @@ class SessionStateMachine {
         return getVectorDeviation(home, this.state.activeGenre);
     }
 
-    setMood(moodId) {
+    setMood(rawMoodId) {
+        const moodId = resolveMoodId(rawMoodId);
         const moodObj = allMoods.find(m => m.id === moodId);
         if (!moodObj) return;
 
@@ -424,7 +443,7 @@ class SessionStateMachine {
             this.state.energyLevel = moodObj.defaultEnergy;
         }
 
-        if (moodId === 'focus' || moodId === 'study' || moodId === 'sleep') {
+        if (moodId === 'focus' || moodId === 'sleep') {
             this.state.vocalPreference = 'instrumental';
         } else {
             // Restore default vocal preference for active mood

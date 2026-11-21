@@ -60,6 +60,15 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.7h` — 2026-11-21
+* **Stability — One Mood Vocabulary (22 visible moods):**
+  * **🎛️ Single source of truth:** `MOOD_GENRE_MAP` in `tasteGraph.js` now defines every mood's compatible genres, with new `MOOD_DEFAULT_HOME` (curated fallback home per mood) and `MOOD_ALIASES` (redirects for retired moods). `moods.js` holds only labels, emoji and UI categories.
+  * **🧹 Mood line-up (approved Nov 21):** the 6 core moods plus 16 others stay visible. Merged into near-duplicates: Workout → Energetic, Study → Focus, Melancholic → Sad, Villain Mode → Dark/Intense, Soft Vibes → Chill, Ambient → Wind Down. Hidden: Hopeful and Main Character (→ Happy). Retired ids keep working everywhere: saved sessions, pinned homes and listening history redirect to the replacement mood.
+  * **🔧 Fixed 7 dead genre ids** in mood mappings (`motown`, `90s_alt`, `rnb_contemporary`, `dream_pop`, `fingerstyle`, `acoustic_guitar`, `space_rock`) that silently shrank those moods.
+  * **🏠 Curated default homes** for every mood (e.g. Late Night → Cool Jazz, Roadtrip → Classic Rock, Epic → Cinematic Orchestral), used before a listener calibrates their taste profile. Calibrated listeners keep their predicted or pinned homes.
+  * **📊 Catalog check:** every genre of every mood has playable tracks; the smallest default home has 169 and the smallest mood 1,274 playable tracks.
+  * **🧪 Tests:** 8 new tests (19 total) guard the vocabulary: no unknown genres, every visible mood mapped with a default home inside its own genres, every retired mood redirecting to a visible one.
+
 ### `v0.8.7g` — 2026-11-21
 * **Stability — Session State Machine Consistency & First Test Suite:**
   * **🔁 One set of anti-repetition rules for every sourcing path** (catalog pull, emergency fallback, JIT discovery, strict guards), defined once in `sessionStateMachine.js`:

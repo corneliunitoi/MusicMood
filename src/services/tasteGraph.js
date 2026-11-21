@@ -584,38 +584,89 @@ export function normalizeWeights(weights = {}, anchors = [], dealbreakers = []) 
  * Natural mood-to-genre affinity mapping.
  * Connects emotional state to aesthetic clusters in the taste graph.
  */
+/**
+ * Mood → compatible genres. Single source of truth for mood/genre mapping
+ * (moods.js only holds labels, emoji and categories).
+ */
 export const MOOD_GENRE_MAP = {
+    // Core 6
     focus: ['baroque', 'neo_classical', 'ambient_electronic', 'lofi_hiphop', 'post_rock', 'ambient', 'chamber_music', 'idm', 'cool_jazz', 'math_rock', 'chillout', 'contemporary_classical'],
-    study: ['lofi_hiphop', 'neo_classical', 'ambient_electronic', 'ambient', 'chamber_music', 'contemporary_classical'],
     chill: ['lofi_hiphop', 'bossa_nova_jazz', 'neo_soul', 'ambient', 'indie_folk', 'house', 'chillout', 'smooth_jazz', 'roots_reggae', 'shoegaze', 'quiet_storm'],
-    late_night: ['cool_jazz', 'darksynth', 'ambient_electronic', 'quiet_storm', 'shoegaze', 'techno', 'ambient', 'soul_blues'],
-    energetic: ['heavy_metal', 'thrash_metal', 'metal', 'hard_rock', 'prog_metal', 'nu_metal', 'metalcore', 'symphonic_metal', 'garage_rock', 'punk_rock', 'grunge', 'synthwave', 'techno', 'drum_and_bass', 'boom_bap', 'trap_modern', 'afrobeat', 'edm_mainstream', 'darksynth'],
-    workout: ['heavy_metal', 'thrash_metal', 'prog_metal', 'nu_metal', 'metalcore', 'drum_and_bass', 'darksynth', 'industrial', 'hard_rock', 'trap_modern', 'edm_mainstream', 'techno'],
+    energetic: ['heavy_metal', 'thrash_metal', 'metal', 'hard_rock', 'prog_metal', 'nu_metal', 'metalcore', 'symphonic_metal', 'garage_rock', 'punk_rock', 'grunge', 'synthwave', 'techno', 'drum_and_bass', 'boom_bap', 'trap_modern', 'afrobeat', 'edm_mainstream', 'darksynth', 'industrial'],
     happy: ['classic_soul', 'funk', 'indie_pop', 'ska', 'dance_pop', 'bossa_nova', 'afrobeat', 'bluegrass', 'classic_rock', 'soul_funk'],
+    sad: ['delta_blues', 'chicago_blues', 'doom_metal', 'singer_songwriter', 'romantic', 'ambient', 'post_rock', 'shoegaze', 'acoustic_folk', 'chamber_music', 'indie_folk'],
     party: ['funk', 'house', 'dance_pop', 'salsa', 'boom_bap', 'edm_mainstream', 'ska', 'afrobeat', 'trap_modern', 'hard_rock', 'synthwave', 'nu_metal'],
-    melancholic: ['romantic', 'post_rock', 'delta_blues', 'singer_songwriter', 'ambient', 'indie_folk', 'shoegaze'],
-    sad: ['delta_blues', 'chicago_blues', 'doom_metal', 'singer_songwriter', 'romantic', 'ambient', 'post_rock', 'shoegaze', 'acoustic_folk', 'chamber_music'],
-    sleep: ['ambient', 'nature_soundscape', 'new_age', 'neo_classical'],
-    rainy: ['indie_folk', 'lofi_hiphop', 'chicago_blues', 'delta_blues', 'post_rock', 'celtic_folk'],
-    driving: ['classic_rock', 'blues_rock', 'americana', 'outlaw_country', 'synthwave', 'alt_rock', 'hard_rock'],
-    morning: ['bossa_nova', 'indie_folk', 'classic_soul', 'neo_classical', 'chamber_music'],
-    cyberpunk: ['darksynth', 'synthwave', 'techno', 'industrial', 'idm'],
-    cinematic_epic: ['cinematic_orchestral', 'prog_metal', 'symphonic_metal', 'post_rock', 'opera'],
-    cinematic_mystery: ['cool_jazz', 'soul_blues', 'ambient_electronic', 'chamber_music'],
-    cinematic_fantasy: ['celtic_folk', 'chamber_music', 'neo_classical', 'acoustic_guitar'],
-    cinematic_scifi: ['darksynth', 'synthwave', 'ambient_electronic', 'idm', 'space_rock'],
-    cinematic_ambient: ['ambient', 'nature_soundscape', 'new_age', 'ambient_electronic'],
-    dark_intense: ['black_metal', 'death_metal', 'darksynth', 'industrial', 'noise'],
-    nostalgic: ['classic_rock', 'classic_soul', 'motown', '90s_alt', 'classic_country', 'traditional_pop'],
-    romantic: ['classic_soul', 'neo_soul', 'bossa_nova', 'smooth_jazz', 'rnb_contemporary'],
-    hopeful: ['indie_pop', 'indie_folk', 'chamber_music', 'classic_soul'],
-    dreamy: ['shoegaze', 'dream_pop', 'ambient_electronic', 'lofi_hiphop', 'post_rock'],
-    main_character: ['synthwave', 'indie_rock', 'dance_pop', 'alt_rock'],
-    villain_mode: ['industrial', 'darksynth', 'trap_modern', 'thrash_metal'],
-    soft_vibes: ['lofi_hiphop', 'indie_folk', 'bossa_nova', 'ambient'],
-    dark_academia: ['baroque', 'chamber_music', 'neo_classical', 'cool_jazz'],
-    cottagecore: ['indie_folk', 'celtic_folk', 'bluegrass', 'fingerstyle']
+
+    // Activities
+    late_night: ['cool_jazz', 'quiet_storm', 'neo_soul', 'darksynth', 'ambient_electronic', 'shoegaze', 'techno', 'soul_blues'],
+    driving: ['classic_rock', 'blues_rock', 'americana', 'outlaw_country', 'alt_rock', 'indie_rock', 'hard_rock', 'synthwave'],
+    rainy: ['post_rock', 'singer_songwriter', 'indie_folk', 'acoustic_folk', 'shoegaze', 'delta_blues', 'chicago_blues', 'lofi_hiphop'],
+    morning: ['bossa_nova', 'indie_pop', 'classic_soul', 'funk', 'indie_folk', 'neo_classical', 'chamber_music'],
+    sleep: ['ambient', 'new_age', 'neo_classical', 'ambient_electronic', 'nature_soundscape'],
+
+    // Nuances
+    nostalgic: ['classic_rock', 'classic_soul', 'grunge', 'alt_rock', 'classic_country', 'traditional_pop'],
+    romantic: ['neo_soul', 'classic_soul', 'rnb', 'rnb_soul', 'quiet_storm', 'bossa_nova', 'smooth_jazz'],
+    dark_intense: ['industrial', 'darksynth', 'death_metal', 'black_metal', 'doom_metal', 'thrash_metal', 'trap_modern', 'noise'],
+    dreamy: ['shoegaze', 'ambient_electronic', 'post_rock', 'lofi_hiphop', 'ambient'],
+
+    // Aesthetics
+    dark_academia: ['baroque', 'chamber_music', 'neo_classical', 'romantic', 'contemporary_classical', 'cool_jazz'],
+    cottagecore: ['indie_folk', 'acoustic_folk', 'folk_acoustic', 'celtic_folk', 'bluegrass'],
+    cyberpunk: ['synthwave', 'darksynth', 'techno', 'industrial', 'idm'],
+
+    // Cinematic
+    cinematic_epic: ['cinematic_orchestral', 'symphonic_metal', 'prog_metal', 'post_rock', 'opera'],
+    cinematic_mystery: ['cool_jazz', 'soul_blues', 'quiet_storm', 'ambient_electronic', 'chamber_music'],
+    cinematic_fantasy: ['celtic_folk', 'acoustic_folk', 'chamber_music', 'neo_classical', 'symphonic_metal'],
+    cinematic_scifi: ['ambient_electronic', 'idm', 'darksynth', 'synthwave', 'psychedelic_rock']
 };
+
+/**
+ * Retired moods redirect to the mood that replaced them (merged or hidden in v0.8.7h).
+ * Their ids stay valid so saved sessions, calibration and listening history keep working.
+ */
+export const MOOD_ALIASES = {
+    workout: 'energetic',
+    study: 'focus',
+    melancholic: 'sad',
+    villain_mode: 'dark_intense',
+    soft_vibes: 'chill',
+    cinematic_ambient: 'sleep',
+    hopeful: 'happy',
+    main_character: 'happy'
+};
+
+/** Fallback home genre per mood, used before a listener has calibrated their taste profile. */
+export const MOOD_DEFAULT_HOME = {
+    focus: 'baroque',
+    chill: 'lofi_hiphop',
+    energetic: 'heavy_metal',
+    happy: 'indie_pop',
+    sad: 'singer_songwriter',
+    party: 'dance_pop',
+    late_night: 'cool_jazz',
+    driving: 'classic_rock',
+    rainy: 'post_rock',
+    morning: 'bossa_nova',
+    sleep: 'ambient',
+    nostalgic: 'classic_rock',
+    romantic: 'neo_soul',
+    dark_intense: 'industrial',
+    dreamy: 'shoegaze',
+    dark_academia: 'baroque',
+    cottagecore: 'indie_folk',
+    cyberpunk: 'synthwave',
+    cinematic_epic: 'cinematic_orchestral',
+    cinematic_mystery: 'cool_jazz',
+    cinematic_fantasy: 'celtic_folk',
+    cinematic_scifi: 'ambient_electronic'
+};
+
+/** Resolves retired mood ids to their replacement; unknown ids are returned unchanged. */
+export function resolveMoodId(moodId) {
+    return MOOD_ALIASES[moodId] || moodId;
+}
 
 /**
  * Maps any genre node ID to one of the 6 canonical Sonic Radar poles:
@@ -650,8 +701,9 @@ export function getPoleForGenre(genreId) {
 }
 
 export function getMoodCompatibleGenres(moodId) {
-    if (moodId && MOOD_GENRE_MAP[moodId]) {
-        return MOOD_GENRE_MAP[moodId];
+    const resolved = resolveMoodId(moodId);
+    if (resolved && MOOD_GENRE_MAP[resolved]) {
+        return MOOD_GENRE_MAP[resolved];
     }
     return Object.keys(GENRE_NODES);
 }

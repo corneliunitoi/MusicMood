@@ -93,8 +93,8 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
 
 * [x] **No client-side catalog deletes:** replace the global purges in `Player.jsx` (playback errors) and `sessionStateMachine.js` (dislike → delete JIT track) with an `unplayable_reports` flag reviewed by a job. One user's region lock must not delete a track for everyone. *(Done in v0.8.7c.)*
 * [x] **Listening history actually records:** handle tracks without a `dbId` (`track_id` is `NOT NULL`), and align mood IDs; `sad` and `party` are missing from the `moods` table, so inserts fail silently today. *(Done in v0.8.7f: track_id was nullable after all; the real losses were 22 missing moods, multiple rows per play and no listening time.)*
-* [ ] **Design the 24 non-core moods:** only the 6 core moods (Focus, Chill, Energetic, Happy, Sad, Party) have home genres and calibration. The other 24 (Late Night, Roadtrip, Study, Rainy Day, cinematic moods, etc.) are registered since v0.8.7f so their plays are recorded, but need home genres, genre mappings and a decision on which stay visible.
-* [ ] **Single mood/genre vocabulary:** reconcile `moods.js`, `MOOD_GENRE_MAP` in `tasteGraph.js` and the `moods`/`genres` tables. Remove dead genre IDs (`dream_pop`, `motown`, `90s_alt`, `space_rock`, `rnb_contemporary`, `fingerstyle`, `acoustic_guitar`).
+* [x] **Design the 24 non-core moods:** only the 6 core moods (Focus, Chill, Energetic, Happy, Sad, Party) have home genres and calibration. The other 24 (Late Night, Roadtrip, Study, Rainy Day, cinematic moods, etc.) are registered since v0.8.7f so their plays are recorded, but need home genres, genre mappings and a decision on which stay visible. *(Done in v0.8.7h.)*
+* [x] **Single mood/genre vocabulary:** reconcile `moods.js`, `MOOD_GENRE_MAP` in `tasteGraph.js` and the `moods`/`genres` tables. Remove dead genre IDs (`dream_pop`, `motown`, `90s_alt`, `space_rock`, `rnb_contemporary`, `fingerstyle`, `acoustic_guitar`). *(Done in v0.8.7h.)*
 * [ ] **Column naming:** `local_metadata.youtube_id` vs `youtube_video_id`; pick one and migrate.
 * [x] **State machine correctness:** *(Done in v0.8.7g. The dwell cap was removed by design, since genre lock is intended. The hop-limit issue was in dead code; Surprise Me already enforces the tiers.)*
   * Explicit states and transitions; `getNextTrack` must distinguish "busy" from "nothing playable".
@@ -493,6 +493,7 @@ graph TD
 * [x] **v0.8.7e:** Server endpoints require sign-in, per-user/per-IP rate limits, input validation, no error leaks, security headers (CSP report-only).
 * [x] **v0.8.7f:** Listening history as one row per play with outcome and seconds listened, all 30 moods registered, outcome-driven affinity; Catalog Sanity workflow timeout fixed.
 * [x] **v0.8.7g:** Unified recency rules (50-track memory, 15-artist cooldown, relaxed and last-resort tiers), session-long dislikes, busy-vs-empty fix, dead traversal/dwell code removed, first unit tests and CI.
+* [x] **v0.8.7h:** One mood vocabulary: 22 visible moods with curated genre lists and default homes, 8 retired moods redirecting, 7 dead genre ids fixed, vocabulary tests.
 
 ---
 
