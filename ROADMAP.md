@@ -101,7 +101,7 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
   * Bound `recentTracks` in memory, not only when saving.
   * Either enforce `MAX_DWELL_PER_NODE` or remove it (`getMaxDwell()` returns `Infinity`).
   * Discovery tiers must respect their hop limits (anchors currently bypass them).
-* [ ] **Scheduled job timeouts:** "Hourly Catalog Sanity, Maintenance & Discovery" (`reconcile-flags.yml`) keeps hitting its 20-minute job timeout. Its last step (artist avatars) is cancelled on every run since Nov 20, and the run is reported as *cancelled*. Split the job, or give the slow steps their own time budgets.
+* [x] **Scheduled job timeouts:** "Hourly Catalog Sanity, Maintenance & Discovery" (`reconcile-flags.yml`) keeps hitting its 20-minute job timeout. Its last step (artist avatars) is cancelled on every run since Nov 20, and the run is reported as *cancelled*. Split the job, or give the slow steps their own time budgets. *(Fixed Nov 21: duplicate merge step removed, avatars capped at 6 minutes / 120 per run and non-fatal, job limit 30 minutes.)*
 * [ ] **Single scraper implementation:** remove the duplicate of the `server.js` logic in `vite.config.js`.
 * [ ] **Error handling:** surface failed writes instead of `console.warn` and continuing.
 * [ ] **Tests:** unit tests for the state machine and graph traversal; integration test for sign-in → favorites → history under RLS.
