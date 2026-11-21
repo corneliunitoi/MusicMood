@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { fetchUserProfile, fetchUserPlaylists } from '../services/youtube';
-import { requestGoogleLogin } from '../services/auth';
+import { fetchUserPlaylists } from '../services/youtube';
+import { signInWithGoogle } from '../services/auth';
 import { supabase } from '../services/supabaseService';
 import { sessionEngine } from '../services/sessionStateMachine';
 import MoodBar, { allMoods } from './MoodBar';
@@ -24,13 +24,11 @@ import {
     isPowerUser,
     isBetaTester,
     canAccess,
-    TEST_PERSONAS,
-    switchTestPersona,
-    isTestUserActive,
     subscribeUser
 } from '../services/userService';
 
-function Dashboard({ token, onLogout, onTokenUpdate }) {
+function Dashboard({ session, token, onLogout }) {
+    const sessionUserId = session?.user?.id;
     const [profile, setProfile] = useState(null);
     const [playlists, setPlaylists] = useState([]);
     const [playlistError, setPlaylistError] = useState(null);
@@ -43,15 +41,12 @@ function Dashboard({ token, onLogout, onTokenUpdate }) {
         setIsLoadingPlaylists(true);
         setPlaylistError(null);
         try {
-            let activeToken = token;
-            if (forceConsent) {
-                activeToken = await requestGoogleLogin({ prompt: 'consent' });
-                if (onTokenUpdate) onTokenUpdate(activeToken);
-                const profileData = await fetchUserProfile(activeToken);
-                const resolvedUser = await initUserProfile(profileData);
-                setProfile({ ...profileData, ...resolvedUser });
+            if (forceConsent || token === 'guest') {
+                // Re-run Google OAuth to get a fresh YouTube token (full-page redirect)
+                await signInWithGoogle({ forceConsent: true });
+                return;
             }
-            const data = await fetchUserPlaylists(activeToken);
+            const data = await fetchUserPlaylists(token);
             setPlaylists(data || []);
             setPlaylistError(null);
         } catch (err) {
@@ -65,17 +60,10 @@ function Dashboard({ token, onLogout, onTokenUpdate }) {
     const handleGoogleSignIn = async () => {
         setIsAuthenticating(true);
         try {
-            const newToken = await requestGoogleLogin({ prompt: 'select_account' });
-            if (newToken) {
-                if (onTokenUpdate) onTokenUpdate(newToken);
-                const profileData = await fetchUserProfile(newToken);
-                const resolvedUser = await initUserProfile(profileData);
-                setProfile({ ...profileData, ...resolvedUser });
-                await refreshPlaylists();
-            }
+            // Guests are upgraded in place (identity linking keeps their favorites); redirects to Google
+            await signInWithGoogle();
         } catch (err) {
-            console.warn('[Dashboard] Direct Google Sign-In error:', err.message);
-        } finally {
+            console.warn('[Dashboard] Google sign-in error:', err.message);
             setIsAuthenticating(false);
         }
     };
@@ -164,10 +152,10 @@ function Dashboard({ token, onLogout, onTokenUpdate }) {
     useEffect(() => {
         const loadData = async () => {
             try {
-                // 1. Fetch user identity profile (required for session)
-                const profileData = await fetchUserProfile(token);
-                const resolvedUser = await initUserProfile(profileData);
-                setProfile({ ...profileData, ...resolvedUser });
+                // 1. Load the profile for the Supabase session (required)
+                const resolvedUser = await initUserProfile(session);
+                if (!resolvedUser) throw new Error('Unauthorized');
+                setProfile(resolvedUser);
 
                 if (resolvedUser.calibration && resolvedUser.calibration.radarValues) {
                     setCalibration(resolvedUser.calibration);
@@ -179,9 +167,9 @@ function Dashboard({ token, onLogout, onTokenUpdate }) {
                     }
                 }
 
-                // 2. Fetch user playlists gracefully (optional / non-fatal)
+                // 2. Fetch user playlists gracefully (optional / non-fatal; needs a Google token)
                 try {
-                    const playlistsData = await fetchUserPlaylists(token);
+                    const playlistsData = token === 'guest' ? [] : await fetchUserPlaylists(token);
                     setPlaylists(playlistsData || []);
                     setPlaylistError(null);
                 } catch (playlistErr) {
@@ -201,7 +189,9 @@ function Dashboard({ token, onLogout, onTokenUpdate }) {
             }
         };
         loadData();
-    }, [token]);
+        // Reload only when the signed-in user or the YouTube token changes, not on session refreshes
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sessionUserId, token]);
 
     useEffect(() => {
         const fetchStatus = async () => {
@@ -407,7 +397,7 @@ function Dashboard({ token, onLogout, onTokenUpdate }) {
                             ) : null}
 
                             {/* Prominent Google Sign-In button for Guest users */}
-                            {(profile.isGuest || token === 'guest' || profile.role === 'guest') && (
+                            {profile.isGuest && (
                                 <button
                                     type="button"
                                     className="btn-google-signin-pill"
@@ -427,41 +417,12 @@ function Dashboard({ token, onLogout, onTokenUpdate }) {
                                         gap: '0.35rem',
                                         boxShadow: '0 2px 6px rgba(66, 133, 244, 0.35)'
                                     }}
-                                    title="Sign in with your Google account to unlock Admin & YouTube playlists"
+                                    title="Sign in with Google to keep your favorites across devices and import YouTube playlists"
                                 >
                                     <span>{isAuthenticating ? '⏳ Signing in...' : '🔑 Sign In with Google'}</span>
                                 </button>
                             )}
 
-                            {/* Test Persona Switcher for Feature Validation */}
-                            {(isAdmin() || isTestUserActive()) && (
-                                <div style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '0.2rem' }}>
-                                    <select
-                                        value={isTestUserActive() ? (profile.personaKey || 'test') : 'real'}
-                                        onChange={(e) => switchTestPersona(e.target.value)}
-                                        title="Switch User Persona to validate feature gating and permissions"
-                                        style={{
-                                            background: isTestUserActive() ? 'rgba(245, 158, 11, 0.18)' : 'rgba(30, 41, 59, 0.85)',
-                                            color: isTestUserActive() ? '#fbbf24' : '#cbd5e1',
-                                            border: isTestUserActive() ? '1px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.15)',
-                                            borderRadius: '6px',
-                                            padding: '0.15rem 0.45rem',
-                                            fontSize: '0.72rem',
-                                            outline: 'none',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        <option value="real">👤 Real Account</option>
-                                        <optgroup label="── Local Test Personas ──">
-                                            {TEST_PERSONAS.map(p => (
-                                                <option key={p.key} value={p.key}>
-                                                    {p.badge} ({p.name})
-                                                </option>
-                                            ))}
-                                        </optgroup>
-                                    </select>
-                                </div>
-                            )}
                         </div>
                     ) : <div />}
 

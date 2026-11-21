@@ -1,47 +1,95 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
-import { requestGoogleLogin, getAccessToken, logout } from './services/auth';
-import { signInAsGuest, supabase } from './services/supabaseService';
-import { switchUserFavorites } from './services/favoritesService';
+import { signInWithGoogle, signInAsGuest, getSession, getYouTubeToken, watchAuthState, logout } from './services/auth';
 import FeedbackModal from './components/FeedbackModal';
 
 import Dashboard from './components/Dashboard';
 
+// Reads an OAuth error returned by Supabase/Google in the redirect URL, then cleans the URL.
+function readRedirectError() {
+  try {
+    const params = new URLSearchParams(window.location.search || window.location.hash.replace(/^#/, ''));
+    const message = params.get('error_description') || params.get('error');
+    if (message) {
+      window.history.replaceState(null, '', window.location.pathname);
+      return decodeURIComponent(message.replace(/\+/g, ' '));
+    }
+  } catch {
+    /* ignore malformed URLs */
+  }
+  return null;
+}
+
 function App() {
   const [isLoading, setIsLoading] = useState(false);
-  const [token, setToken] = useState(getAccessToken());
-  const [authError, setAuthError] = useState(null);
+  const [session, setSession] = useState(undefined); // undefined = still restoring
+  const [youtubeToken, setYoutubeToken] = useState(() => getYouTubeToken());
+  const [authError, setAuthError] = useState(() => readRedirectError());
   const [showFeedback, setShowFeedback] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    getSession().then(s => {
+      if (!active) return;
+      setSession(s);
+      setYoutubeToken(getYouTubeToken());
+    });
+    const unsubscribe = watchAuthState((_event, s) => {
+      setSession(s || null);
+      setYoutubeToken(getYouTubeToken());
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
 
   const handleConnect = async () => {
     setIsLoading(true);
     setAuthError(null);
     try {
-      const accessToken = await requestGoogleLogin();
-      if (accessToken) {
-        setToken(accessToken);
-      }
+      await signInWithGoogle(); // redirects to Google
     } catch (err) {
       console.warn('[App Auth] Login notice:', err.message);
-      if (!err.message?.includes('closed') && !err.message?.includes('cancel')) {
-        setAuthError(err.message || 'Failed to authenticate with Google. Please check your browser popup blocker.');
-      }
+      setAuthError(err.message || 'Failed to start Google sign-in.');
+      setIsLoading(false);
+    }
+  };
+
+  const handleGuest = async () => {
+    setIsLoading(true);
+    setAuthError(null);
+    try {
+      const s = await signInAsGuest();
+      setSession(s);
+    } catch (e) {
+      console.error('Guest login failed:', e);
+      setAuthError(e.message || 'Failed to start guest session.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleLogout = async () => {
-    logout();
-    if (token === 'guest') {
-      await supabase.auth.signOut();
-    }
-    setToken(null);
+    await logout();
+    setSession(null);
+    setYoutubeToken(null);
   };
 
-  if (token) {
+  if (session === undefined) {
     return (
-      <Dashboard token={token} onLogout={handleLogout} onTokenUpdate={(newToken) => setToken(newToken)} />
+      <main>
+        <section className="hero">
+          <p className="subtitle">Loading…</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (session) {
+    return (
+      // `token` is the Google access token for YouTube API calls, or 'guest' when there is none
+      <Dashboard session={session} token={youtubeToken || 'guest'} onLogout={handleLogout} />
     );
   }
 
@@ -74,7 +122,7 @@ function App() {
             onClick={handleConnect}
             disabled={isLoading}
           >
-            {isLoading ? 'Connecting to Google...' : (
+            {isLoading ? 'Connecting...' : (
               <>
                 <svg className="youtube-icon" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
@@ -86,21 +134,7 @@ function App() {
           <button
             className="btn-secondary"
             style={{ marginTop: '1rem', width: '100%', background: 'rgba(255, 255, 255, 0.1)', color: 'white', border: '1px solid rgba(255, 255, 255, 0.2)', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-            onClick={async () => {
-              setIsLoading(true);
-              setAuthError(null);
-              try {
-                await signInAsGuest();
-                localStorage.setItem('youtube_access_token', 'guest');
-                switchUserFavorites('guest');
-                setToken('guest');
-              } catch (e) {
-                console.error("Guest login failed:", e);
-                setAuthError("Failed to start guest session.");
-              } finally {
-                setIsLoading(false);
-              }
-            }}
+            onClick={handleGuest}
             disabled={isLoading}
           >
             Continue as Guest

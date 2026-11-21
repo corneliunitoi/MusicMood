@@ -1,17 +1,5 @@
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 
-export const fetchUserProfile = async (token) => {
-    if (token === 'guest') {
-        return { name: 'Guest User', picture: 'https://ui-avatars.com/api/?name=Guest+User&background=646cff&color=fff' };
-    }
-    const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${token}` },
-    });
-    if (response.status === 401) throw new Error('Unauthorized');
-    if (!response.ok) throw new Error('Failed to fetch user profile');
-    return await response.json();
-};
-
 export const fetchUserPlaylists = async (token) => {
     if (token === 'guest') {
         return [];

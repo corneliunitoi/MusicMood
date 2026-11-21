@@ -1,72 +1,46 @@
-import { supabase, fetchUserCalibration, syncCalibrationToSupabase } from './supabaseService.js';
-import { syncCloudFavorites, loadCloudFavorites, switchUserFavorites } from './favoritesService.js';
+import { supabase, syncCalibrationToSupabase, setActiveUserId } from './supabaseService.js';
+import { loadCloudFavorites, switchUserFavorites } from './favoritesService.js';
 import { sessionEngine } from './sessionStateMachine.js';
 
+/**
+ * User profile for the signed-in Supabase user (Google or anonymous guest).
+ *
+ * Identity and roles come only from the database (public.get_my_profile, keyed by
+ * auth.uid()). The localStorage copy is a display cache: it never grants access,
+ * because every privileged action is checked server-side.
+ */
+
 const USER_STORAGE_KEY = 'musicmood_user_profile';
-const REAL_USER_BACKUP_KEY = 'musicmood_real_user_profile';
-const PERSONA_OVERRIDE_KEY = 'musicmood_persona_override';
 const USER_EVENT_NAME = 'musicmood:user_updated';
 
-// Pre-defined personas for validation testing across roles & classes
-export const TEST_PERSONAS = [
-    {
-        key: 'admin_poweruser',
-        name: 'Corneliu (Admin)',
-        email: 'admin@musicmood.local',
-        role: 'admin',
-        user_class: 'poweruser',
-        badge: '👑 ADMIN • POWERUSER',
-        description: 'Super-Admin privileges + Poweruser unmetered access'
-    },
-    {
-        key: 'beta_tester',
-        name: 'Alex (Beta Tester)',
-        email: 'alex.beta@musicmood.local',
-        role: 'user',
-        user_class: 'beta',
-        badge: '🧪 BETA TESTER',
-        description: 'Regular user permissions + unreleased experimental features'
-    },
-    {
-        key: 'regular_user',
-        name: 'Sarah (Regular Listener)',
-        email: 'sarah.listener@musicmood.local',
-        role: 'user',
-        user_class: 'regular',
-        badge: '👤 REGULAR',
-        description: 'Standard clean consumer experience, no dev/admin UI'
-    },
-    {
-        key: 'guest_user',
-        name: 'Guest User',
-        email: 'testguest@gmail.com',
-        role: 'guest',
-        user_class: 'guest',
-        badge: '👻 GUEST',
-        description: 'Anonymous guest listener session'
-    }
-];
+// Keys from the pre-Supabase-Auth identity system, removed on first load
+const LEGACY_KEYS = ['musicmood_real_user_profile', 'musicmood_persona_override', 'youtube_access_token', 'musicmood_guest_device_id'];
 
-// In-memory cached profile for synchronous queries
 let cachedProfile = null;
 
 try {
+    LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
     const raw = localStorage.getItem(USER_STORAGE_KEY);
     if (raw) cachedProfile = JSON.parse(raw);
 } catch (e) {
     console.warn('[UserService] Error reading cached user profile:', e);
 }
 
+function publish(profile) {
+    cachedProfile = profile;
+    try {
+        if (profile) localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(profile));
+        else localStorage.removeItem(USER_STORAGE_KEY);
+    } catch {
+        /* storage unavailable */
+    }
+    window.dispatchEvent(new CustomEvent(USER_EVENT_NAME, { detail: { user: profile } }));
+}
+
 /**
- * Returns the currently active user profile.
+ * Returns the currently active user profile (cached).
  */
 export function getCurrentUser() {
-    if (!cachedProfile) {
-        try {
-            const raw = localStorage.getItem(USER_STORAGE_KEY);
-            if (raw) cachedProfile = JSON.parse(raw);
-        } catch (e) {}
-    }
     return cachedProfile;
 }
 
@@ -75,11 +49,13 @@ export function getCurrentUser() {
  */
 export function getRole() {
     const user = getCurrentUser();
-    return user?.role || 'user';
+    if (!user) return 'guest';
+    if (user.isGuest) return 'guest';
+    return user.role || 'user';
 }
 
 /**
- * Returns true if the active user has administrative powers.
+ * True if the active user is an admin. UI gating only; the database enforces access.
  */
 export function isAdmin() {
     return getRole() === 'admin';
@@ -93,23 +69,17 @@ export function getUserClass() {
     return user?.user_class || 'regular';
 }
 
-/**
- * Returns true if the user belongs to the 'poweruser' class.
- */
 export function isPowerUser() {
     return getUserClass() === 'poweruser';
 }
 
-/**
- * Returns true if the user has beta privileges or higher.
- */
 export function isBetaTester() {
     const cls = getUserClass();
     return cls === 'beta' || cls === 'poweruser';
 }
 
 /**
- * Flexible feature gate: checks if active user is entitled to view/use a given feature.
+ * Feature gate for UI elements.
  */
 export function canAccess(featureKey) {
     switch (featureKey) {
@@ -128,220 +98,75 @@ export function canAccess(featureKey) {
 }
 
 /**
- * Initializes or resolves a user profile from Google OAuth payload.
- * Upserts identity to public.user_profiles via Supabase RPC resolve_or_create_user.
+ * Loads the profile for the current Supabase session.
+ * @param {object} session Supabase session (from auth.getSession / onAuthStateChange)
+ * @returns {Promise<object|null>} profile, or null when signed out
  */
-export async function initUserProfile(googlePayload) {
-    // If a test persona override is active, respect it
-    const activeOverride = localStorage.getItem(PERSONA_OVERRIDE_KEY);
-    if (activeOverride && cachedProfile?.isTestUser) {
-        return cachedProfile;
+export async function initUserProfile(session) {
+    const user = session?.user;
+    if (!user) {
+        clearUserProfile();
+        return null;
     }
 
-    if (!googlePayload || !googlePayload.sub) {
-        const guestProfile = {
-            id: 'f7337681-6f7b-4772-852f-4d66317d2bb9',
-            username: googlePayload?.name || 'Guest User',
-            email: 'testguest@gmail.com',
-            avatar_url: googlePayload?.picture || 'https://ui-avatars.com/api/?name=Guest+User&background=646cff&color=fff',
-            role: 'guest',
-            user_class: 'guest',
-            isGuest: true,
-            isAdmin: false,
-            isPowerUser: false
-        };
-        cachedProfile = guestProfile;
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(guestProfile));
-        window.dispatchEvent(new CustomEvent(USER_EVENT_NAME, { detail: { user: guestProfile } }));
-        switchUserFavorites('guest');
-        return guestProfile;
-    }
+    setActiveUserId(user.id);
 
+    const meta = user.user_metadata || {};
+    let data = null;
     try {
-        const defaultClass = 'regular';
-
-        const { data, error } = await supabase.rpc('resolve_or_create_user', {
-            p_google_id: googlePayload.sub,
-            p_email: googlePayload.email || '',
-            p_name: googlePayload.name || '',
-            p_picture: googlePayload.picture || '',
-            p_user_class: defaultClass
-        });
-
-        if (error) {
-            console.error('[UserService] Failed to resolve user profile via RPC:', error);
-            throw error;
-        }
-
-        let calibration = data.calibration;
-        if (!calibration || Object.keys(calibration).length === 0 || !calibration.radarValues) {
-            // Check fallback from fetchUserCalibration
-            const fetched = await fetchUserCalibration(data.id);
-            if (fetched) calibration = fetched;
-        }
-
-        const profile = {
-            id: data.id,
-            googleId: googlePayload.sub,
-            username: data.username || googlePayload.name,
-            email: data.email || googlePayload.email,
-            avatar_url: data.avatar_url || googlePayload.picture,
-            role: data.role || 'user',
-            user_class: data.user_class || defaultClass,
-            discovery_level: data.discovery_level ?? 0.50,
-            calibration: calibration || null,
-            isAdmin: data.role === 'admin',
-            isPowerUser: data.user_class === 'poweruser'
-        };
-
-        // Cross-device synchronization of Sonic Radar calibration
-        if (calibration && Object.keys(calibration).length > 0 && calibration.radarValues) {
-            localStorage.setItem('musicMood_user_calibration', JSON.stringify(calibration));
-            sessionEngine.saveCalibration(calibration);
-            console.log(`[UserService 🎯] Hydrated Sonic Radar & calibration from Supabase for ${profile.username}`);
-        } else {
-            // If cloud profile has no calibration, push existing local calibration up to cloud
-            const localCalib = sessionEngine.getCalibration();
-            if (localCalib && localCalib.radarValues) {
-                syncCalibrationToSupabase(localCalib).then(() => {
-                    console.log(`[UserService ☁️] Migrated local Sonic Radar calibration to Supabase`);
-                }).catch(() => {});
-            }
-        }
-
-        cachedProfile = profile;
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(profile));
-        localStorage.setItem(REAL_USER_BACKUP_KEY, JSON.stringify(profile));
-        window.dispatchEvent(new CustomEvent(USER_EVENT_NAME, { detail: { user: profile } }));
-
-        console.log(`[UserService] Active Profile: ${profile.username} | Role: ${profile.role} | Class: ${profile.user_class}`);
-
-        // Hydrate cloud favorites in background
-        loadCloudFavorites(profile.id).catch(err => {
-            console.warn('[UserService] Cloud favorites notice:', err);
-        });
-
-        return profile;
+        const res = await supabase.rpc('get_my_profile');
+        if (res.error) throw res.error;
+        data = res.data;
     } catch (err) {
-        console.warn('[UserService] Fallback to in-memory profile:', err.message);
-        // Roles come only from the database; a failed lookup never grants elevated access.
-        const fallback = {
-            id: 'f7337681-6f7b-4772-852f-4d66317d2bb9',
-            username: googlePayload.name || 'Listener',
-            email: googlePayload.email || '',
-            avatar_url: googlePayload.picture || '',
-            role: 'user',
-            user_class: 'regular',
-            isAdmin: false,
-            isPowerUser: false
-        };
-        cachedProfile = fallback;
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(fallback));
-        return fallback;
+        console.warn('[UserService] Could not load profile from database:', err.message);
     }
-}
 
-/**
- * Switches the active profile to a specific test persona for feature validation.
- */
-export async function switchTestPersona(personaKey) {
-    if (personaKey === 'real') {
-        localStorage.removeItem(PERSONA_OVERRIDE_KEY);
-        const realRaw = localStorage.getItem(REAL_USER_BACKUP_KEY);
-        if (realRaw) {
-            const realProfile = JSON.parse(realRaw);
-            cachedProfile = realProfile;
-            localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(realProfile));
-            window.dispatchEvent(new CustomEvent(USER_EVENT_NAME, { detail: { user: realProfile } }));
-            switchUserFavorites(realProfile.id);
-            loadCloudFavorites(realProfile.id).catch(console.warn);
-            return realProfile;
+    const isGuest = Boolean(user.is_anonymous || data?.is_guest);
+    const calibration = data?.calibration && Object.keys(data.calibration).length > 0 ? data.calibration : null;
+
+    const profile = {
+        id: user.id,
+        username: data?.username || meta.full_name || meta.name || (isGuest ? 'Guest Listener' : 'Listener'),
+        email: data?.email || user.email || '',
+        avatar_url: data?.avatar_url || meta.avatar_url || meta.picture || '',
+        // A failed lookup never grants elevated access
+        role: isGuest ? 'guest' : (data?.role || 'user'),
+        user_class: isGuest ? 'guest' : (data?.user_class || 'regular'),
+        discovery_level: data?.discovery_level ?? 0.5,
+        calibration,
+        isGuest,
+        isAdmin: !isGuest && data?.role === 'admin',
+        isPowerUser: !isGuest && data?.user_class === 'poweruser'
+    };
+
+    // Cross-device Sonic Radar calibration
+    if (calibration?.radarValues) {
+        localStorage.setItem('musicMood_user_calibration', JSON.stringify(calibration));
+        sessionEngine.saveCalibration(calibration);
+    } else {
+        const localCalib = sessionEngine.getCalibration();
+        if (localCalib?.radarValues) {
+            syncCalibrationToSupabase(localCalib).catch(() => {});
         }
-        return getCurrentUser();
     }
 
-    const persona = TEST_PERSONAS.find(p => p.key === personaKey);
-    if (!persona) return getCurrentUser();
+    publish(profile);
+    switchUserFavorites(profile.id);
+    loadCloudFavorites(profile.id).catch(err => {
+        console.warn('[UserService] Cloud favorites notice:', err);
+    });
 
-    // Preserve real user if not already backed up
-    if (!localStorage.getItem(REAL_USER_BACKUP_KEY) && cachedProfile && !cachedProfile.isTestUser) {
-        localStorage.setItem(REAL_USER_BACKUP_KEY, JSON.stringify(cachedProfile));
-    }
-
-    try {
-        const { data, error } = await supabase.rpc('resolve_or_create_test_user', {
-            p_test_key: persona.key,
-            p_name: persona.name,
-            p_role: persona.role,
-            p_user_class: persona.user_class
-        });
-
-        const testProfile = {
-            id: data?.id || `test-id-${persona.key}`,
-            username: data?.username || persona.name,
-            email: data?.email || persona.email,
-            avatar_url: data?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(persona.name)}&background=random`,
-            role: data?.role || persona.role,
-            user_class: data?.user_class || persona.user_class,
-            isAdmin: (data?.role || persona.role) === 'admin',
-            isPowerUser: (data?.user_class || persona.user_class) === 'poweruser',
-            isTestUser: true,
-            personaKey: persona.key
-        };
-
-        cachedProfile = testProfile;
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(testProfile));
-        localStorage.setItem(PERSONA_OVERRIDE_KEY, persona.key);
-        window.dispatchEvent(new CustomEvent(USER_EVENT_NAME, { detail: { user: testProfile } }));
-
-        // Hydrate favorites strictly for this persona
-        const isGuestPersona = persona.role === 'guest' || persona.user_class === 'guest';
-        switchUserFavorites(isGuestPersona ? 'guest' : testProfile.id);
-        if (!isGuestPersona) {
-            loadCloudFavorites(testProfile.id).catch(console.warn);
-        }
-
-        return testProfile;
-    } catch (e) {
-        console.warn('[UserService] Local test user simulation fallback:', e.message);
-        const testProfile = {
-            id: `test-id-${persona.key}`,
-            username: persona.name,
-            email: persona.email,
-            avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(persona.name)}&background=random`,
-            role: persona.role,
-            user_class: persona.user_class,
-            isAdmin: persona.role === 'admin',
-            isPowerUser: persona.user_class === 'poweruser',
-            isTestUser: true,
-            personaKey: persona.key
-        };
-        cachedProfile = testProfile;
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(testProfile));
-        localStorage.setItem(PERSONA_OVERRIDE_KEY, persona.key);
-        window.dispatchEvent(new CustomEvent(USER_EVENT_NAME, { detail: { user: testProfile } }));
-        switchUserFavorites(persona.role === 'guest' ? 'guest' : testProfile.id);
-        return testProfile;
-    }
+    console.log(`[UserService] Active profile: ${profile.username} | role=${profile.role} | class=${profile.user_class}`);
+    return profile;
 }
 
 /**
- * Returns true if a simulated test user is currently active.
- */
-export function isTestUserActive() {
-    return Boolean(localStorage.getItem(PERSONA_OVERRIDE_KEY));
-}
-
-/**
- * Clears the active user session and test overrides.
+ * Clears the cached profile (on sign-out).
  */
 export function clearUserProfile() {
-    cachedProfile = null;
-    localStorage.removeItem(USER_STORAGE_KEY);
-    localStorage.removeItem(REAL_USER_BACKUP_KEY);
-    localStorage.removeItem(PERSONA_OVERRIDE_KEY);
-    window.dispatchEvent(new CustomEvent(USER_EVENT_NAME, { detail: { user: null } }));
-    switchUserFavorites('guest');
+    setActiveUserId(null);
+    publish(null);
+    switchUserFavorites(null);
 }
 
 /**

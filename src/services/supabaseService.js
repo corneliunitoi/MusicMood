@@ -5,15 +5,20 @@ const supabaseKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_L
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Supabase Auth user id (auth.uid()) of the signed-in user or guest; null when signed out.
+// Set by userService from the Supabase session; never derived from editable storage.
+let activeUserId = null;
+
+export function setActiveUserId(userId) {
+    activeUserId = userId || null;
+}
+
 function getResolvedUserId() {
-    try {
-        const raw = localStorage.getItem('musicmood_user_profile');
-        if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed && parsed.id) return parsed.id;
-        }
-    } catch (e) {}
-    return 'f7337681-6f7b-4772-852f-4d66317d2bb9';
+    return activeUserId;
+}
+
+export function getActiveUserId() {
+    return activeUserId;
 }
 
 /**
@@ -223,15 +228,6 @@ export async function requestNewArtist(artistName, genreId = 'rock') {
         return { success: false, error: e.message };
     }
 }
-export async function signInAsGuest() {
-    const { data, error } = await supabase.auth.signInAnonymously();
-
-    if (error) {
-        console.error("Guest login failed:", error);
-        return { user: { id: 'f7337681-6f7b-4772-852f-4d66317d2bb9', email: 'testguest@gmail.com' } };
-    }
-    return data;
-}
 
 /**
  * Syncs calibrated user preferences to Schema V2 tables:
@@ -241,6 +237,7 @@ export async function signInAsGuest() {
  */
 export async function syncCalibrationToSupabase(calibration) {
     const userId = getResolvedUserId();
+    if (!userId) return false;
 
     try {
         // Primary: use RPC function with SECURITY DEFINER
@@ -351,6 +348,7 @@ export async function fetchUserCalibration(userId) {
  */
 export async function recordListenEvent({ trackId, moodId, genreId, completed = false, skipped = false, liked = false, listenedSeconds = 0 }) {
     const userId = getResolvedUserId();
+    if (!userId) return;
 
     try {
         const { error } = await supabase
@@ -379,8 +377,8 @@ export async function recordListenEvent({ trackId, moodId, genreId, completed = 
 /**
  * Submits user feedback to public.feedback
  */
-export async function submitUserFeedback({ name, comment, userId }) {
-    const targetUserId = userId || getResolvedUserId();
+export async function submitUserFeedback({ name, comment }) {
+    const targetUserId = getResolvedUserId() || null; // always the session user, never client-supplied
     const { error } = await supabase
         .from('feedback')
         .insert({
@@ -399,7 +397,7 @@ export async function submitUserFeedback({ name, comment, userId }) {
 /**
  * Flags a track for genre misclassification in public.track_genre_flags
  */
-export async function flagTrackMisclassification({ track, userId, notes, suggestedGenreId }) {
+export async function flagTrackMisclassification({ track, notes, suggestedGenreId }) {
     if (!track) throw new Error("A valid track is required to flag misclassification.");
     
     let trackId = track.dbId;
@@ -418,7 +416,7 @@ export async function flagTrackMisclassification({ track, userId, notes, suggest
         throw new Error("Cannot find catalog track ID in database to flag.");
     }
 
-    const targetUserId = userId || getResolvedUserId();
+    const targetUserId = getResolvedUserId() || null; // always the session user, never client-supplied
     const currentGenreId = track.genre || track.primary_genre_id || null;
 
     const { data, error } = await supabase

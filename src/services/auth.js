@@ -1,95 +1,134 @@
+import { supabase } from './supabaseService';
 import { clearUserProfile } from './userService';
 
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '1065565283381-rkar9ei7i90mnbtlc0ikofcdfoosbr5r.apps.googleusercontent.com';
-const SCOPES = 'https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
-
-let tokenClient = null;
-
 /**
- * Ensures Google Identity Services (GIS) client library is loaded.
+ * Supabase Auth is the only source of identity.
+ *   - Google sign-in:  supabase.auth.signInWithOAuth (full-page redirect)
+ *   - Guests:          supabase.auth.signInAnonymously (one account per device)
+ *   - Guest → Google:  supabase.auth.linkIdentity (keeps the guest's data)
+ *
+ * The Google access token (for YouTube playlist import) is the session's
+ * provider_token. Supabase only returns it right after the OAuth redirect, so it
+ * is kept in sessionStorage (tab-scoped, cleared when the tab closes) with its expiry.
  */
-function waitForGoogleScript(timeoutMs = 6000) {
-    return new Promise((resolve, reject) => {
-        if (typeof window !== 'undefined' && window.google?.accounts?.oauth2) {
-            resolve(window.google.accounts.oauth2);
-            return;
-        }
 
-        const start = Date.now();
-        const interval = setInterval(() => {
-            if (typeof window !== 'undefined' && window.google?.accounts?.oauth2) {
-                clearInterval(interval);
-                resolve(window.google.accounts.oauth2);
-            } else if (Date.now() - start > timeoutMs) {
-                clearInterval(interval);
-                reject(new Error('Google Identity Services script failed to load. Please verify your connection or ad blocker.'));
-            }
-        }, 100);
-    });
+const YOUTUBE_SCOPE = 'https://www.googleapis.com/auth/youtube.readonly';
+const PROVIDER_TOKEN_KEY = 'musicmood_google_provider_token';
+const PROVIDER_TOKEN_TTL_MS = 55 * 60 * 1000; // Google access tokens last ~60 minutes
+
+function redirectTarget() {
+    return typeof window !== 'undefined' ? window.location.origin : undefined;
 }
 
-/**
- * Initiates Google OAuth popup login via Google Identity Services (GIS).
- * Complies 100% with Google's modern "Secure Response Handling" policy.
- * Does NOT require full-page redirects or redirect URIs.
- * Default behavior suppresses redundant consent screens for returning users.
- * @param {Object} options Options like { prompt: 'consent' } to force scope re-consent
- */
-export async function requestGoogleLogin(options = {}) {
-    const oauth2 = await waitForGoogleScript();
-
-    return new Promise((resolve, reject) => {
-        try {
-            tokenClient = oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: (tokenResponse) => {
-                    if (tokenResponse.error) {
-                        console.error('[Google OAuth Error]', tokenResponse);
-                        reject(new Error(tokenResponse.error_description || tokenResponse.error));
-                        return;
-                    }
-
-                    if (tokenResponse.access_token) {
-                        localStorage.setItem('youtube_access_token', tokenResponse.access_token);
-                        resolve(tokenResponse.access_token);
-                    } else {
-                        reject(new Error('No access token received from Google.'));
-                    }
-                },
-                error_callback: (err) => {
-                    console.error('[Google Client Init Error]', err);
-                    reject(new Error(err.message || 'Google Sign-In was cancelled or failed.'));
-                }
-            });
-
-            // Ensure the Google account picker / consent popup is displayed reliably across mobile & desktop
-            const requestConfig = {};
-            requestConfig.prompt = options.prompt !== undefined ? options.prompt : 'select_account';
-            tokenClient.requestAccessToken(requestConfig);
-        } catch (e) {
-            reject(e);
-        }
-    });
-}
-
-export const getAccessToken = () => {
-    return localStorage.getItem('youtube_access_token');
-};
-
-export const logout = () => {
-    const token = getAccessToken();
-    if (token && typeof window !== 'undefined' && window.google?.accounts?.oauth2) {
-        try {
-            window.google.accounts.oauth2.revoke(token, () => {
-                console.log('[Google OAuth] Token revoked cleanly');
-            });
-        } catch (e) {}
+function storeProviderToken(token) {
+    if (!token) return;
+    try {
+        sessionStorage.setItem(PROVIDER_TOKEN_KEY, JSON.stringify({ token, expiresAt: Date.now() + PROVIDER_TOKEN_TTL_MS }));
+    } catch {
+        /* storage unavailable: token stays usable for this page load only */
     }
-    localStorage.removeItem('youtube_access_token');
-    clearUserProfile();
-};
+}
 
-// Backward-compatibility stubs
-export const getAuthUrl = () => '';
-export const handleAuthCallback = () => getAccessToken();
+function clearProviderToken() {
+    try {
+        sessionStorage.removeItem(PROVIDER_TOKEN_KEY);
+    } catch {
+        /* ignore */
+    }
+}
+
+/**
+ * Returns the Google access token for YouTube API calls, or null when the user
+ * is a guest or the token has expired (the UI then offers "Reconnect YouTube").
+ */
+export function getYouTubeToken() {
+    try {
+        const raw = sessionStorage.getItem(PROVIDER_TOKEN_KEY);
+        if (!raw) return null;
+        const { token, expiresAt } = JSON.parse(raw);
+        if (!token || Date.now() > expiresAt) {
+            clearProviderToken();
+            return null;
+        }
+        return token;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Captures the provider token after the OAuth redirect lands back in the app.
+ * Call once at startup, before rendering.
+ */
+export function watchAuthState(onChange) {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        if (session?.provider_token) {
+            storeProviderToken(session.provider_token);
+        }
+        if (event === 'SIGNED_OUT') {
+            clearProviderToken();
+        }
+        onChange?.(event, session);
+    });
+    return () => data?.subscription?.unsubscribe();
+}
+
+export async function getSession() {
+    const { data } = await supabase.auth.getSession();
+    const session = data?.session || null;
+    if (session?.provider_token) storeProviderToken(session.provider_token);
+    return session;
+}
+
+/**
+ * Starts Google sign-in. If the current session is an anonymous guest, the Google
+ * identity is linked to the guest account so favorites and history are kept.
+ * The browser is redirected to Google and back; this promise resolves only on error.
+ */
+export async function signInWithGoogle({ forceConsent = false } = {}) {
+    const session = await getSession();
+    const options = {
+        redirectTo: redirectTarget(),
+        scopes: YOUTUBE_SCOPE,
+        queryParams: { prompt: forceConsent ? 'consent' : 'select_account' }
+    };
+
+    if (session?.user?.is_anonymous) {
+        const { error } = await supabase.auth.linkIdentity({ provider: 'google', options });
+        if (!error) return;
+        // The Google account may already belong to an existing MusicMood user:
+        // fall back to a normal sign-in (the guest session is replaced).
+        console.warn('[Auth] Linking Google to guest failed, signing in directly:', error.message);
+    }
+
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options });
+    if (error) throw error;
+}
+
+/**
+ * Starts (or resumes) an anonymous guest session. Each device gets its own account.
+ */
+export async function signInAsGuest() {
+    const existing = await getSession();
+    if (existing?.user) return existing;
+
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error) {
+        throw new Error(
+            error.message?.toLowerCase().includes('disabled')
+                ? 'Guest access is temporarily unavailable. Please sign in with Google.'
+                : error.message
+        );
+    }
+    return data.session;
+}
+
+export async function logout() {
+    clearProviderToken();
+    clearUserProfile();
+    try {
+        await supabase.auth.signOut();
+    } catch (e) {
+        console.warn('[Auth] Sign-out notice:', e.message);
+    }
+}

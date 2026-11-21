@@ -1,86 +1,29 @@
 /**
  * favoritesService.js
- * Browser-local & cloud-synced profile favorites management for MusicMood.
- * Strictly scoped per user ID to guarantee zero bleed-over between users/guests.
+ * Browser-local & cloud-synced favorites for MusicMood, scoped per Supabase user
+ * (Google users and anonymous guests alike) so nothing bleeds between accounts.
  */
 
-import { supabase, upvoteTrack } from './supabaseService';
+import { supabase, upvoteTrack, getActiveUserId as getSessionUserId } from './supabaseService';
 
 const LEGACY_STORAGE_KEY = 'musicmood_favorites';
 const EVENT_NAME = 'musicmood:favorites_updated';
 
-export function getGuestDeviceId() {
-    try {
-        let guestId = localStorage.getItem('musicmood_guest_device_id');
-        if (!guestId || guestId === 'null' || guestId === 'undefined') {
-            guestId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'f7337681-6f7b-4772-852f-4d66317d2bb9';
-            localStorage.setItem('musicmood_guest_device_id', guestId);
-        }
-        return guestId;
-    } catch {
-        return 'f7337681-6f7b-4772-852f-4d66317d2bb9';
-    }
-}
-
-function getActiveUser() {
-    try {
-        const raw = localStorage.getItem('musicmood_user_profile');
-        if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed && parsed.id) {
-                const isGuest = parsed.role === 'guest' || parsed.user_class === 'guest' || Boolean(parsed.isGuest);
-                return { id: parsed.id, isGuest };
-            }
-        }
-    } catch (e) {}
-    return { id: null, isGuest: true };
-}
+// Favorites context: the signed-in Supabase user id, or null when signed out.
+let currentUserId = null;
 
 function getActiveUserId() {
-    const user = getActiveUser();
-    if (!user.isGuest && user.id) return user.id;
-    // For guests, use persistent anonymous device UUID so favorites sync to database
-    return getGuestDeviceId();
+    return currentUserId || getSessionUserId() || null;
 }
 
 function getStorageKey(userId) {
-    if (userId && userId !== 'guest') {
-        return `musicmood_favorites_${userId}`;
-    }
-    return 'musicmood_favorites_guest';
+    return userId ? `musicmood_favorites_${userId}` : 'musicmood_favorites_signed_out';
 }
 
 function getStoredFavorites(targetUserId = null) {
     try {
         const userId = targetUserId !== null ? targetUserId : getActiveUserId();
-        
-        // If this is a guest session, ensure zero contaminated legacy favorites are ever returned
-        if (!userId || userId === 'guest') {
-            const raw = localStorage.getItem('musicmood_favorites_guest');
-            const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
-            // If the guest key still holds old copied data or legacy key is present, purge both immediately
-            if (legacy || (raw && raw.length > 500)) {
-                localStorage.removeItem('musicmood_favorites_guest');
-                localStorage.removeItem(LEGACY_STORAGE_KEY);
-                return [];
-            }
-            return raw ? JSON.parse(raw) : [];
-        }
-
-        const key = getStorageKey(userId);
-        let raw = localStorage.getItem(key);
-
-        // One-time migration: if this is a real user and user-specific key is empty,
-        // but legacy unscoped key exists, migrate legacy favorites to this user
-        if (!raw && userId && userId !== 'guest') {
-            const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
-            if (legacy) {
-                raw = legacy;
-                localStorage.setItem(key, legacy);
-                localStorage.removeItem(LEGACY_STORAGE_KEY);
-            }
-        }
-
+        const raw = localStorage.getItem(getStorageKey(userId));
         return raw ? JSON.parse(raw) : [];
     } catch (e) {
         console.warn('[FavoritesService] Error reading favorites:', e);
@@ -91,8 +34,7 @@ function getStoredFavorites(targetUserId = null) {
 function saveFavorites(list, targetUserId = null) {
     try {
         const userId = targetUserId !== null ? targetUserId : getActiveUserId();
-        const key = getStorageKey(userId);
-        localStorage.setItem(key, JSON.stringify(list));
+        localStorage.setItem(getStorageKey(userId), JSON.stringify(list));
         window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { favorites: list, userId } }));
     } catch (e) {
         console.warn('[FavoritesService] Error saving favorites:', e);
@@ -100,39 +42,22 @@ function saveFavorites(list, targetUserId = null) {
 }
 
 /**
- * Switches the active favorites context when a user logs in, out, or changes persona.
- * Immediately notifies all UI components with the new user's isolated favorites.
+ * Switches the favorites context when a user signs in or out.
+ * @param {string|null} newUserId Supabase user id, or null when signed out
  */
 export function switchUserFavorites(newUserId = null) {
-    if (!newUserId || newUserId === 'guest') {
-        localStorage.removeItem('musicmood_favorites_guest');
-        localStorage.removeItem(LEGACY_STORAGE_KEY);
-        window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { favorites: [], userId: 'guest' } }));
-        return [];
-    }
-    const list = getStoredFavorites(newUserId);
-    window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { favorites: list, userId: newUserId } }));
+    currentUserId = newUserId || null;
+    const list = currentUserId ? getStoredFavorites(currentUserId) : [];
+    window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { favorites: list, userId: currentUserId } }));
     return list;
 }
 
-// Self-healing migration on module load:
-// Guarantees existing browsers immediately purge contaminated guest favorites
+// Remove storage keys from the pre-Supabase-Auth favorites scheme
 try {
-    const active = getActiveUser();
-    if (active.isGuest) {
-        localStorage.removeItem('musicmood_favorites_guest');
-        localStorage.removeItem(LEGACY_STORAGE_KEY);
-    } else if (active.id) {
-        const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
-        if (legacy) {
-            const userKey = getStorageKey(active.id);
-            if (!localStorage.getItem(userKey)) {
-                localStorage.setItem(userKey, legacy);
-            }
-            localStorage.removeItem(LEGACY_STORAGE_KEY);
-        }
-    }
-} catch (e) {}
+    [LEGACY_STORAGE_KEY, 'musicmood_favorites_guest'].forEach(k => localStorage.removeItem(k));
+} catch {
+    /* storage unavailable */
+}
 
 export function getFavorites() {
     return getStoredFavorites();
@@ -242,7 +167,8 @@ export function subscribeFavorites(callback) {
  * isolated strictly to that user's partition.
  */
 export async function loadCloudFavorites(userId) {
-    const effectiveUserId = (!userId || userId === 'guest') ? getGuestDeviceId() : userId;
+    const effectiveUserId = userId || getActiveUserId();
+    if (!effectiveUserId) return [];
 
     try {
         const { data, error } = await supabase.rpc('get_user_favorites', { p_user_id: effectiveUserId });
