@@ -485,6 +485,7 @@ graph TD
 * [x] **v0.8.6:** Zero-Quota Global Universal Search Modal (Songs, Artists & Staged, `Ctrl+K` / `Cmd+K`), Offline Search Fallback, Google Identity Services Hardening (`prompt: 'select_account'`), and Guest Quick Sign-In.
 * [x] **v0.8.7:** Production Inflation of Approved Staged Candidates (10+ tracks per admitted artist via iTunes + Last.fm + InnerTube), Unified 50-Artist Roll Section inside Potential Matches with 0 duplicate boxes, and Guided Spotlight Tour Potential Matches Discovery Onboarding Step.
 * [x] **v0.8.7a:** Security Hardening Phase 0 — revoked TRUNCATE/TRIGGER/REFERENCES from API roles, locked admin-minting and trigger RPCs, pinned function search_path, write-only feedback, removed committed secrets and personal library dumps, workflow shell-injection fix, 0 npm vulnerabilities.
+* [x] **v0.8.7b:** Supabase Auth as the only identity source — Google sign-in via Supabase OAuth, per-device anonymous guests with in-place Google upgrade, automatic legacy-profile migration, client-proof roles, guest favorites cloud-sync fix.
 
 ---
 

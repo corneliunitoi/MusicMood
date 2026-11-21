@@ -60,6 +60,21 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.7b` — 2026-11-21
+* **Security Hardening — Phase 1 (Supabase Auth as the Only Identity Source):**
+  * **🔐 Sign-in through Supabase Auth:**
+    * Google sign-in now uses `supabase.auth.signInWithOAuth` (full-page redirect, YouTube read-only scope). The Google access token for playlist import is the session's `provider_token`, kept in `sessionStorage` with a 55-minute expiry.
+    * Guests sign in with `supabase.auth.signInAnonymously`, so every guest device gets its own account. "Sign In with Google" upgrades a guest in place via `linkIdentity`, keeping their favorites.
+    * Identity comes from the Supabase session (`auth.uid()`), not from `localStorage`. Removed the hard-coded shared guest id, the Google Identity Services token client, the Google userinfo fetch and the test-persona switcher.
+  * **🗄️ Database (live; `supabase/migrations/20261121111958_supabase_auth_profiles.sql`):**
+    * Every auth user gets a `user_profiles` row with the same id (`on_auth_user_created_profile` trigger).
+    * On a user's first Google sign-in (or a guest→Google link), their pre-Supabase profile is merged in automatically, matched by the verified Google user id: favorites, listening history, dealbreakers, mood/genre affinities, genre flags, feedback, calibration and role (`claim_legacy_profile`).
+    * `trg_protect_profile_privileges` blocks clients from changing `role`, `user_class`, `google_id` or `is_guest`.
+    * New RPCs: `get_my_profile()` (self-healing) and `is_admin()`.
+  * **🐛 Guest favorites never reached the cloud (since `v0.8.5`):** `sync_user_favorites` created fallback profiles with `role = 'guest'`, which `user_profiles_role_check` rejects; since CHECK constraints run before `ON CONFLICT`, every guest sync failed. Fixed (`20261121115021_fix_guest_favorites_sync_role.sql`).
+  * **Requires** the Supabase dashboard configuration done on Nov 21: Google provider (client ID + secret), anonymous sign-ins, manual identity linking, Site URL and redirect URLs.
+  * **Still open (Phase 2):** catalog tables remain writable by any signed-in user, and the favorites/calibration RPCs still accept a client-supplied user id.
+
 ### `v0.8.7a` — 2026-11-20
 * **Security Hardening — Phase 0 (Emergency Fixes):**
   * **🗄️ Database privileges (live project, recorded in `supabase/migrations/`):**
