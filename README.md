@@ -7,7 +7,7 @@
 [![React](https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 [![MusicBrainz](https://img.shields.io/badge/Metadata-MusicBrainz-BA478F?logo=musicbrainz&logoColor=white)](https://musicbrainz.org/)
-[![Version](https://img.shields.io/badge/Version-0.8.7f-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/Version-0.8.7g-blue.svg)](package.json)
 [![Release Notes](https://img.shields.io/badge/Changelog-RELEASE__MANAGEMENT-purple.svg)](RELEASE_MANAGEMENT.md)
 
 ---
@@ -42,7 +42,7 @@ flowchart TD
     OrbitalLeash -->|Deep Cuts: d≥3 hops| TasteGraph
     
     TasteGraph --> HarmonicBridges[24 Cross-Family Harmonic Bridges]
-    HarmonicBridges --> AntiDrift[Anti-Drift Guards: 2-Track Dwell Cap & 15-Artist Cooldown]
+    HarmonicBridges --> AntiDrift[Anti-Drift Guards: 50-Track Memory & 15-Artist Cooldown]
     
     subgraph Sourcing Waterfall
         AntiDrift --> TierA[Tier A: Strict Invariant Guards & Cooldown]
@@ -101,7 +101,9 @@ flowchart TD
 - Authenticate via Google Identity Services (GIS) popup OAuth and sync personal YouTube playlists without consuming Google YouTube Data API quotas.
 
 ### 🛡️ Non-Destructive Downvoting & Artist Satiation
-- Disliking a track blacklists the artist for your active session and steers the graph away without altering global database mappings.
+- Disliking a track hides that artist for the rest of your session and records the dislike in your listening history. It never removes tracks from the shared catalog.
+- **Anti-repetition rules (all sourcing paths):** a track never repeats within your last 50 plays, an artist does not return within 15 plays (5 in the explicit relaxed fallback), and even the last-resort pass never replays one of your last 10 tracks.
+- **Genre lock:** playback stays in the genre you chose until you change mood or press *Surprise Me*.
 
 ---
 
@@ -163,7 +165,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 - **`public.artists`**: Canonical artists with MusicBrainz MBID, primary genre, tags, and disambiguation.
 - **`public.user_profiles`**: User identities, RBAC roles (`admin`, `poweruser`, `regular`), and JSONB `calibration` storing Sonic Radar profiles.
 - **`public.local_metadata`**: Full 44,885+ song archive from personal libraries, tracking local paths and mapping resolution status.
-- **`public.listening_history`**: User playback events, dwell durations, like/downvote telemetry, and skip statistics.
+- **`public.listening_history`**: One row per play: track/video, mood, genre, seconds listened, and outcome (completed, skipped, liked, disliked).
 
 ---
 

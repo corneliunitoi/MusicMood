@@ -1,9 +1,10 @@
 {
   "name": "musicmood",
   "private": true,
-  "version": "0.8.7f",
+  "version": "0.8.7g",
   "type": "module",
   "scripts": {
+    "test": "node --test tests/*.test.mjs",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",

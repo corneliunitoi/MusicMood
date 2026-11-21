@@ -96,7 +96,7 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
 * [ ] **Design the 24 non-core moods:** only the 6 core moods (Focus, Chill, Energetic, Happy, Sad, Party) have home genres and calibration. The other 24 (Late Night, Roadtrip, Study, Rainy Day, cinematic moods, etc.) are registered since v0.8.7f so their plays are recorded, but need home genres, genre mappings and a decision on which stay visible.
 * [ ] **Single mood/genre vocabulary:** reconcile `moods.js`, `MOOD_GENRE_MAP` in `tasteGraph.js` and the `moods`/`genres` tables. Remove dead genre IDs (`dream_pop`, `motown`, `90s_alt`, `space_rock`, `rnb_contemporary`, `fingerstyle`, `acoustic_guitar`).
 * [ ] **Column naming:** `local_metadata.youtube_id` vs `youtube_video_id`; pick one and migrate.
-* [ ] **State machine correctness:**
+* [x] **State machine correctness:** *(Done in v0.8.7g. The dwell cap was removed by design, since genre lock is intended. The hop-limit issue was in dead code; Surprise Me already enforces the tiers.)*
   * Explicit states and transitions; `getNextTrack` must distinguish "busy" from "nothing playable".
   * One shared artist-cooldown window across all sourcing paths (currently 15 / 10 / 5); the emergency path must run the full guards.
   * Bound `recentTracks` in memory, not only when saving.
@@ -105,7 +105,7 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
 * [x] **Scheduled job timeouts:** "Hourly Catalog Sanity, Maintenance & Discovery" (`reconcile-flags.yml`) keeps hitting its 20-minute job timeout. Its last step (artist avatars) is cancelled on every run since Nov 20, and the run is reported as *cancelled*. Split the job, or give the slow steps their own time budgets. *(Fixed Nov 21: duplicate merge step removed, avatars capped at 6 minutes / 120 per run and non-fatal, job limit 30 minutes.)*
 * [ ] **Single scraper implementation:** remove the duplicate of the `server.js` logic in `vite.config.js`.
 * [ ] **Error handling:** surface failed writes instead of `console.warn` and continuing.
-* [ ] **Tests:** unit tests for the state machine and graph traversal; integration test for sign-in → favorites → history under RLS.
+* [ ] **Tests:** unit tests for the state machine and graph traversal; integration test for sign-in → favorites → history under RLS. *(Started in v0.8.7g: 11 unit tests + CI. Still to add: an RLS integration test.)*
 * [ ] **Repo hygiene:** fix `.gitignore` entries for tracked files (`src/App.jsx`, `src/main.jsx`, `src/index.css`); strip the admin/test UI from the production bundle.
 
 ---
@@ -492,6 +492,7 @@ graph TD
 * [x] **v0.8.7d:** User-scoped favorites/calibration RPCs, one vote per user per track, 0.25 guest weight, 100-per-30-minutes rate limits, favorites double-count fix, legacy identity RPCs removed.
 * [x] **v0.8.7e:** Server endpoints require sign-in, per-user/per-IP rate limits, input validation, no error leaks, security headers (CSP report-only).
 * [x] **v0.8.7f:** Listening history as one row per play with outcome and seconds listened, all 30 moods registered, outcome-driven affinity; Catalog Sanity workflow timeout fixed.
+* [x] **v0.8.7g:** Unified recency rules (50-track memory, 15-artist cooldown, relaxed and last-resort tiers), session-long dislikes, busy-vs-empty fix, dead traversal/dwell code removed, first unit tests and CI.
 
 ---
 

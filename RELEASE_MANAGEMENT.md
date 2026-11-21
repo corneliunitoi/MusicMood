@@ -60,6 +60,20 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.7g` — 2026-11-21
+* **Stability — Session State Machine Consistency & First Test Suite:**
+  * **🔁 One set of anti-repetition rules for every sourcing path** (catalog pull, emergency fallback, JIT discovery, strict guards), defined once in `sessionStateMachine.js`:
+    * a track never repeats within the last **50** plays (`TRACK_MEMORY`);
+    * an artist does not return within **15** plays (`ARTIST_COOLDOWN`), or **5** in the explicit relaxed fallback (`ARTIST_COOLDOWN_RELAXED`);
+    * even the last-resort pass never replays one of the last **10** tracks (`LAST_RESORT_MEMORY`). Previously it could replay any track except the current one, and the paths used 15 / 10 / 5 / none for artists.
+  * **👎 Dislikes last the whole session:** a disliked artist is hidden until the session is reset (previously only for 15 tracks), as the README promised.
+  * **⏳ "Busy" is no longer "nothing to play":** concurrent `getNextTrack()` calls share the in-flight lookup instead of receiving `null`, which could surface as "No guard-checked track available".
+  * **📏 Bounded memory:** recent-track and recent-artist lists are trimmed as they grow, not only when saved.
+  * **🧹 Removed dead code:** the unused `stepToNextGenre()` traversal (whose discovery tiers ignored hop limits) and the unused 2-track dwell cap. Genre lock is the intended behaviour: playback stays in the chosen genre until a mood change or *Surprise Me* (which already enforces the 1-hop / 2-hop / unrestricted discovery tiers).
+  * **🧪 First automated tests** (`npm test`, Node's built-in runner): recency rules, dislike persistence, concurrent `getNextTrack`, and genre-graph integrity (11 tests).
+  * **⚙️ CI:** new `CI (tests & build)` workflow runs the tests and the production build on pushes to `main` and `claude/**` branches.
+  * **📖 README** now describes the actual recency rules and genre lock (the "2-Track Dwell Cap" claim was removed).
+
 ### `v0.8.7f` — 2026-11-21
 * **Stability — Listening History You Can Analyze:**
   * **🎵 One row per play:** a `listening_history` row is created when a track starts and **updated** with its outcome, instead of separate rows for start, skip, completion and like. Rows now map 1:1 to plays, so skip rates, completion rates and genre/mood transitions can be computed directly.

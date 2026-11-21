@@ -340,7 +340,7 @@ function Player({ initialTrack, token, onOpenArtist }) {
 
                         // 1. Blacklist in current session state so it is never re-queued
                         if (failedVideoId) {
-                            sessionEngine.state.recentTracks.push(failedVideoId);
+                            sessionEngine.rememberTrackId(failedVideoId);
                             sessionEngine.queue = (sessionEngine.queue || []).filter(t => t.id !== failedVideoId && t.youtube_video_id !== failedVideoId);
                         }
 

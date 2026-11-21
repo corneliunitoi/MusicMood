@@ -184,7 +184,7 @@ class JitEngine {
                 if (!songCheck.pass) continue;
 
                 const aLower = (c.artist || '').toLowerCase();
-                if (sessionEngine?.state?.recentArtists?.slice(-15).includes(aLower)) continue;
+                if (sessionEngine?.isArtistBlocked?.(aLower)) continue;
 
                 // Check if already in public.tracks by artist & title
                 const { data: exist } = await supabase
@@ -308,7 +308,7 @@ class JitEngine {
 
             for (const rec of recordings) {
                 const aLower = (rec.artist || '').toLowerCase();
-                if (sessionEngine?.state?.recentArtists?.slice(-15).includes(aLower)) continue;
+                if (sessionEngine?.isArtistBlocked?.(aLower)) continue;
 
                 // Check if already in public.tracks
                 const { data: exist } = await supabase

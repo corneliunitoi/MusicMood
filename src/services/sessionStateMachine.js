@@ -11,7 +11,7 @@
  */
 
 import { supabase, startPlay, updatePlay, apiFetch } from './supabaseService.js';
-import { GENRE_FAMILIES, GENRE_NODES, getConnectedGenres, getGraphDistance, getVectorDeviation, getMoodCompatibleGenres, getPoleForGenre, violatesDealbreakers, normalizeWeights } from './tasteGraph.js';
+import { GENRE_FAMILIES, GENRE_NODES, getGraphDistance, getVectorDeviation, getMoodCompatibleGenres, getPoleForGenre, violatesDealbreakers, normalizeWeights } from './tasteGraph.js';
 import { isSongCandidate, isAiGenerated, normalizeGenre } from './genreNormalizer.js';
 import { allMoods } from './moods.js';
 import { jitEngine } from './jitEngine.js';
@@ -22,7 +22,12 @@ const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 const SESSION_STATE_KEY = 'musicMood_session_state';
 const USER_CALIBRATION_KEY = 'musicMood_user_calibration';
 
-const MAX_DWELL_PER_NODE = 2; // Maximum consecutive tracks allowed in the same subgenre
+// Recency rules shared by every sourcing path (catalog, emergency, JIT)
+export const TRACK_MEMORY = 50;            // a track never repeats within the last 50 plays
+export const ARTIST_COOLDOWN = 15;         // an artist does not return within 15 plays
+export const ARTIST_COOLDOWN_RELAXED = 5;  // explicit fallback when the strict pass finds nothing
+export const LAST_RESORT_MEMORY = 10;      // even the last-resort pass never replays the last 10 tracks
+const DISLIKED_ARTISTS_MAX = 200;          // disliked artists are hidden for the rest of the session
 
 function shuffleArray(arr) {
     if (!Array.isArray(arr) || arr.length <= 1) return arr;
@@ -62,8 +67,9 @@ class SessionStateMachine {
             energyLevel: 0.5,
             vocalPreference: 'any', // 'any' | 'instrumental' | 'vocal'
             discoveryLevel: this.calibration.discoveryLevel || 0.5,
-            recentTracks: [],  // Max 50 track IDs
-            recentArtists: [], // Max 15 artist names
+            recentTracks: [],  // last TRACK_MEMORY track ids
+            recentArtists: [], // last ARTIST_COOLDOWN artist names
+            dislikedArtists: [], // hidden for the rest of the session
             likedTracks: [],
             skippedTracks: [],
             currentTrack: null,
@@ -90,6 +96,7 @@ class SessionStateMachine {
             discoveryLevel: this.calibration.discoveryLevel || 0.5,
             recentTracks: [],
             recentArtists: [],
+            dislikedArtists: [],
             likedTracks: [],
             skippedTracks: [],
             currentTrack: null,
@@ -156,8 +163,9 @@ class SessionStateMachine {
             if (typeof localStorage !== 'undefined') {
                 const toSave = {
                     ...this.state,
-                    recentTracks: this.state.recentTracks.slice(-50),
-                    recentArtists: this.state.recentArtists.slice(-15),
+                    recentTracks: (this.state.recentTracks || []).slice(-TRACK_MEMORY),
+                    recentArtists: (this.state.recentArtists || []).slice(-ARTIST_COOLDOWN),
+                    dislikedArtists: (this.state.dislikedArtists || []).slice(-DISLIKED_ARTISTS_MAX),
                     traversalHistory: (this.state.traversalHistory || []).slice(-20),
                     trackHistory: (this.trackHistory || []).slice(-25),
                 };
@@ -185,7 +193,6 @@ class SessionStateMachine {
             queue: [...this.queue],
             canGoBack: (this.trackHistory || []).length > 0,
             historyCount: (this.trackHistory || []).length,
-            maxDwell: MAX_DWELL_PER_NODE,
             currentFatigue: Math.round((this.nodeFatigue[this.state.activeGenre] || 0) * 100),
         };
     }
@@ -195,90 +202,41 @@ class SessionStateMachine {
     }
 
     // ==========================================
-    // DYNAMIC GRAPH TRAVERSAL (ANTI-STAGNATION)
+    // RECENCY RULES (shared by all sourcing paths)
     // ==========================================
 
-    /**
-     * Traverses to an adjacent node or compatible anchor based on:
-     * Suitability = EffectiveAffinity * (1 - Fatigue) * HarmonicProximity * MoodAffinity
-     * Dynamically expands exploration radius using discoveryLevel.
-     */
-    stepToNextGenre(reason = 'flow') {
-        const current = this.state.activeGenre;
-        const neighbors = getConnectedGenres(current);
-        const moodCompatible = getMoodCompatibleGenres(this.state.currentMood);
-        const discovery = this.state.discoveryLevel ?? 0.5;
+    _normArtist(artist) {
+        return (artist || '').toLowerCase().trim();
+    }
 
-        // Dynamic candidate pool based on discovery level:
-        let candidatePool;
-        if (discovery < 0.35) {
-            // Familiar / Anchored: 1-hop harmonic neighbors + user anchors
-            candidatePool = Array.from(new Set([...neighbors, ...this.calibration.anchors]));
-        } else if (discovery <= 0.70) {
-            // Balanced: 1-hop + 2-hop harmonic neighbors + mood-compatible genres + user anchors
-            const twoHop = [];
-            neighbors.forEach(n => {
-                getConnectedGenres(n).forEach(n2 => twoHop.push(n2));
-            });
-            candidatePool = Array.from(new Set([...neighbors, ...twoHop, ...moodCompatible, ...this.calibration.anchors]));
-        } else {
-            // Deep Cuts / Wide Exploration: ALL non-dealbreaker genres
-            candidatePool = Object.keys(GENRE_NODES);
-        }
+    /** Records a track as played (bounded memory). */
+    rememberTrackId(trackId) {
+        if (!trackId) return;
+        const list = this.state.recentTracks || (this.state.recentTracks = []);
+        list.push(trackId);
+        if (list.length > TRACK_MEMORY) list.splice(0, list.length - TRACK_MEMORY);
+    }
 
-        // Filter out dealbreakers and the exact current node
-        const validCandidates = candidatePool.filter(nodeId => {
-            if (nodeId === current) return false;
-            return !violatesDealbreakers(GENRE_NODES[nodeId]?.label, nodeId, this.calibration.dealbreakers);
-        });
+    /** Starts an artist's cooldown (bounded memory). */
+    rememberArtist(artist) {
+        const a = this._normArtist(artist);
+        if (!a) return;
+        const list = this.state.recentArtists || (this.state.recentArtists = []);
+        list.push(a);
+        if (list.length > ARTIST_COOLDOWN) list.splice(0, list.length - ARTIST_COOLDOWN);
+    }
 
-        if (validCandidates.length === 0) {
-            console.warn('[StateMachine] No other valid candidate nodes available. Staying on:', current);
-            this.state.consecutiveInNode = 0;
-            return current;
-        }
+    /** True if the track was played within the last `window` plays. */
+    isRecentTrack(trackId, window = TRACK_MEMORY) {
+        return Boolean(trackId) && (this.state.recentTracks || []).slice(-window).includes(trackId);
+    }
 
-        // Score each candidate by affinity, inverse fatigue, and harmonic/mood affinity
-        const scored = validCandidates.map(nodeId => {
-            const rawWeight = this.calibration.weights[nodeId] || 0.1;
-            // Higher discovery flattens anchor bias so user isn't confined to original picks
-            const effectiveWeight = (rawWeight * (1.0 - discovery * 0.7)) + (0.15 * discovery);
-
-            const fatigue = this.nodeFatigue[nodeId] || 0.0;
-            const isNeighbor = neighbors.includes(nodeId);
-            const isMoodMatch = moodCompatible.includes(nodeId);
-
-            const neighborBonus = isNeighbor ? 1.35 : 1.0;
-            const moodBonus = isMoodMatch ? 1.4 : 0.85;
-
-            // Score with strong anti-stagnation fatigue penalty
-            const score = effectiveWeight * Math.max(0.08, 1.0 - fatigue * 0.85) * neighborBonus * moodBonus;
-            return { nodeId, score };
-        });
-
-        // Weighted selection (Softmax-like or proportional pick from top candidates)
-        scored.sort((a, b) => b.score - a.score);
-        const candidateCount = Math.min(discovery > 0.7 ? 8 : 4, scored.length);
-        const topCandidates = scored.slice(0, candidateCount);
-        const chosen = topCandidates[Math.floor(Math.random() * topCandidates.length)].nodeId;
-
-        console.log(`[Anti-Stagnation Flow] Transitioned along graph (${reason}): ${current} -> ${chosen} (Discovery: ${discovery})`);
-
-        this.state.activeGenre = chosen;
-        this.state.consecutiveInNode = 0;
-        this.state.traversalHistory = [...(this.state.traversalHistory || []), {
-            from: current,
-            to: chosen,
-            reason,
-            timestamp: new Date().toISOString()
-        }];
-
-        this.queue = [];
-        this.notify();
-        setTimeout(() => {
-            jitEngine.replenishBuffer(chosen, this);
-        }, 100);
-        return chosen;
+    /** True if the artist is disliked this session or still cooling down (within `window` plays). */
+    isArtistBlocked(artist, window = ARTIST_COOLDOWN) {
+        const a = this._normArtist(artist);
+        if (!a) return false;
+        if ((this.state.dislikedArtists || []).includes(a)) return true;
+        return window > 0 && (this.state.recentArtists || []).slice(-window).includes(a);
     }
 
     applyNodeFatigue(genreId) {
@@ -631,9 +589,12 @@ class SessionStateMachine {
         // 1. Record the dislike as this play's outcome
         this._finishPlay(track, { skipped: true, disliked: true });
 
-        // 2. Blacklist artist from current session to prevent repetition
-        if (track.artist && !this.state.recentArtists.includes(track.artist.toLowerCase())) {
-            this.state.recentArtists.push(track.artist.toLowerCase());
+        // 2. Hide this artist for the rest of the session
+        const dislikedArtist = this._normArtist(track.artist);
+        if (dislikedArtist) {
+            const list = this.state.dislikedArtists || (this.state.dislikedArtists = []);
+            if (!list.includes(dislikedArtist)) list.push(dislikedArtist);
+            if (list.length > DISLIKED_ARTISTS_MAX) list.splice(0, list.length - DISLIKED_ARTISTS_MAX);
         }
 
         // 3. Keep active genre stable; only blacklist artist and notify.
@@ -718,10 +679,6 @@ class SessionStateMachine {
         play.idPromise.then(id => updatePlay(id, { listenedSeconds: seconds }));
     }
 
-    getMaxDwell() {
-        return Infinity; // User stays in selected genre indefinitely until they change mood or click Surprise Me
-    }
-
     onSkip(track) {
         if (!track) return;
         console.log(`[StateMachine] Feedback: SKIPPED "${track.title}" by ${track.artist}`);
@@ -729,8 +686,8 @@ class SessionStateMachine {
 
         this._finishPlay(track, { skipped: true });
 
-        if (track.artist && !this.state.recentArtists.includes(track.artist.toLowerCase())) {
-            this.state.recentArtists.push(track.artist.toLowerCase());
+        if (!this.isArtistBlocked(track.artist)) {
+            this.rememberArtist(track.artist);
         }
 
         // Stays on current genre (genre changes only via mood change or "Surprise Me")
@@ -889,79 +846,87 @@ class SessionStateMachine {
     // SOURCING PIPELINE WITH INVARIANT GUARDS
     // ==========================================
 
-    async getNextTrack(token) {
-        if (this.isResolving) return null;
+    /**
+     * Resolves the next track. Concurrent callers share the in-flight lookup instead of
+     * getting null, so "busy" is never mistaken for "nothing playable".
+     * Resolves to a track, or null only when no acceptable track exists.
+     */
+    getNextTrack(token) {
+        if (this._pendingNext) return this._pendingNext;
         this.isResolving = true;
-
-        try {
-            // Check buffered queue first
-            while (this.queue.length > 0) {
-                const candidate = this.queue.shift();
-                if (this.passesGuards(candidate)) {
-                    this.commitTrack(candidate);
-                    setTimeout(() => jitEngine.replenishBuffer(this.state.activeGenre, this), 100);
-                    return candidate;
-                }
-            }
-
-            // 1. Primary Source: Supabase Catalog (Pre-mapped zero-quota tracks)
-            const libCandidate = await this.sourceFromLocalLibrary();
-            if (libCandidate) {
-                // If track already has pre-mapped 11-char YouTube ID, play immediately (Zero Quota!)
-                if (libCandidate.id && this.passesGuards(libCandidate)) {
-                    this.commitTrack(libCandidate);
-                    setTimeout(() => jitEngine.replenishBuffer(this.state.activeGenre, this), 100);
-                    return libCandidate;
-                }
-                
-                // If track has metadata but no ID yet, resolve it
-                if (this.passesMetadataGuards(libCandidate)) {
-                    const resolved = await this.resolveTrackToYouTube(libCandidate, token);
-                    if (resolved && this.passesGuards(resolved)) {
-                        this.commitTrack(resolved);
-                        setTimeout(() => jitEngine.replenishBuffer(this.state.activeGenre, this), 100);
-                        return resolved;
-                    }
-                }
-            }
-
-            // 2. Fast Fallback: Instant Emergency Track from Catalog (< 200ms)
-            // Never stall the user on external web-scraping waterfalls when thousands of playable catalog tracks exist!
-            const emergencyTrack = await this.sourceEmergencyTrack();
-            if (emergencyTrack && this.passesMetadataGuards(emergencyTrack)) {
-                console.log(`[Fast-Path Sourcing ⚡] Selected catalog track: "${emergencyTrack.artist} - ${emergencyTrack.title}" (${emergencyTrack.genre})`);
-                this.commitTrack(emergencyTrack);
-                // Background asynchronous organic expansion (non-blocking!)
-                setTimeout(() => {
-                    jitEngine.pullTrackForGenre(this.state.activeGenre, this).catch(() => {});
-                    jitEngine.replenishBuffer(this.state.activeGenre, this);
-                }, 300);
-                return emergencyTrack;
-            }
-
-            // 3. JIT Organic Catalog Expansion (Fallback if catalog is truly empty)
-            console.log(`[StateMachine ⚡] Catalog exhausted for "${this.state.activeGenre}". Triggering JIT Organic Expansion...`);
-            const jitCandidate = await jitEngine.pullTrackForGenre(this.state.activeGenre, this);
-            if (jitCandidate && this.passesGuards(jitCandidate)) {
-                this.commitTrack(jitCandidate);
-                setTimeout(() => jitEngine.replenishBuffer(this.state.activeGenre, this), 100);
-                return jitCandidate;
-            }
-
-            // 4. Targeted Anti-Drift YouTube Sourcing
-            if (token) {
-                const ytCandidate = await this.sourceFromYouTube(token);
-                if (ytCandidate) {
-                    this.commitTrack(ytCandidate);
-                    setTimeout(() => jitEngine.replenishBuffer(this.state.activeGenre, this), 100);
-                    return ytCandidate;
-                }
-            }
-
-            return null;
-        } finally {
+        this._pendingNext = this._resolveNextTrack(token).finally(() => {
+            this._pendingNext = null;
             this.isResolving = false;
+        });
+        return this._pendingNext;
+    }
+
+    async _resolveNextTrack(token) {
+        // Check buffered queue first
+        while (this.queue.length > 0) {
+            const candidate = this.queue.shift();
+            if (this.passesGuards(candidate)) {
+                this.commitTrack(candidate);
+                setTimeout(() => jitEngine.replenishBuffer(this.state.activeGenre, this), 100);
+                return candidate;
+            }
         }
+
+        // 1. Primary Source: Supabase Catalog (Pre-mapped zero-quota tracks)
+        const libCandidate = await this.sourceFromLocalLibrary();
+        if (libCandidate) {
+            // If track already has pre-mapped 11-char YouTube ID, play immediately (Zero Quota!)
+            if (libCandidate.id && this.passesGuards(libCandidate)) {
+                this.commitTrack(libCandidate);
+                setTimeout(() => jitEngine.replenishBuffer(this.state.activeGenre, this), 100);
+                return libCandidate;
+            }
+            
+            // If track has metadata but no ID yet, resolve it
+            if (this.passesMetadataGuards(libCandidate)) {
+                const resolved = await this.resolveTrackToYouTube(libCandidate, token);
+                if (resolved && this.passesGuards(resolved)) {
+                    this.commitTrack(resolved);
+                    setTimeout(() => jitEngine.replenishBuffer(this.state.activeGenre, this), 100);
+                    return resolved;
+                }
+            }
+        }
+
+        // 2. Fast Fallback: Instant Emergency Track from Catalog (< 200ms)
+        // Never stall the user on external web-scraping waterfalls when thousands of playable catalog tracks exist!
+        const emergencyTrack = await this.sourceEmergencyTrack();
+        if (emergencyTrack && this.passesMetadataGuards(emergencyTrack)) {
+            console.log(`[Fast-Path Sourcing ⚡] Selected catalog track: "${emergencyTrack.artist} - ${emergencyTrack.title}" (${emergencyTrack.genre})`);
+            this.commitTrack(emergencyTrack);
+            // Background asynchronous organic expansion (non-blocking!)
+            setTimeout(() => {
+                jitEngine.pullTrackForGenre(this.state.activeGenre, this).catch(() => {});
+                jitEngine.replenishBuffer(this.state.activeGenre, this);
+            }, 300);
+            return emergencyTrack;
+        }
+
+        // 3. JIT Organic Catalog Expansion (Fallback if catalog is truly empty)
+        console.log(`[StateMachine ⚡] Catalog exhausted for "${this.state.activeGenre}". Triggering JIT Organic Expansion...`);
+        const jitCandidate = await jitEngine.pullTrackForGenre(this.state.activeGenre, this);
+        if (jitCandidate && this.passesGuards(jitCandidate)) {
+            this.commitTrack(jitCandidate);
+            setTimeout(() => jitEngine.replenishBuffer(this.state.activeGenre, this), 100);
+            return jitCandidate;
+        }
+
+        // 4. Targeted Anti-Drift YouTube Sourcing
+        if (token) {
+            const ytCandidate = await this.sourceFromYouTube(token);
+            if (ytCandidate) {
+                this.commitTrack(ytCandidate);
+                setTimeout(() => jitEngine.replenishBuffer(this.state.activeGenre, this), 100);
+                return ytCandidate;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -1020,13 +985,13 @@ class SessionStateMachine {
         const artist = (track.artist || track.channelTitle || '').toLowerCase();
         const title = (track.title || '').toLowerCase();
 
-        // Guard 1: Anti-Loop Repetition Guard (50 tracks, 15 artists)
-        if (this.state.recentTracks.includes(track.id)) {
-            console.log(`[Guard ❌] Repetition: Track ${track.id} played in last 50 tracks.`);
+        // Guard 1: Anti-Loop Repetition Guard (TRACK_MEMORY tracks, ARTIST_COOLDOWN artists, disliked artists)
+        if (this.isRecentTrack(track.id)) {
+            console.log(`[Guard ❌] Repetition: Track ${track.id} played in last ${TRACK_MEMORY} tracks.`);
             return false;
         }
-        if (artist && this.state.recentArtists.slice(-15).includes(artist)) {
-            console.log(`[Guard ❌] Satiation: Artist "${artist}" played in last 15 songs.`);
+        if (artist && this.isArtistBlocked(artist)) {
+            console.log(`[Guard ❌] Satiation: Artist "${artist}" is cooling down or disliked this session.`);
             return false;
         }
 
@@ -1078,11 +1043,8 @@ class SessionStateMachine {
         }
 
         this.state.currentTrack = track;
-        this.state.recentTracks.push(track.id);
-        const artist = (track.artist || track.channelTitle || '').toLowerCase();
-        if (artist) {
-            this.state.recentArtists.push(artist);
-        }
+        this.rememberTrackId(track.id);
+        this.rememberArtist(track.artist || track.channelTitle);
 
         // RESPECT USER'S CHOSEN GENRE:
         // Never override this.state.activeGenre during continuous playback, skips, or track commits!
@@ -1230,14 +1192,11 @@ class SessionStateMachine {
                 return validPassA[0];
             }
 
-            // Pass B: Relax artist fatigue but strictly avoid recent 15 tracks and recent 5 artists
-            const recentTracksSet = new Set((this.state.recentTracks || []).slice(-15));
-            const recentArtistsSet = new Set((this.state.recentArtists || []).slice(-5));
+            // Pass B (explicit relaxed fallback): same track memory, shorter artist cooldown
             const validPassB = [];
             for (const t of data) {
                 const vid = t.youtube_video_id;
-                const a = (t.artist || '').toLowerCase();
-                if (vid && vid.length === 11 && !recentTracksSet.has(vid) && !recentArtistsSet.has(a)) {
+                if (vid && vid.length === 11 && !this.isRecentTrack(vid) && !this.isArtistBlocked(t.artist, ARTIST_COOLDOWN_RELAXED)) {
                     if (this.passesMetadataGuards(t)) {
                         validPassB.push({
                             id: vid,
@@ -1255,9 +1214,13 @@ class SessionStateMachine {
                 return validPassB[Math.floor(Math.random() * validPassB.length)];
             }
 
-            // Pass C: Last resort safe return avoiding current video ID
+            // Pass C (last resort, tiny catalogs): ignore artist cooldown, but never replay the
+            // last LAST_RESORT_MEMORY tracks or a disliked artist
             const currentVideoId = this.state.currentTrack?.id;
-            const validPassC = data.filter(t => t.youtube_video_id && t.youtube_video_id.length === 11 && t.youtube_video_id !== currentVideoId);
+            const validPassC = data.filter(t => t.youtube_video_id && t.youtube_video_id.length === 11
+                && t.youtube_video_id !== currentVideoId
+                && !this.isRecentTrack(t.youtube_video_id, LAST_RESORT_MEMORY)
+                && !this.isArtistBlocked(t.artist, 0));
             if (validPassC.length > 0) {
                 const chosen = validPassC[Math.floor(Math.random() * validPassC.length)];
                 return {
@@ -1271,16 +1234,8 @@ class SessionStateMachine {
                 };
             }
 
-            const fallback = data[0];
-            return {
-                id: fallback.youtube_video_id,
-                dbId: fallback.id,
-                artist: fallback.artist,
-                title: fallback.title,
-                genre: fallback.primary_genre_id || this.state.activeGenre,
-                thumbnail: `https://i.ytimg.com/vi/${fallback.youtube_video_id}/hqdefault.jpg`,
-                source: 'emergency_safe_fallback'
-            };
+            // Nothing acceptable in this genre family right now: let the caller try JIT discovery
+            return null;
         } catch (e) {
             console.error('[StateMachine] Emergency track selection exception:', e);
             return null;
@@ -1303,11 +1258,10 @@ class SessionStateMachine {
             }
 
             const excludeSet = new Set([
-                ...(this.state.recentTracks || []).slice(-30),
+                ...(this.state.recentTracks || []).slice(-TRACK_MEMORY),
                 ...(excludeIds || []),
                 this.state.currentTrack?.id
             ].filter(Boolean));
-            const recentArtistsSet = new Set((this.state.recentArtists || []).slice(-10));
 
             const filterCandidates = (tracks, relaxArtist = false, minimalExclude = false) => {
                 if (!tracks || !Array.isArray(tracks)) return [];
@@ -1316,9 +1270,11 @@ class SessionStateMachine {
                     const vid = t.youtube_video_id || t.id;
                     if (!vid || vid.length !== 11) return false;
                     if (!minimalExclude && excludeSet.has(vid)) return false;
-                    if (minimalExclude && vid === this.state.currentTrack?.id) return false;
+                    if (minimalExclude && (vid === this.state.currentTrack?.id || this.isRecentTrack(vid, LAST_RESORT_MEMORY))) return false;
                     const a = (t.artist || '').toLowerCase();
-                    if (!relaxArtist && a && recentArtistsSet.has(a)) return false;
+                    // Strict pass: full cooldown; relaxed pass: shorter cooldown; last resort: disliked only
+                    const cooldown = minimalExclude ? 0 : (relaxArtist ? ARTIST_COOLDOWN_RELAXED : ARTIST_COOLDOWN);
+                    if (a && this.isArtistBlocked(a, cooldown)) return false;
                     // Strict artist diversity: max 1 song per artist per candidate pool
                     if (a && seenArtists.has(a)) return false;
                     if (a) seenArtists.add(a);
