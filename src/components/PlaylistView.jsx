@@ -125,7 +125,7 @@ function PlaylistView({
                 } catch (scrapeErr) {
                     if (scrapeErr.message && (scrapeErr.message.includes('not exist') || scrapeErr.message.includes('private'))) {
                         throw new Error(
-                            "This playlist is private or inaccessible without authentication. Please click 'Reconnect YouTube' below to refresh your Google session, or change playlist visibility to 'Unlisted' on YouTube to ingest directly."
+                            "This playlist is private or inaccessible without authentication. Please click 'Connect YouTube' below to refresh your Google session, or change playlist visibility to 'Unlisted' on YouTube to ingest directly."
                         );
                     }
                     throw scrapeErr;
@@ -377,7 +377,7 @@ function PlaylistView({
                                     <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>⚠️ {error}</div>
                                     {(error.toLowerCase().includes('private') || error.toLowerCase().includes('not exist') || error.toLowerCase().includes('expired') || error.toLowerCase().includes('permission')) && (
                                         <div style={{ fontSize: '0.82rem', color: '#f8fafc', opacity: 0.9 }}>
-                                            💡 <strong>Quick Fix:</strong> Reconnect YouTube to renew your token, or set your playlist to <em>Unlisted</em> on YouTube to ingest directly without auth.
+                                            💡 <strong>Quick Fix:</strong> Connect YouTube to grant playlist access, or set your playlist to <em>Unlisted</em> on YouTube to ingest directly without auth.
                                         </div>
                                     )}
                                 </div>
@@ -388,7 +388,7 @@ function PlaylistView({
                                         onClick={() => onRefreshPlaylists(true)}
                                         style={{ fontSize: '0.82rem', padding: '0.45rem 1rem', borderRadius: '8px', cursor: 'pointer' }}
                                     >
-                                        🔑 Reconnect YouTube
+                                        🔑 Connect YouTube
                                     </button>
                                 )}
                             </div>

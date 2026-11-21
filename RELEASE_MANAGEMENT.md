@@ -60,6 +60,17 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.8` — 2026-11-21
+* **Security & Stability Milestone (completes the `v0.8.7a`–`v0.8.7h` hardening series) plus Phase 3 clean-up:**
+  * **🔐 Sign-in no longer needs Google verification:** Google sign-in now asks only for basic profile scopes (name, email, picture). YouTube access (`youtube.readonly`, a sensitive scope that requires Google app verification) is requested separately, only when a listener imports their YouTube playlists ("Connect YouTube" / "Grant YouTube Permission & Load"). Once the Google OAuth app is published, anyone can sign in; previously only listed test users could.
+  * **🎚️ Artist track counts are exact:** 695 artists showed wrong counts (e.g. Pink Floyd 1,064 vs 152 real tracks, Nine Inch Nails 1,456 vs 208) because the duplicate-merge job summed stored counts on every run. All counts were recounted, `artists.track_count` is now derived from the tracks table by the database on every write (`trg_enforce_artist_track_count`), and `mergeDuplicateArtists.js` merges weighted vote scores instead of summing counts. No duplicate tracks existed; only the displayed number was wrong.
+  * **🧩 One YouTube resolver:** the playlist scraper and track resolver lived twice (`server.js` and `vite.config.js`, ~400 identical lines). Both now import `server/youtubeResolver.js` (server.js 734 → 266 lines, vite.config.js 545 → 65 lines), and the dev server applies the same input validation as production.
+  * **🐛 Title clean-up:** decorations like "(Official Audio)", "(Lyric Video)" and "(Visualizer)" were left in resolved titles; they are now stripped.
+  * **📦 Admin tool code-split:** the JIT monitor (admin/poweruser only) is loaded on demand instead of shipping to every listener.
+  * **🗂️ Schema housekeeping:** the stale root SQL files (`schema_v2.sql`, `setup_taste_graph.sql`, `add_youtube_id.sql`) moved to `supabase/legacy/` with a note; `supabase/migrations/` is the source of truth. `local_metadata` uses only `youtube_video_id` (confirmed in the live database).
+  * **🧪 Tests & CI:** 26 unit tests (resolver title parsing added), plus `supabase/tests/permissions.sql`: 22 rolled-back permission checks for guest, admin and no-session roles, all passing against the live database. New `Database permissions` workflow runs it weekly and on schema changes once the `SUPABASE_DB_URL` secret is set.
+  * **✉️ Contact:** the public contact address in the About dialog changed.
+
 ### `v0.8.7h` — 2026-11-21
 * **Stability — One Mood Vocabulary (22 visible moods):**
   * **🎛️ Single source of truth:** `MOOD_GENRE_MAP` in `tasteGraph.js` now defines every mood's compatible genres, with new `MOOD_DEFAULT_HOME` (curated fallback home per mood) and `MOOD_ALIASES` (redirects for retired moods). `moods.js` holds only labels, emoji and UI categories.
@@ -443,7 +454,7 @@ Whenever a release or milestone patch is prepared:
     * Added Phase 5 (`syncArtistGenres`) syncing `public.artists.primary_genre_id` with track consensus (fixed Handel to baroque/classical and synchronized 88 drifted artists).
   * **In-App About Modal & Author Attribution (`AboutModal.jsx` / `Dashboard.jsx`):**
     * Added an `ℹ️ About` action button in the header top-right.
-    * Displays application version `v0.7.7`, author and creator attribution (Corneliu Nițoi / `@corneliunitoi`), contact email (`corneliunitoi@gmail.com`) with 1-click copy, and repository links.
+    * Displays application version `v0.7.7`, author and creator attribution (Corneliu Nițoi / `@corneliunitoi`), contact email (`corneliunitoi87@gmail.com`) with 1-click copy, and repository links.
   * **Roadmap & Taxonomy Alignment (`ROADMAP.md`):**
     * Documented Item #10 for rebalancing `synth_pop` into `Electronic` and reconciling artist track plurality (e.g. Depeche Mode).
 
@@ -669,7 +680,7 @@ Whenever a release or milestone patch is prepared:
   * Complies 100% with Google's Secure Response Handling policy on public domains like Render.
 * **Role-Based Access Control (RBAC) & Testing Personas:**
   * Added `user_class` column to `public.user_profiles` (`poweruser`, `beta`, `regular`, `guest`).
-  * Granted `poweruser` tier and `admin` role to `corneliunitoi@gmail.com` via Supabase RPC `resolve_or_create_user`.
+  * Granted `poweruser` tier and `admin` role to the owner account via Supabase RPC `resolve_or_create_user`.
   * Added instant testing persona switcher in the header for fast permission validation.
 * **Production Server:**
   * Created standalone Node HTTP server (`server.js`) with built-in zero-quota YouTube scrapers (`/api/resolve-track`, `/api/playlist-tracks`) and SPA routing.

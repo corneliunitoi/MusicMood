@@ -1,0 +1,37 @@
+name: Database permissions
+
+# Runs supabase/tests/permissions.sql against the live database inside a transaction that is
+# rolled back (no data changes). Fails if any access rule has regressed.
+# Requires the repository secret SUPABASE_DB_URL (Supabase -> Project Settings -> Database ->
+# Connection string, "Session pooler" URI with the database password). Skipped if not set.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/db-permissions.yml'
+  schedule:
+    - cron: '17 4 * * 1'   # weekly, Monday 04:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  permissions:
+    name: Permission regression test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run permission checks (rolled back)
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::notice::SUPABASE_DB_URL secret not set; skipping the database permission test."
+            exit 0
+          fi
+          sudo apt-get install -y -qq postgresql-client > /dev/null
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/permissions.sql

@@ -9,7 +9,7 @@ export default function AboutModal({ isOpen, onClose }) {
     const version = pkg.version || '0.7.6';
     const authorName = 'Corneliu Nițoi';
     const authorHandle = 'corneliunitoi';
-    const authorEmail = 'corneliunitoi@gmail.com';
+    const authorEmail = 'corneliunitoi87@gmail.com';
     const repoUrl = 'https://github.com/corneliunitoi/MusicMood';
 
     const handleCopyEmail = () => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { fetchUserPlaylists } from '../services/youtube';
 import { signInWithGoogle } from '../services/auth';
 import { supabase } from '../services/supabaseService';
@@ -8,7 +8,8 @@ import PlaylistView from './PlaylistView';
 import Player from './Player';
 import MoodHistory from './MoodHistory';
 import OnboardingWizard from './OnboardingWizard';
-import JitFeedModal from './JitFeedModal';
+// Admin/poweruser-only tool: loaded on demand so regular listeners never download it
+const JitFeedModal = lazy(() => import('./JitFeedModal'));
 import FavoritesPane from './FavoritesPane';
 import ArtistsExplorer from './ArtistsExplorer';
 import WelcomeSplash from './WelcomeSplash';
@@ -42,8 +43,8 @@ function Dashboard({ session, token, onLogout }) {
         setPlaylistError(null);
         try {
             if (forceConsent || token === 'guest') {
-                // Re-run Google OAuth to get a fresh YouTube token (full-page redirect)
-                await signInWithGoogle({ forceConsent: true });
+                // Ask Google for YouTube access (separate from sign-in; full-page redirect)
+                await signInWithGoogle({ forceConsent: true, withYouTube: true });
                 return;
             }
             const data = await fetchUserPlaylists(token);
@@ -697,7 +698,11 @@ function Dashboard({ session, token, onLogout }) {
                 )}
 
                 {/* JIT ORGANIC GROWTH AUDIT MODAL */}
-                <JitFeedModal isOpen={showJitFeed} onClose={() => setShowJitFeed(false)} />
+                {showJitFeed && canAccess('jit_monitor') && (
+                    <Suspense fallback={null}>
+                        <JitFeedModal isOpen={showJitFeed} onClose={() => setShowJitFeed(false)} />
+                    </Suspense>
+                )}
 
                 {/* WELCOME SPLASH MANIFESTO */}
                 {showWelcomeSplash && (

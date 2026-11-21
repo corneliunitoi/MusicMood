@@ -39,7 +39,7 @@ function clearProviderToken() {
 
 /**
  * Returns the Google access token for YouTube API calls, or null when the user
- * is a guest or the token has expired (the UI then offers "Reconnect YouTube").
+ * is a guest or the token has expired (the UI then offers "Connect YouTube").
  */
 export function getYouTubeToken() {
     try {
@@ -84,14 +84,23 @@ export async function getSession() {
  * Starts Google sign-in. If the current session is an anonymous guest, the Google
  * identity is linked to the guest account so favorites and history are kept.
  * The browser is redirected to Google and back; this promise resolves only on error.
+ *
+ * Sign-in asks only for basic profile scopes (name, email, picture), which need no
+ * Google app verification, so anyone can sign in once the OAuth app is published.
+ * YouTube access (a sensitive scope) is requested separately, with `withYouTube`,
+ * only when the listener imports their YouTube playlists.
  */
-export async function signInWithGoogle({ forceConsent = false } = {}) {
+export async function signInWithGoogle({ forceConsent = false, withYouTube = false } = {}) {
     const session = await getSession();
     const options = {
         redirectTo: redirectTarget(),
-        scopes: YOUTUBE_SCOPE,
-        queryParams: { prompt: forceConsent ? 'consent' : 'select_account' }
+        queryParams: {
+            prompt: forceConsent ? 'consent' : 'select_account',
+            // Keep previously granted scopes when adding YouTube access later
+            include_granted_scopes: 'true'
+        }
     };
+    if (withYouTube) options.scopes = YOUTUBE_SCOPE;
 
     if (session?.user?.is_anonymous) {
         const { error } = await supabase.auth.linkIdentity({ provider: 'google', options });

@@ -71,8 +71,10 @@ async function runMerge() {
         const dupIds = duplicates.map(d => d.id);
         const dupNames = duplicates.map(d => d.name);
 
+        // Display only: the database recounts track_count from the tracks table on every write
         const totalTracks = list.reduce((sum, a) => sum + (a.track_count || 0), 0);
-        const totalUpvotes = list.reduce((sum, a) => sum + (a.upvotes || 0), 0);
+        const totalUpvoteScore = list.reduce((sum, a) => sum + Number(a.upvote_score ?? a.upvotes ?? 0), 0);
+        const totalUpvotes = Math.round(totalUpvoteScore);
         const bestAvatar = canonical.avatar_url || duplicates.find(d => d.avatar_url)?.avatar_url || null;
 
         console.log(`🔷 Cluster: "${normalizeArtistKey(canonical.name)}"`);
@@ -127,7 +129,9 @@ async function runMerge() {
             const { error: updateErr } = await supabase
                 .from('artists')
                 .update({
-                    track_count: totalTracks,
+                    // Any value triggers an exact recount (trg_enforce_artist_track_count); never sum stored counts
+                    track_count: 0,
+                    upvote_score: totalUpvoteScore,
                     upvotes: totalUpvotes,
                     avatar_url: bestAvatar,
                     updated_at: new Date().toISOString()
