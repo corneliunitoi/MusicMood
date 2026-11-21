@@ -47,8 +47,8 @@ Whenever a release or milestone patch is prepared:
 3. [ ] **Update `README.md` Badge:** Update the version badge URL in `README.md`.
 4. [ ] **Log in `RELEASE_MANAGEMENT.md`:** Document the changes under the Changelog section below.
 5. [ ] **Git Commit:** Commit changes with message `chore(release): bump version to vX.Y.Za`.
-6. [ ] **Create Annotated Git Tag with Release Notes:** Run `npm run tag-release vX.Y.Za` (or `git tag -a vX.Y.Za -f -F <notes>`).
-7. [ ] **Push to Remote:** Push commit and tags: `git push origin main` and `git push origin vX.Y.Za --force`. GitHub Actions will automatically publish the GitHub Release.
+6. [ ] **Push to `main`:** `git push origin main`. The `Auto-Tag & Release on Version Bump` workflow (`.github/workflows/auto-release.yml`) then creates the annotated `vX.Y.Za` tag on the version-bump commit and publishes the GitHub Release from this changelog.
+7. [ ] **Manual fallback:** if the workflow is unavailable, run `npm run tag-release vX.Y.Za` and `git push origin vX.Y.Za`.
 
 ---
 
