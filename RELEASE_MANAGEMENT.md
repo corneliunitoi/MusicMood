@@ -62,7 +62,7 @@ Whenever a release or milestone patch is prepared:
 
 ### `v0.8.7c` — 2026-11-21
 * **Security Hardening — Phase 2a (Catalog Lockdown):**
-  * **🗄️ Row Level Security (`supabase/migrations/20261121130000_catalog_lockdown.sql`):**
+  * **🗄️ Row Level Security (`supabase/migrations/20261121201808_catalog_lockdown.sql`):**
     * Signed-in users and guests can **add** to the catalog (tracks, artists, archive rows) and fill in a **missing** YouTube video id, but can no longer edit or delete existing catalog rows.
     * Deleting tracks and moderating artist suggestions, genre flags and playback reports is admin-only (`is_admin()`).
     * Users can request artists (new requests, or `request_staged_artist` for staged ones) and manage only their own genre flags.

@@ -1,5 +1,5 @@
 -- =====================================================================
--- ROLLBACK for 20261121130000_catalog_lockdown.sql (v0.8.7c)
+-- ROLLBACK for 20261121201808_catalog_lockdown.sql (v0.8.7c)
 -- Restores the access rules and grants exactly as captured from the live
 -- database on 2026-11-21 before the lockdown. No data is touched.
 -- NOTE: the restored state is the INSECURE pre-v0.8.7c state. Use only to
