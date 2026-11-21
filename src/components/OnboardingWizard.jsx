@@ -247,14 +247,15 @@ function OnboardingWizard({ onComplete, onClose }) {
         };
     });
 
-    // 2. Emotional Reflexes & Constraints
-    const [melancholyReflex, setMelancholyReflex] = useState(() => existingCalib.reflexes?.melancholy || 'lean');
-    const [vocalReflex, setVocalReflex] = useState(() => existingCalib.reflexes?.vocals || 'instrumental');
+    // 2. Filters. The former "emotional reflexes" questions are no longer asked (v0.8.8b);
+    //    existing values are kept so saved calibrations stay unchanged.
+    const melancholyReflex = existingCalib.reflexes?.melancholy || 'lean';
+    const vocalReflex = existingCalib.reflexes?.vocals || 'instrumental';
     const [selectedDealbreakers, setSelectedDealbreakers] = useState(() => existingCalib.dealbreakers || ['no_harsh_vocals', 'no_autotune_trap']);
     const [discoveryLevel, setDiscoveryLevel] = useState(() => existingCalib.discoveryLevel || 0.5);
     const [blockAiGenerated, setBlockAiGenerated] = useState(() => existingCalib.blockAiGenerated !== false);
 
-    // 3. Core 6 Mood Homes
+    // 3. Core 6 Mood Homes (step 2 of the wizard)
     const [userCustomizedMoods, setUserCustomizedMoods] = useState({});
     const [moodHomes, setMoodHomes] = useState(() => {
         const initial = {};
@@ -274,7 +275,7 @@ function OnboardingWizard({ onComplete, onClose }) {
     };
 
     const goToStep = (targetStep) => {
-        if (targetStep === 3) {
+        if (targetStep === 2) {
             setMoodHomes(prev => {
                 const next = { ...prev };
                 CORE_6_MOODS.forEach(m => {
@@ -578,15 +579,14 @@ function OnboardingWizard({ onComplete, onClose }) {
                             Universal Sonic Profiler
                         </div>
                         <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#f8fafc' }}>
-                            {step === 1 && 'Step 1: Sculpt Your Sound Polygon'}
-                            {step === 2 && 'Step 2: Emotional Reflexes & Filters'}
-                            {step === 3 && 'Step 3: Define Your 6 Core Mood Homes'}
+                            {step === 1 && 'Step 1: Shape Your Sound'}
+                            {step === 2 && 'Step 2: Your Mood Homes'}
                         </div>
                     </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {[1, 2, 3].map(s => (
+                    {[1, 2].map(s => (
                         <button
                             key={s}
                             type="button"
@@ -835,6 +835,61 @@ function OnboardingWizard({ onComplete, onClose }) {
                         </div>
                     </div>
 
+                    {/* Never Play: hard filters (dealbreakers + AI-generated music) */}
+                    <div style={{ margin: '0.25rem 0 1.1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <span>🚫</span> Never play:
+                            </label>
+                            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Tap to block, tap again to allow</span>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            {DEALBREAKER_PRESETS.slice(0, 5).map(preset => {
+                                const isBlocked = selectedDealbreakers.includes(preset.id);
+                                return (
+                                    <button
+                                        key={preset.id}
+                                        type="button"
+                                        onClick={() => toggleDealbreaker(preset.id)}
+                                        aria-pressed={isBlocked}
+                                        style={{
+                                            padding: '0.4rem 0.8rem',
+                                            borderRadius: '10px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            border: isBlocked ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.1)',
+                                            background: isBlocked ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.04)',
+                                            color: isBlocked ? '#fca5a5' : '#cbd5e1',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                    >
+                                        {isBlocked ? '🚫 ' : ''}{preset.label}
+                                    </button>
+                                );
+                            })}
+                            <button
+                                type="button"
+                                onClick={() => setBlockAiGenerated(v => !v)}
+                                aria-pressed={blockAiGenerated}
+                                title="Skips tracks from AI music generators (Suno, Udio) to keep playback human-made"
+                                style={{
+                                    padding: '0.4rem 0.8rem',
+                                    borderRadius: '10px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    border: blockAiGenerated ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.1)',
+                                    background: blockAiGenerated ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.04)',
+                                    color: blockAiGenerated ? '#fca5a5' : '#cbd5e1',
+                                    transition: 'all 0.15s ease'
+                                }}
+                            >
+                                {blockAiGenerated ? '🚫 ' : ''}🤖 AI-generated music
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Bottom Navigation */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
                         <div>
@@ -886,194 +941,9 @@ function OnboardingWizard({ onComplete, onClose }) {
                                 onClick={() => goToStep(2)}
                                 style={{ width: 'auto', padding: '0.65rem 1.5rem', fontSize: '0.88rem' }}
                             >
-                                Next: Reflexes →
+                                Next: Your Moods →
                             </button>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ========================================================= */}
-            {/* STEP 2: EMOTIONAL REFLEXES & GUARDS                       */}
-            {/* ========================================================= */}
-            {step === 2 && (
-                <div className="fade-in">
-                    <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
-                        Music is emotional medicine. How do you instinctively want the algorithm to react?
-                    </p>
-
-                    {/* Melancholy Question */}
-                    <div style={{ marginBottom: '1.25rem' }}>
-                        <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
-                            <span>🌧️</span> When feeling down or introspective:
-                        </label>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                            <button
-                                type="button"
-                                onClick={() => setMelancholyReflex('lean')}
-                                style={{
-                                    padding: '0.85rem 1rem',
-                                    borderRadius: '14px',
-                                    textAlign: 'left',
-                                    background: melancholyReflex === 'lean' ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(99, 102, 241, 0.25))' : 'rgba(255,255,255,0.03)',
-                                    border: melancholyReflex === 'lean' ? '2px solid #a855f7' : '1px solid rgba(255,255,255,0.08)',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.15s ease'
-                                }}
-                            >
-                                <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '0.85rem' }}>🖤 Lean Into It</div>
-                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>Deep, minor-key, atmospheric catharsis</div>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setMelancholyReflex('lift')}
-                                style={{
-                                    padding: '0.85rem 1rem',
-                                    borderRadius: '14px',
-                                    textAlign: 'left',
-                                    background: melancholyReflex === 'lift' ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(99, 102, 241, 0.25))' : 'rgba(255,255,255,0.03)',
-                                    border: melancholyReflex === 'lift' ? '2px solid #a855f7' : '1px solid rgba(255,255,255,0.08)',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.15s ease'
-                                }}
-                            >
-                                <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '0.85rem' }}>☀️ Lift My Spirits</div>
-                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>Warm, uplifting, encouraging chords</div>
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Vocals vs Instrumental */}
-                    <div style={{ marginBottom: '1.25rem' }}>
-                        <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
-                            <span>🎯</span> Deep Focus & Study Mode:
-                        </label>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                            <button
-                                type="button"
-                                onClick={() => setVocalReflex('instrumental')}
-                                style={{
-                                    padding: '0.85rem 1rem',
-                                    borderRadius: '14px',
-                                    textAlign: 'left',
-                                    background: vocalReflex === 'instrumental' ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(99, 102, 241, 0.25))' : 'rgba(255,255,255,0.03)',
-                                    border: vocalReflex === 'instrumental' ? '2px solid #a855f7' : '1px solid rgba(255,255,255,0.08)',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.15s ease'
-                                }}
-                            >
-                                <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '0.85rem' }}>🔇 100% Instrumental</div>
-                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>Zero lyrics to distract your cognitive flow</div>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setVocalReflex('any')}
-                                style={{
-                                    padding: '0.85rem 1rem',
-                                    borderRadius: '14px',
-                                    textAlign: 'left',
-                                    background: vocalReflex === 'any' ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(99, 102, 241, 0.25))' : 'rgba(255,255,255,0.03)',
-                                    border: vocalReflex === 'any' ? '2px solid #a855f7' : '1px solid rgba(255,255,255,0.08)',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.15s ease'
-                                }}
-                            >
-                                <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '0.85rem' }}>🎙️ Vocals Welcome</div>
-                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>Gentle or ambient singing is fine</div>
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Instant Dealbreaker Shield */}
-                    <div style={{ marginBottom: '1.25rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                            <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <span>🛡️</span> Instant Dealbreaker Shield:
-                            </label>
-                            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Tap to block permanently</span>
-                        </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                            {DEALBREAKER_PRESETS.slice(0, 5).map(preset => {
-                                const isBlocked = selectedDealbreakers.includes(preset.id);
-                                return (
-                                    <button
-                                        key={preset.id}
-                                        type="button"
-                                        onClick={() => toggleDealbreaker(preset.id)}
-                                        style={{
-                                            padding: '0.4rem 0.8rem',
-                                            borderRadius: '10px',
-                                            fontSize: '0.75rem',
-                                            fontWeight: '600',
-                                            cursor: 'pointer',
-                                            border: isBlocked ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.1)',
-                                            background: isBlocked ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.04)',
-                                            color: isBlocked ? '#fca5a5' : '#cbd5e1',
-                                            transition: 'all 0.15s ease'
-                                        }}
-                                    >
-                                        {isBlocked ? '🚫 ' : ''}{preset.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Anti-AI Gatekeeper Toggle */}
-                    <div style={{
-                        padding: '0.85rem 1.25rem',
-                        background: blockAiGenerated ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255,255,255,0.03)',
-                        borderRadius: '14px',
-                        border: blockAiGenerated ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(255,255,255,0.08)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '1.25rem'
-                    }}>
-                        <div>
-                            <div style={{ fontWeight: '600', color: '#f8fafc', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                🛡️ Anti-AI Music Gatekeeper
-                                <span style={{
-                                    fontSize: '0.7rem',
-                                    background: blockAiGenerated ? '#10b981' : 'rgba(255,255,255,0.1)',
-                                    color: 'white',
-                                    padding: '0.1rem 0.5rem',
-                                    borderRadius: '999px',
-                                    fontWeight: 'bold'
-                                }}>
-                                    {blockAiGenerated ? 'ACTIVE' : 'OFF'}
-                                </span>
-                            </div>
-                            <div style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '0.15rem' }}>
-                                Drops synthetic AI generator farms (Suno, Udio) to preserve authentic human artistry.
-                            </div>
-                        </div>
-                        <input
-                            type="checkbox"
-                            checked={blockAiGenerated}
-                            onChange={(e) => setBlockAiGenerated(e.target.checked)}
-                            style={{ width: '20px', height: '20px', accentColor: '#10b981', cursor: 'pointer' }}
-                        />
-                    </div>
-
-                    {/* Step Navigation */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <button
-                            type="button"
-                            className="btn-text"
-                            onClick={() => goToStep(1)}
-                            style={{ color: '#94a3b8' }}
-                        >
-                            ← Back to Radar
-                        </button>
-                        <button
-                            type="button"
-                            className="btn-primary"
-                            onClick={() => goToStep(3)}
-                            style={{ width: 'auto', padding: '0.65rem 1.75rem', fontSize: '0.9rem' }}
-                        >
-                            Next: 6 Core Mood Homes →
-                        </button>
                     </div>
                 </div>
             )}
@@ -1081,12 +951,13 @@ function OnboardingWizard({ onComplete, onClose }) {
             {/* ========================================================= */}
             {/* STEP 3: 6 CORE MOOD HOMES MATRIX                          */}
             {/* ========================================================= */}
-            {step === 3 && (
+            {step === 2 && (
                 <div className="fade-in">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
                         <div>
                             <p style={{ color: '#cbd5e1', fontSize: '0.85rem', margin: 0 }}>
-                                Set your <strong>Home Anchor</strong> for each core headspace. Quick-tap any genre or accept our smart algorithm predictions:
+                                <strong>This is our automatic selection</strong>, based on the sound you shaped in step 1: each mood starts in the genre shown below.
+                                Happy with it? Just press <strong>Start Listening</strong>. Want to fine-tune? Tap any genre to change where a mood starts.
                             </p>
                         </div>
                         <span style={{
@@ -1242,7 +1113,7 @@ function OnboardingWizard({ onComplete, onClose }) {
                         <button
                             type="button"
                             className="btn-text"
-                            onClick={() => goToStep(2)}
+                            onClick={() => goToStep(1)}
                             style={{ color: '#94a3b8' }}
                         >
                             ← Back
@@ -1259,7 +1130,7 @@ function OnboardingWizard({ onComplete, onClose }) {
                                 boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.4)'
                             }}
                         >
-                            🚀 Confirm 6 Homes & Start Listening
+                            🚀 Start Listening
                         </button>
                     </div>
                 </div>

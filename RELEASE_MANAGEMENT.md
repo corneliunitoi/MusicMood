@@ -60,6 +60,12 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.8b` — 2026-11-21
+* **Simpler Two-Step Onboarding:**
+  * **Step 1 — Shape your sound:** the 6-point Sonic Radar, now with a **"Never play"** row underneath: the dealbreaker chips plus an **🤖 AI-generated music** chip (replaces the separate Anti-AI toggle; still on by default).
+  * **Step 2 — Your mood homes:** the predicted Home genre for each core mood, introduced as *"This is our automatic selection… Happy with it? Just press Start Listening. Want to fine-tune? Tap any genre."*
+  * **Removed the "Emotional Reflexes" screen:** "Lean into it / Lift my spirits" barely affected recommendations ("lift" did nothing) and is already expressed by choosing the Sad or Happy mood; "Deep Focus: instrumental" duplicated the Focus mood's built-in instrumental mode and the player's vocal toggle. Existing calibrations keep their saved values.
+
 ### `v0.8.8a` — 2026-11-21
 * **Privacy Policy & Terms of Service pages:**
   * Added `/privacy.html` and `/terms.html`, describing what the app actually collects (Google profile basics, anonymous guest ids, listening history, favorites, votes, calibration, feedback, optional YouTube playlist access), where it is stored (Supabase EU West, Render, Google/YouTube), and how to request export or deletion.

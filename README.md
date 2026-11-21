@@ -7,7 +7,7 @@
 [![React](https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 [![MusicBrainz](https://img.shields.io/badge/Metadata-MusicBrainz-BA478F?logo=musicbrainz&logoColor=white)](https://musicbrainz.org/)
-[![Version](https://img.shields.io/badge/Version-0.8.8a-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/Version-0.8.8b-blue.svg)](package.json)
 [![Release Notes](https://img.shields.io/badge/Changelog-RELEASE__MANAGEMENT-purple.svg)](RELEASE_MANAGEMENT.md)
 
 ---
@@ -80,7 +80,7 @@ flowchart TD
 
 ### 🏠 Calibrated Mood Homes & Orbital Deviation
 - **6 Core Mood Anchors:** Focus, Chill, Energetic, Happy, Sad, and Party are each assigned a primary Home subgenre.
-- **Predictive Step 3 Onboarding:** Evaluates your 6-point Sonic Radar DNA to pre-fill ideal Home Anchors across all 115 ontology genres in 14 families (`Metal`, `Rock`, `Electronic`, `Jazz`, `Classical`, etc.).
+- **Two-Step Onboarding:** (1) shape your sound on the 6-point Sonic Radar and tap what to never play; (2) review the Home genre we pick automatically for each core mood and fine-tune it if you like. The radar DNA pre-fills ideal Home Anchors across all 115 ontology genres in 14 families (`Metal`, `Rock`, `Electronic`, `Jazz`, `Classical`, etc.).
 - **Live Orbital Telemetry:** Player header displays real-time deviation indicators (`🏠 Home` or `Orbit: +N hops`) as you traverse the graph.
 
 ### 🎲 Discovery-Governed "Surprise Me" Traversal
