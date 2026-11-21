@@ -60,6 +60,14 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.7e` — 2026-11-21
+* **Security Hardening — Phase 2c (Server Endpoints):**
+  * **🔑 Sign-in required:** `/api/resolve-track` and `/api/playlist-tracks` now require a Supabase access token (Google users and guests alike). The server verifies it with Supabase and caches the result for 5 minutes. The app sends it automatically via the new `apiFetch()` helper. Previously anyone on the internet could use the server as a free YouTube scraping proxy.
+  * **⏱️ Rate limits** (per minute): track lookups 60 per user / 120 per IP; playlist imports 10 per user / 20 per IP. Excess requests get `429` with `Retry-After`.
+  * **🧱 Input validation:** artist/title capped at 300 characters; playlist ids must match `[A-Za-z0-9_-]{2,64}` (previously passed straight into YouTube URLs); only `GET` is accepted on `/api/*`; unknown API paths return `404`.
+  * **🙈 No internal error leaks:** server errors are logged and replaced with generic messages (YouTube's own "private/missing playlist" messages are still shown).
+  * **🛡️ Security headers on every response:** HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, and a Content Security Policy in **report-only** mode (logs violations in the browser console without blocking; to be enforced once confirmed clean on the live site).
+
 ### `v0.8.7d` — 2026-11-21
 * **Security Hardening — Phase 2b (User-Scoped RPCs, Fair Voting & Rate Limits):**
   * **🗳️ One vote per listener per track** (`public.user_upvotes`): repeated upvotes on the same track are ignored, and the vote size sent by the client is ignored, so a single account can no longer inflate a track (it previously accepted any delta, e.g. 1,000,000).

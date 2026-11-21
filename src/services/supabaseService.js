@@ -22,6 +22,23 @@ export function getActiveUserId() {
 }
 
 /**
+ * fetch() for MusicMood's own /api/* endpoints. Attaches the signed-in user's
+ * Supabase access token, which the server requires (guests included).
+ */
+export async function apiFetch(url, options = {}) {
+    let token = null;
+    try {
+        const { data } = await supabase.auth.getSession();
+        token = data?.session?.access_token || null;
+    } catch {
+        /* no session: the server will answer 401 */
+    }
+    const headers = { ...(options.headers || {}) };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return fetch(url, { ...options, headers });
+}
+
+/**
  * Fetches staged artist suggestions (potential candidates awaiting catalog ingestion)
  */
 export async function fetchArtistSuggestions(search = '', limit = 250, offset = 0) {

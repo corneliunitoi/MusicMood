@@ -13,7 +13,7 @@
  * expanding the database organically as users listen.
  */
 
-import { supabase } from './supabaseService.js';
+import { supabase, apiFetch } from './supabaseService.js';
 import { isSongCandidate, normalizeGenre } from './genreNormalizer.js';
 import { GENRE_NODES } from './tasteGraph.js';
 import { fetchMusicBrainzGenreRecordings } from './musicBrainzService.js';
@@ -198,7 +198,7 @@ class JitEngine {
 
                 // Resolve via Fast Innertube resolver (/api/resolve-track)
                 const zqUrl = `${baseUrl}/api/resolve-track?artist=${encodeURIComponent(c.artist)}&title=${encodeURIComponent(c.track_name)}`;
-                const zqRes = await fetch(zqUrl);
+                const zqRes = await apiFetch(zqUrl);
                 if (!zqRes.ok) continue;
 
                 const zqData = await zqRes.json();
@@ -322,7 +322,7 @@ class JitEngine {
 
                 // Resolve via Fast Innertube resolver
                 const zqUrl = `${baseUrl}/api/resolve-track?artist=${encodeURIComponent(rec.artist)}&title=${encodeURIComponent(rec.title)}`;
-                const zqRes = await fetch(zqUrl);
+                const zqRes = await apiFetch(zqUrl);
                 if (!zqRes.ok) continue;
 
                 const zqData = await zqRes.json();

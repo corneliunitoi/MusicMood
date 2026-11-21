@@ -80,7 +80,7 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
 * [ ] **`track_genre_flags`:** authenticated insert of own flags only; review and delete restricted to admins.
 * [x] **`feedback`:** insert-only for users; reading restricted to admins. *(Done early in Phase 0, Nov 20.)*
 * [ ] **Revoke `anon` access** to everything not needed before sign-in (GraphQL exposure lints 0026/0027).
-* [ ] **Server endpoints** `/api/resolve-track` and `/api/playlist-tracks`: require a valid Supabase JWT and add rate limiting so the server can't be used as an open scraping proxy. Add security headers (CSP, HSTS) to `server.js`, and stop returning raw `err.message` to callers.
+* [x] **Server endpoints** `/api/resolve-track` and `/api/playlist-tracks`: require a valid Supabase JWT and add rate limiting so the server can't be used as an open scraping proxy. Add security headers (CSP, HSTS) to `server.js`, and stop returning raw `err.message` to callers. *(Done in v0.8.7e; CSP is report-only until verified on the live site, then switch it to enforcing.)*
 * [ ] **Client-side catalog search:** escape `%` and `_` in `ilike` filters (artist/title duplicate checks, search), or move those lookups into RPCs.
 * [ ] **Google access token:** stop persisting it in `localStorage` (`src/services/auth.js`); keep the Supabase session's `provider_token` in memory only.
 * [ ] **Public data exposure:** `local_metadata` (personal library, file paths) and `artist_suggestions` should not be readable without sign-in.
@@ -489,6 +489,7 @@ graph TD
 * [x] **v0.8.7b:** Supabase Auth as the only identity source — Google sign-in via Supabase OAuth, per-device anonymous guests with in-place Google upgrade, automatic legacy-profile migration, client-proof roles, guest favorites cloud-sync fix.
 * [x] **v0.8.7c:** Catalog lockdown — clients add-only, admin-only edits/deletes, playback-error reports instead of global deletes, scripts and workflows on the service-role key.
 * [x] **v0.8.7d:** User-scoped favorites/calibration RPCs, one vote per user per track, 0.25 guest weight, 100-per-30-minutes rate limits, favorites double-count fix, legacy identity RPCs removed.
+* [x] **v0.8.7e:** Server endpoints require sign-in, per-user/per-IP rate limits, input validation, no error leaks, security headers (CSP report-only).
 
 ---
 

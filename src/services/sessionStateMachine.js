@@ -10,7 +10,7 @@
  * 5. Invariant Guards: Anti-Drift, Vocal, and Dealbreaker guards.
  */
 
-import { supabase, recordListenEvent } from './supabaseService.js';
+import { supabase, recordListenEvent, apiFetch } from './supabaseService.js';
 import { GENRE_FAMILIES, GENRE_NODES, getConnectedGenres, getGraphDistance, getVectorDeviation, getMoodCompatibleGenres, getPoleForGenre, violatesDealbreakers, normalizeWeights } from './tasteGraph.js';
 import { isSongCandidate, isAiGenerated, normalizeGenre } from './genreNormalizer.js';
 import { allMoods } from './moods.js';
@@ -1499,7 +1499,7 @@ class SessionStateMachine {
         // 1. Zero-Quota local resolver (no API keys, zero rate-limiting)
         try {
             const zqUrl = `/api/resolve-track?artist=${encodeURIComponent(track.artist || '')}&title=${encodeURIComponent(track.title || '')}`;
-            const zqRes = await fetch(zqUrl);
+            const zqRes = await apiFetch(zqUrl);
             if (zqRes.ok) {
                 const zqData = await zqRes.json();
                 if (zqData.videoId && zqData.videoId.length === 11) {

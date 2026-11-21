@@ -1,4 +1,4 @@
-import { supabase } from './supabaseService.js';
+import { supabase, apiFetch } from './supabaseService.js';
 import { GENRE_FAMILIES, GENRE_NODES } from './tasteGraph.js';
 import { normalizeGenre } from './genreNormalizer.js';
 
@@ -38,7 +38,7 @@ export async function fetchPlaylistTracks(playlistIdOrUrl) {
     const isBrowser = typeof window !== 'undefined';
     const baseUrl = isBrowser ? '' : 'http://localhost:5173';
     const url = `${baseUrl}/api/playlist-tracks?url=${encodeURIComponent(playlistIdOrUrl)}`;
-    const response = await fetch(url);
+    const response = await apiFetch(url);
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Failed to fetch playlist (Status: ${response.status})`);
@@ -186,7 +186,7 @@ export async function inflateNewArtistOnTheSpot({ artistName, artistId, primaryG
 
             // Resolve zero-quota YouTube video ID
             const zqUrl = `${baseUrl}/api/resolve-track?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(title)}`;
-            const zqRes = await fetch(zqUrl);
+            const zqRes = await apiFetch(zqUrl);
             if (!zqRes.ok) continue;
 
             const zqData = await zqRes.json();

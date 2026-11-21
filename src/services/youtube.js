@@ -1,3 +1,4 @@
+import { apiFetch } from './supabaseService';
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 
 export const fetchUserPlaylists = async (token) => {
@@ -48,7 +49,7 @@ export const fetchPlaylistItems = async (playlistId, token, maxResults = 50) => 
     // 1. Try zero-quota endpoint first if guest or if quota issues exist
     if (token === 'guest') {
         try {
-            const zqRes = await fetch(`/api/playlist-tracks?playlistId=${encodeURIComponent(playlistId)}`);
+            const zqRes = await apiFetch(`/api/playlist-tracks?playlistId=${encodeURIComponent(playlistId)}`);
             if (zqRes.ok) {
                 const zqData = await zqRes.json();
                 return (zqData.tracks || []).map(t => ({
@@ -84,7 +85,7 @@ export const fetchPlaylistItems = async (playlistId, token, maxResults = 50) => 
                 }
 
                 console.warn(`[YouTubeService] Official API returned ${response.status} for playlist ${playlistId}. Falling back to zero-quota resolver...`);
-                const zqRes = await fetch(`/api/playlist-tracks?playlistId=${encodeURIComponent(playlistId)}`);
+                const zqRes = await apiFetch(`/api/playlist-tracks?playlistId=${encodeURIComponent(playlistId)}`);
                 if (zqRes.ok) {
                     const zqData = await zqRes.json();
                     return (zqData.tracks || []).map(t => ({
