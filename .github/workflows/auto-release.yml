@@ -1,0 +1,76 @@
+name: Auto-Tag & Release on Version Bump
+
+# Tags and publishes a GitHub Release for every version in RELEASE_MANAGEMENT.md that has
+# no git tag yet. The tag goes on the commit that bumped package.json to that version.
+# This replaces the manual `npm run tag-release` + `git push origin <tag>` steps.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'RELEASE_MANAGEMENT.md'
+      - '.github/workflows/auto-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Tag & publish missing releases
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (full history and tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Tag and publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+
+          current="v$(node -p "require('./package.json').version")"
+          versions=$(grep -o '^### `v[^`]*`' RELEASE_MANAGEMENT.md | sed 's/^### `//; s/`$//')
+
+          published=0
+          for tag in $versions; do
+            if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+              continue
+            fi
+
+            # Commit that first set package.json to this version
+            commit=$(git log --reverse --format=%H -S"\"version\": \"${tag#v}\"" -- package.json | head -n 1 || true)
+            if [ -z "$commit" ]; then
+              echo "::notice::Skipping $tag: no commit sets package.json to ${tag#v}"
+              continue
+            fi
+
+            node scripts/extract-release-notes.js "$tag" > notes.md
+            { echo "Release $tag"; echo; cat notes.md; } > tagmsg.txt
+
+            echo "Tagging $tag at $commit"
+            git tag -a "$tag" "$commit" -F tagmsg.txt
+            git push origin "refs/tags/$tag"
+
+            latest_flag="--latest=false"
+            if [ "$tag" = "$current" ]; then latest_flag="--latest"; fi
+            gh release create "$tag" --title "MusicMood $tag" --notes-file notes.md --verify-tag $latest_flag
+            published=$((published + 1))
+          done
+
+          echo "Published $published release(s)."
