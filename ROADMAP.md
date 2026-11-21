@@ -92,7 +92,8 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
 ## 🧱 Phase 3 — Stability
 
 * [x] **No client-side catalog deletes:** replace the global purges in `Player.jsx` (playback errors) and `sessionStateMachine.js` (dislike → delete JIT track) with an `unplayable_reports` flag reviewed by a job. One user's region lock must not delete a track for everyone. *(Done in v0.8.7c.)*
-* [ ] **Listening history actually records:** handle tracks without a `dbId` (`track_id` is `NOT NULL`), and align mood IDs; `sad` and `party` are missing from the `moods` table, so inserts fail silently today.
+* [x] **Listening history actually records:** handle tracks without a `dbId` (`track_id` is `NOT NULL`), and align mood IDs; `sad` and `party` are missing from the `moods` table, so inserts fail silently today. *(Done in v0.8.7f: track_id was nullable after all; the real losses were 22 missing moods, multiple rows per play and no listening time.)*
+* [ ] **Design the 24 non-core moods:** only the 6 core moods (Focus, Chill, Energetic, Happy, Sad, Party) have home genres and calibration. The other 24 (Late Night, Roadtrip, Study, Rainy Day, cinematic moods, etc.) are registered since v0.8.7f so their plays are recorded, but need home genres, genre mappings and a decision on which stay visible.
 * [ ] **Single mood/genre vocabulary:** reconcile `moods.js`, `MOOD_GENRE_MAP` in `tasteGraph.js` and the `moods`/`genres` tables. Remove dead genre IDs (`dream_pop`, `motown`, `90s_alt`, `space_rock`, `rnb_contemporary`, `fingerstyle`, `acoustic_guitar`).
 * [ ] **Column naming:** `local_metadata.youtube_id` vs `youtube_video_id`; pick one and migrate.
 * [ ] **State machine correctness:**
@@ -490,6 +491,7 @@ graph TD
 * [x] **v0.8.7c:** Catalog lockdown — clients add-only, admin-only edits/deletes, playback-error reports instead of global deletes, scripts and workflows on the service-role key.
 * [x] **v0.8.7d:** User-scoped favorites/calibration RPCs, one vote per user per track, 0.25 guest weight, 100-per-30-minutes rate limits, favorites double-count fix, legacy identity RPCs removed.
 * [x] **v0.8.7e:** Server endpoints require sign-in, per-user/per-IP rate limits, input validation, no error leaks, security headers (CSP report-only).
+* [x] **v0.8.7f:** Listening history as one row per play with outcome and seconds listened, all 30 moods registered, outcome-driven affinity; Catalog Sanity workflow timeout fixed.
 
 ---
 

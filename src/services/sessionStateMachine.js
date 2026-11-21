@@ -10,7 +10,7 @@
  * 5. Invariant Guards: Anti-Drift, Vocal, and Dealbreaker guards.
  */
 
-import { supabase, recordListenEvent, apiFetch } from './supabaseService.js';
+import { supabase, startPlay, updatePlay, apiFetch } from './supabaseService.js';
 import { GENRE_FAMILIES, GENRE_NODES, getConnectedGenres, getGraphDistance, getVectorDeviation, getMoodCompatibleGenres, getPoleForGenre, violatesDealbreakers, normalizeWeights } from './tasteGraph.js';
 import { isSongCandidate, isAiGenerated, normalizeGenre } from './genreNormalizer.js';
 import { allMoods } from './moods.js';
@@ -609,12 +609,7 @@ class SessionStateMachine {
         console.log(`[StateMachine] Feedback: LIKED "${track.title}" by ${track.artist}`);
         this.state.likedTracks.push(track.id);
 
-        recordListenEvent({
-            trackId: track.dbId || null,
-            moodId: this.state.currentMood,
-            genreId: this.state.activeGenre,
-            liked: true
-        });
+        this._markPlayLiked(track);
 
         // Subtle, bounded boost to taste profile
         const genreId = this.state.activeGenre;
@@ -633,14 +628,8 @@ class SessionStateMachine {
         console.log(`[StateMachine] 👎 DISLIKED (Taste Downvote): "${track.title}" by ${track.artist}`);
         this.state.skippedTracks.push(track.id);
 
-        // 1. Record dislike in listening_history for personalized recommendation tuning
-        recordListenEvent({
-            trackId: track.dbId || null,
-            moodId: this.state.currentMood,
-            genreId: this.state.activeGenre,
-            skipped: true,
-            liked: false
-        });
+        // 1. Record the dislike as this play's outcome
+        this._finishPlay(track, { skipped: true, disliked: true });
 
         // 2. Blacklist artist from current session to prevent repetition
         if (track.artist && !this.state.recentArtists.includes(track.artist.toLowerCase())) {
@@ -652,6 +641,83 @@ class SessionStateMachine {
         this.notify();
     }
 
+    // ==========================================
+    // LISTENING HISTORY (one row per play)
+    // ==========================================
+
+    /** Seconds played of the current track; the Player registers the real clock. */
+    getListenedSeconds() {
+        return 0;
+    }
+
+    _playKey(track) {
+        return track ? (track.id || track.youtube_video_id || null) : null;
+    }
+
+    _startPlay(track) {
+        const key = this._playKey(track);
+        if (!key) return;
+        if (this.currentPlay && !this.currentPlay.finished && this.currentPlay.key === key) return;
+
+        // A new track started without an explicit outcome for the previous one (e.g. picked from a list)
+        if (this.currentPlay && !this.currentPlay.finished) {
+            this._finishPlay(null, {});
+        }
+
+        this.currentPlay = {
+            key,
+            finished: false,
+            idPromise: startPlay({
+                trackId: track.dbId || null,
+                videoId: track.youtube_video_id || (track.id && track.id.length === 11 ? track.id : null),
+                moodId: this.state.currentMood,
+                genreId: this.state.activeGenre
+            })
+        };
+    }
+
+    _markPlayLiked(track) {
+        const play = this.currentPlay;
+        if (!play || play.key !== this._playKey(track)) return;
+        play.idPromise.then(id => updatePlay(id, { liked: true }));
+    }
+
+    /**
+     * Records the outcome of the current play once (completed / skipped / disliked),
+     * together with the seconds actually listened.
+     * @param {object|null} track the track the outcome refers to (null = whatever is current)
+     */
+    _finishPlay(track, outcome = {}) {
+        const play = this.currentPlay;
+        if (!play || play.finished) return;
+        if (track && play.key !== this._playKey(track)) return;
+        play.finished = true;
+
+        let seconds = 0;
+        try {
+            seconds = Number(this.getListenedSeconds()) || 0;
+        } catch {
+            seconds = 0;
+        }
+        play.idPromise.then(id => updatePlay(id, { ...outcome, listenedSeconds: seconds, ended: true }));
+    }
+
+    /**
+     * Called when the page is hidden or closed: saves the listening time so far without
+     * ending the play (the tab may come back and keep playing).
+     */
+    flushCurrentPlay() {
+        const play = this.currentPlay;
+        if (!play || play.finished) return;
+        let seconds = 0;
+        try {
+            seconds = Number(this.getListenedSeconds()) || 0;
+        } catch {
+            seconds = 0;
+        }
+        play.idPromise.then(id => updatePlay(id, { listenedSeconds: seconds }));
+    }
+
     getMaxDwell() {
         return Infinity; // User stays in selected genre indefinitely until they change mood or click Surprise Me
     }
@@ -661,12 +727,7 @@ class SessionStateMachine {
         console.log(`[StateMachine] Feedback: SKIPPED "${track.title}" by ${track.artist}`);
         this.state.skippedTracks.push(track.id);
 
-        recordListenEvent({
-            trackId: track.dbId || null,
-            moodId: this.state.currentMood,
-            genreId: this.state.activeGenre,
-            skipped: true
-        });
+        this._finishPlay(track, { skipped: true });
 
         if (track.artist && !this.state.recentArtists.includes(track.artist.toLowerCase())) {
             this.state.recentArtists.push(track.artist.toLowerCase());
@@ -681,12 +742,7 @@ class SessionStateMachine {
         console.log(`[StateMachine] Feedback: COMPLETED "${track.title}"`);
         this.state.consecutiveSkips = 0; // Reset consecutive skips on natural listen
 
-        recordListenEvent({
-            trackId: track.dbId || null,
-            moodId: this.state.currentMood,
-            genreId: this.state.activeGenre,
-            completed: true
-        });
+        this._finishPlay(track, { completed: true });
 
         this.applyNodeFatigue(this.state.activeGenre);
         this.state.consecutiveInNode = (this.state.consecutiveInNode || 0) + 1;
@@ -1050,12 +1106,8 @@ class SessionStateMachine {
             }
         }
 
-        // Record scrobble in Supabase listening_history
-        recordListenEvent({
-            trackId: track.dbId || null,
-            moodId: this.state.currentMood,
-            genreId: this.state.activeGenre,
-        });
+        // One listening_history row per play; the outcome is recorded when the play ends
+        this._startPlay(track);
 
         this.notify();
 

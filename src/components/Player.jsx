@@ -521,6 +521,28 @@ function Player({ initialTrack, token, onOpenArtist }) {
         }
     };
 
+    // Give the session engine the real playback clock (seconds listened per play),
+    // and save listening time when the tab is hidden or closed.
+    useEffect(() => {
+        sessionEngine.getListenedSeconds = () => {
+            try {
+                return playerRef.current?.getCurrentTime?.() || 0;
+            } catch {
+                return 0;
+            }
+        };
+        const flush = () => sessionEngine.flushCurrentPlay();
+        const onVisibility = () => {
+            if (document.visibilityState === 'hidden') flush();
+        };
+        window.addEventListener('pagehide', flush);
+        document.addEventListener('visibilitychange', onVisibility);
+        return () => {
+            window.removeEventListener('pagehide', flush);
+            document.removeEventListener('visibilitychange', onVisibility);
+        };
+    }, []);
+
     const loadNextTrack = async (isSkip = false) => {
         clearWatchdog();
         if (isTransitioningRef.current) return;

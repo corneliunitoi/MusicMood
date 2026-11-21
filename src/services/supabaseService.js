@@ -351,33 +351,53 @@ export async function fetchUserCalibration(userId) {
 }
 
 /**
- * Records a listening event / scrobble into public.listening_history
+ * Starts a play in public.listening_history (one row per play).
+ * @returns {Promise<number|null>} the play id, used to record the outcome later
  */
-export async function recordListenEvent({ trackId, moodId, genreId, completed = false, skipped = false, liked = false, listenedSeconds = 0 }) {
+export async function startPlay({ trackId, videoId, moodId, genreId }) {
     const userId = getResolvedUserId();
-    if (!userId) return;
-
+    if (!userId) return null;
     try {
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('listening_history')
             .insert({
                 user_id: userId,
-                track_id: trackId,
-                mood_id: moodId,
-                genre_id: genreId,
-                completed,
-                skipped,
-                liked,
-                listened_seconds: listenedSeconds
-            });
-
+                track_id: trackId || null,
+                youtube_video_id: videoId || null,
+                mood_id: moodId || null,
+                genre_id: genreId || null
+            })
+            .select('id')
+            .single();
         if (error) {
-            console.warn("[History Record] Insert error:", error.message);
-        } else {
-            console.log(`[History Record] ✅ Logged scrobble: track=${trackId}, mood=${moodId}, user=${userId}`);
+            console.warn('[History] Could not start play:', error.message);
+            return null;
         }
+        return data?.id ?? null;
     } catch (e) {
-        console.warn("[History Record] Exception:", e);
+        console.warn('[History] Exception starting play:', e);
+        return null;
+    }
+}
+
+/**
+ * Records the outcome of a play (any subset of fields).
+ */
+export async function updatePlay(playId, { listenedSeconds, completed, skipped, liked, disliked, ended } = {}) {
+    if (!playId) return;
+    const patch = {};
+    if (Number.isFinite(listenedSeconds)) patch.listened_seconds = Math.max(0, Math.round(listenedSeconds));
+    if (completed !== undefined) patch.completed = Boolean(completed);
+    if (skipped !== undefined) patch.skipped = Boolean(skipped);
+    if (liked !== undefined) patch.liked = Boolean(liked);
+    if (disliked !== undefined) patch.disliked = Boolean(disliked);
+    if (ended) patch.ended_at = new Date().toISOString();
+    if (Object.keys(patch).length === 0) return;
+    try {
+        const { error } = await supabase.from('listening_history').update(patch).eq('id', playId);
+        if (error) console.warn('[History] Could not record play outcome:', error.message);
+    } catch (e) {
+        console.warn('[History] Exception recording play outcome:', e);
     }
 }
 

@@ -60,6 +60,16 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.7f` — 2026-11-21
+* **Stability — Listening History You Can Analyze:**
+  * **🎵 One row per play:** a `listening_history` row is created when a track starts and **updated** with its outcome, instead of separate rows for start, skip, completion and like. Rows now map 1:1 to plays, so skip rates, completion rates and genre/mood transitions can be computed directly.
+  * **⏱️ Listening time recorded:** `listened_seconds` comes from the YouTube player (it was 0 in all 6,810 earlier rows). Time is also saved when the tab is hidden or closed.
+  * **🏷️ New outcome columns:** `disliked` (no longer indistinguishable from a skip), `ended_at`, and `youtube_video_id`, so plays of tracks without a catalog id are still identifiable.
+  * **🐛 Plays in 22 of 30 moods were silently lost:** only 8 moods existed in the `moods` table, so plays in Sad, Party and 20 other moods were rejected. All 30 app moods are now registered (behaviour of the 24 non-core moods is still to be designed).
+  * **🧮 Affinity from outcomes:** artist affinity reacts to the recorded outcome (like +5, complete +2, skip −2, dislike −3), with the guest 0.25 weight and the 100-per-30-minutes cap. Users can update only the outcome fields of their own plays.
+  * **📊 For analysis:** rows created from this release on follow the one-row-per-play format; earlier rows use the old multi-row format.
+  * **⚙️ CI:** "Hourly Catalog Sanity" no longer times out (duplicate merge step removed, avatar step capped at 6 minutes / 120 artists and non-fatal, job limit 30 minutes).
+
 ### `v0.8.7e` — 2026-11-21
 * **Security Hardening — Phase 2c (Server Endpoints):**
   * **🔑 Sign-in required:** `/api/resolve-track` and `/api/playlist-tracks` now require a Supabase access token (Google users and guests alike). The server verifies it with Supabase and caches the result for 5 minutes. The app sends it automatically via the new `apiFetch()` helper. Previously anyone on the internet could use the server as a free YouTube scraping proxy.

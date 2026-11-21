@@ -1,7 +1,7 @@
 {
   "name": "musicmood",
   "private": true,
-  "version": "0.8.7e",
+  "version": "0.8.7f",
   "type": "module",
   "scripts": {
     "dev": "vite",
