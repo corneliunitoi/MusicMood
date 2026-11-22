@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.8.8i` — 2026-11-22
+* **[Web + Android] Documentation only, no app changes:** the roadmap's completed-milestones list is back in release order and now includes v0.8.8a and v0.8.8b; `CLAUDE.md` shows the current release.
+
 ### `v0.8.8h` — 2026-11-22
 * **[Web + Android] Live on `https://musicmood.co.uk`:** the site runs on the custom domain through Cloudflare (proxy on, SSL Full (strict)); `www` forwards to the main address, and the old `musicmood-ghx2.onrender.com` address forwards pages to the domain (`CANONICAL_HOST`; API calls are not redirected). Rate limits use Cloudflare's visitor address (`TRUST_CLOUDFLARE=1`). Supabase and Google sign-in settings include the domain; the onrender entries stay for a few weeks.
 * **[Android] Test builds call `https://musicmood.co.uk`** for track lookups.

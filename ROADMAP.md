@@ -516,12 +516,15 @@ graph TD
 * [x] **v0.8.7g:** Unified recency rules (50-track memory, 15-artist cooldown, relaxed and last-resort tiers), session-long dislikes, busy-vs-empty fix, dead traversal/dwell code removed, first unit tests and CI.
 * [x] **v0.8.7h:** One mood vocabulary: 22 visible moods with curated genre lists and default homes, 8 retired moods redirecting, 7 dead genre ids fixed, vocabulary tests.
 * [x] **v0.8.8:** Security & stability milestone: sign-in without sensitive scopes, exact artist track counts, single YouTube resolver, admin code-split, schema housekeeping, permission regression test.
-* [x] **v0.8.8h:** Site live on `https://musicmood.co.uk` through Cloudflare; old address forwards; Android test builds use the domain.
-* [x] **v0.8.8g:** Domain `musicmood.co.uk` chosen: redirect and Cloudflare settings ready (off until switched on in Render), final Android app id `uk.co.musicmood`.
-* [x] **v0.8.8f:** Phone player shows controls above the TV; caching rules so new deploys show up at once.
-* [x] **v0.8.8e:** Phase 4 starts: Capacitor Android app, visible YouTube player in a retro TV, phone layout fixes, Web + Android release model.
-* [x] **v0.8.8d:** Look setting stored in the user profile (`get_my_look` / `save_my_look`), follows the listener across devices; 25-check permission test.
+* [x] **v0.8.8a:** Privacy Policy and Terms of Service pages (`/privacy.html`, `/terms.html`), linked from the sign-in screen.
+* [x] **v0.8.8b:** Two-step onboarding: Sonic Radar with "Never play" chips, then mood homes; the Emotional Reflexes screen removed.
 * [x] **v0.8.8c:** Mood skins: nine moods subtly tint the app with a faint moving background; Settings › Look to switch looks off or lock one (owner-requested ahead of the Android port).
+* [x] **v0.8.8d:** Look setting stored in the user profile (`get_my_look` / `save_my_look`), follows the listener across devices; 25-check permission test.
+* [x] **v0.8.8e:** Phase 4 starts: Capacitor Android app, visible YouTube player in a retro TV, phone layout fixes, Web + Android release model.
+* [x] **v0.8.8f:** Phone player shows controls above the TV; caching rules so new deploys show up at once.
+* [x] **v0.8.8g:** Domain `musicmood.co.uk` chosen: redirect and Cloudflare settings ready (off until switched on in Render), final Android app id `uk.co.musicmood`.
+* [x] **v0.8.8h:** Site live on `https://musicmood.co.uk` through Cloudflare; old address forwards; Android test builds use the domain.
+* [x] **v0.8.8i:** Release history tidy-up (milestones in order, 0.8.8a/b added).
 
 ---
 
