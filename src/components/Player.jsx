@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { upvoteTrack, flagTrackMisclassification, reportPlaybackProblem } from '../services/supabaseService';
 import { sessionEngine } from '../services/sessionStateMachine';
 import { GENRE_NODES } from '../services/tasteGraph';
@@ -244,6 +245,18 @@ function Player({ initialTrack, token, onOpenArtist }) {
         return unsubscribe;
     }, []);
 
+    // Android app: pause when the app goes to the background (screen off or another app opened).
+    // Google Play does not allow background playback of YouTube content. The website is unaffected.
+    useEffect(() => {
+        if (!Capacitor.isNativePlatform()) return undefined;
+        const onHidden = () => {
+            if (document.visibilityState !== 'hidden') return;
+            try { playerRef.current?.pauseVideo?.(); } catch { /* player not ready */ }
+        };
+        document.addEventListener('visibilitychange', onHidden);
+        return () => document.removeEventListener('visibilitychange', onHidden);
+    }, []);
+
     // Initialize the YouTube IFrame API and Persistent Player
     useEffect(() => {
         let isMounted = true;
@@ -257,8 +270,9 @@ function Player({ initialTrack, token, onOpenArtist }) {
                 : (currentTrackRef.current?.id && currentTrackRef.current.id.length === 11 ? currentTrackRef.current.id : '');
 
             playerRef.current = new YT.Player('musicmood-persistent-player', {
-                height: '1',
-                width: '1',
+                // Fills the TV screen (268x201 or larger): YouTube requires a visible player of at least 200x200.
+                height: '100%',
+                width: '100%',
                 host: 'https://www.youtube.com', // Standard YouTube domain guarantees session audio stream negotiation
                 videoId: initVid,
                 playerVars: {
@@ -965,17 +979,27 @@ function Player({ initialTrack, token, onOpenArtist }) {
             )}
 
             {/* 2. CORE AUDIO BODY */}
-            <div className="player-body">
+            <div className="player-body player-stage">
+                {/* RETRO TV: the visible YouTube player. The frame sits around and below the
+                    screen, never on top of it (YouTube does not allow covering the player). */}
+                <div className="player-tv-wrap">
+                    <div className={`player-tv ${isPlaying ? 'is-on' : ''}`}>
+                        <div className="player-tv-screen" style={currentTrack?.thumbnail ? { backgroundImage: `url("${currentTrack.thumbnail}")` } : undefined}>
+                            <div id="musicmood-persistent-player"></div>
+                        </div>
+                        <div className="player-tv-base" aria-hidden="true">
+                            <span className="player-tv-speaker"><i /><i /><i /><i /><i /><i /><i /></span>
+                            <span className="player-tv-dials"><span className="player-tv-led" /><span className="player-tv-knob" /><span className="player-tv-knob is-turned" /></span>
+                        </div>
+                    </div>
+                    <div className="player-tv-feet" aria-hidden="true"><i /><i /></div>
+                </div>
+
+                <div className="player-deck">
                 {/* ROW A: TRACK DETAILS + TRANSPORT CONTROLS + UTILITIES */}
                 <div className="player-main-row">
-                    {/* LEFT: Track Info (Thumbnail + Titles + Badges) */}
+                    {/* LEFT: Track Info (Titles + Badges); the cover shows on the TV */}
                     <div className="player-track-info">
-                        {currentTrack?.thumbnail ? (
-                            <img src={currentTrack.thumbnail} alt={currentTrack.title} className="player-thumbnail" referrerPolicy="no-referrer" />
-                        ) : (
-                            <div className="player-thumbnail-placeholder" />
-                        )}
-
                         <div className="player-text">
                             <span className="player-status">
                                 {isSteering ? 'Traversing Graph...' : isBuffering ? 'Buffering Audio...' : isPlaying ? 'Now Playing' : 'Paused'}
@@ -1319,6 +1343,7 @@ function Player({ initialTrack, token, onOpenArtist }) {
                         {duration > 0 ? formatTime(duration) : '--:--'}
                     </span>
                 </div>
+                </div>
             </div>
 
             {/* 3. UP NEXT & JIT BUFFERED QUEUE TRAY */}
@@ -1515,23 +1540,6 @@ function Player({ initialTrack, token, onOpenArtist }) {
                 </div>
             </div>
 
-            {/* STRICTLY INVISIBLE AUDIO-ONLY YOUTUBE ENGINE */}
-            <div
-                aria-hidden="true"
-                style={{
-                    position: 'fixed',
-                    top: '-9999px',
-                    left: '-9999px',
-                    width: '1px',
-                    height: '1px',
-                    opacity: 0,
-                    pointerEvents: 'none',
-                    overflow: 'hidden',
-                    zIndex: -9999
-                }}
-            >
-                <div id="musicmood-persistent-player"></div>
-            </div>
         </div>
     );
 }
