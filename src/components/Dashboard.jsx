@@ -320,6 +320,13 @@ function Dashboard({ session, token, onLogout }) {
 
             setActiveTrack(track);
 
+            // Phones: bring the player (and its TV) into view once a mood starts.
+            if (window.innerWidth <= 600) {
+                setTimeout(() => {
+                    document.querySelector('[data-tour="player"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 150);
+            }
+
             const newHistoryItem = {
                 id: Date.now(),
                 timestamp: new Date().toISOString(),

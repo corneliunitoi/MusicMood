@@ -834,8 +834,8 @@ function Player({ initialTrack, token, onOpenArtist }) {
         <div className="player-card fade-in-up" data-tour="player">
             {/* 1. SESSION & ACTIVE NODE CONTEXT HEADER */}
             <div className="player-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#10b981', fontWeight: 'bold', flexWrap: 'wrap' }}>
-                    <span>🛡️ Active Node:</span>
+                <div className="player-header-main" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#10b981', fontWeight: 'bold', flexWrap: 'wrap' }}>
+                    <span className="player-header-label">🛡️ Active Node:</span>
                     <select
                         value={sessionState.activeGenre}
                         onChange={(e) => handleGenreChange(e.target.value)}
@@ -869,7 +869,7 @@ function Player({ initialTrack, token, onOpenArtist }) {
                             </optgroup>
                         ))}
                     </select>
-                    <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>
+                    <span className="player-header-mood" style={{ color: '#94a3b8', fontSize: '0.78rem' }}>
                         ({sessionState.currentMood.toUpperCase()})
                     </span>
                     {(() => {
@@ -915,7 +915,7 @@ function Player({ initialTrack, token, onOpenArtist }) {
                         return null;
                     })()}
                 </div>
-                <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: '#94a3b8' }}>
+                <div className="player-header-energy" style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: '#94a3b8' }}>
                     <span>Energy: <strong>{Math.round(sessionState.energyLevel * 100)}%</strong></span>
                 </div>
             </div>

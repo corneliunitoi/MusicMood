@@ -1643,3 +1643,17 @@ iframe[src*="youtube.com/embed"] {
   .player-deck { width: 100%; }
   .player-deck .player-track-info { flex: 0 0 auto; }
 }
+
+/* ---------- Phones: keep the player within the first screens ----------
+   Placed last on purpose: the older max-width 480px rules earlier in this file are
+   overridden by the later 768px block, so phone sizes are restated here. */
+@media (max-width: 600px) {
+  .headspace-title { font-size: 1.2rem; line-height: 1.25; }
+  .headspace-subtitle { display: none; }
+  .player-header { flex-wrap: nowrap; padding: 0.5rem 0.75rem; }
+  .player-header-main { flex-wrap: nowrap !important; min-width: 0; gap: 0.45rem !important; }
+  .player-header-main select { min-width: 0; max-width: 100% !important; flex: 1 1 auto; }
+  .player-header-main > span { white-space: nowrap; flex: none; }
+  .player-header-label, .player-header-mood, .player-header-energy { display: none !important; }
+  .player-card { scroll-margin-top: 8px; }
+}
