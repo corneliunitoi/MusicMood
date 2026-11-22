@@ -1,4 +1,16 @@
+import groovy.json.JsonSlurper
+
 apply plugin: 'com.android.application'
+
+// One version for web and Android: read from package.json (e.g. 0.8.8d).
+// versionCode must only ever go up on Google Play: 0.8.8 -> 80800, 0.8.8d -> 80804, 0.8.9 -> 80900, 1.0.0 -> 1000000.
+def appVersionName = new JsonSlurper().parse(file('../../package.json')).version
+def appVersionCode = { String v ->
+    def m = (v =~ /^(\d+)\.(\d+)\.(\d+)([a-z]?)$/)
+    if (!m.matches()) throw new GradleException("package.json version '${v}' must look like 0.8.9 or 0.8.9a")
+    int letter = m.group(4) ? ((int) m.group(4).charAt(0)) - ((int) 'a'.charAt(0)) + 1 : 0
+    return m.group(1).toInteger() * 1000000 + m.group(2).toInteger() * 10000 + m.group(3).toInteger() * 100 + letter
+}(appVersionName)
 
 android {
     namespace = "com.musicmood.app"
@@ -7,8 +19,8 @@ android {
         applicationId "com.musicmood.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode appVersionCode
+        versionName appVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -22,6 +34,11 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+}
+
+// Output files are named after the version, e.g. MusicMood-0.8.8d-debug.apk
+base {
+    archivesName = "MusicMood-${appVersionName}"
 }
 
 repositories {
