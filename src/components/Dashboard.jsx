@@ -1,4 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { fetchUserPlaylists } from '../services/youtube';
 import { signInWithGoogle } from '../services/auth';
 import { supabase } from '../services/supabaseService';
@@ -67,6 +68,7 @@ function Dashboard({ session, token, onLogout }) {
         try {
             // Guests are upgraded in place (identity linking keeps their favorites); redirects to Google
             await signInWithGoogle();
+            if (Capacitor.isNativePlatform()) setIsAuthenticating(false); // the app has no page redirect
         } catch (err) {
             console.warn('[Dashboard] Google sign-in error:', err.message);
             setIsAuthenticating(false);

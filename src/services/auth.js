@@ -1,11 +1,14 @@
+import { Capacitor } from '@capacitor/core';
 import { supabase } from './supabaseService';
 import { clearUserProfile } from './userService';
+import { requestGoogleIdToken, signOutNativeGoogle } from './nativeGoogleSignIn';
 
 /**
  * Supabase Auth is the only source of identity.
  *   - Google sign-in:  supabase.auth.signInWithOAuth (full-page redirect)
  *   - Guests:          supabase.auth.signInAnonymously (one account per device)
  *   - Guest → Google:  supabase.auth.linkIdentity (keeps the guest's data)
+ *   - Android app:     Credential Manager ID token → signInWithIdToken / linkIdentity (no redirect)
  *
  * The Google access token (for YouTube playlist import) is the session's
  * provider_token. Supabase only returns it right after the OAuth redirect, so it
@@ -91,6 +94,12 @@ export async function getSession() {
  * only when the listener imports their YouTube playlists.
  */
 export async function signInWithGoogle({ forceConsent = false, withYouTube = false } = {}) {
+    if (Capacitor.isNativePlatform()) {
+        if (withYouTube) {
+            throw new Error('YouTube playlist import is only available on the website for now.');
+        }
+        return signInWithGoogleNative();
+    }
     const session = await getSession();
     const options = {
         redirectTo: redirectTarget(),
@@ -115,6 +124,29 @@ export async function signInWithGoogle({ forceConsent = false, withYouTube = fal
 }
 
 /**
+ * Android app: Google's account chooser (Credential Manager) returns an ID token that Supabase
+ * verifies. Resolves when signed in, or quietly when the listener closes the chooser; unlike the
+ * website flow there is no page redirect, so callers must reset their own loading state.
+ */
+async function signInWithGoogleNative() {
+    const result = await requestGoogleIdToken();
+    if (!result) return;
+    const credentials = { provider: 'google', token: result.idToken, nonce: result.nonce };
+
+    const session = await getSession();
+    if (session?.user?.is_anonymous) {
+        const { error } = await supabase.auth.linkIdentity(credentials);
+        if (!error) return;
+        // The Google account may already belong to an existing MusicMood user:
+        // fall back to a normal sign-in (the guest session is replaced).
+        console.warn('[Auth] Linking Google to guest failed, signing in directly:', error.message);
+    }
+
+    const { error } = await supabase.auth.signInWithIdToken(credentials);
+    if (error) throw error;
+}
+
+/**
  * Starts (or resumes) an anonymous guest session. Each device gets its own account.
  */
 export async function signInAsGuest() {
@@ -135,6 +167,7 @@ export async function signInAsGuest() {
 export async function logout() {
     clearProviderToken();
     clearUserProfile();
+    if (Capacitor.isNativePlatform()) await signOutNativeGoogle();
     try {
         await supabase.auth.signOut();
     } catch (e) {

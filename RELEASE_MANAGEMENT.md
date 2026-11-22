@@ -80,6 +80,11 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.8.9` — 2026-11-22
+* **[Android]** Native Google sign-in: Credential Manager account chooser + `supabase.auth.signInWithIdToken` (guests are upgraded with `linkIdentity`, keeping favourites). Needs `VITE_GOOGLE_WEB_CLIENT_ID` and an Android OAuth client (package `uk.co.musicmood` + signing SHA-1). Unused plugin providers (Facebook, Apple, Twitter) are switched off.
+* **[Android]** Signed builds: Gradle signs debug and release builds with the upload key from environment variables; release builds refuse to run without it. New manual workflow *Android signed build* (secrets listed in `ANDROID_BUILD.md`) produces the signed APK and AAB and checks the key's SHA-1.
+* **[Web]** No change (all new code runs only inside the Android app).
+
 ### `v0.8.8j` — 2026-11-22
 * **[Android] Build guide and one-command builds:** new `ANDROID_BUILD.md` (Linux/cloud quick start, Windows with Android Studio, installing test builds, emulator troubleshooting). `npm run android:setup` (`scripts/setup-android-sdk.sh`) installs the Android SDK, writes `android/local.properties` and creates `.env.android`; `npm run android:apk` builds the test app. Tested from an empty SDK folder. No app changes.
 

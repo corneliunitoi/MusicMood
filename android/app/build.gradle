@@ -12,6 +12,16 @@ def appVersionCode = { String v ->
     return m.group(1).toInteger() * 1000000 + m.group(2).toInteger() * 10000 + m.group(3).toInteger() * 100 + letter
 }(appVersionName)
 
+// Signing: the upload key is never stored in the repository. CI (and the owner's PC) provide it
+// through environment variables; see ANDROID_BUILD.md. Without them, debug builds fall back to
+// Android's own debug key and release builds refuse to run (so an unsigned file can never be uploaded).
+//   ANDROID_KEYSTORE_FILE      path to the .jks / .keystore file
+//   ANDROID_KEYSTORE_PASSWORD  store password
+//   ANDROID_KEY_ALIAS          key alias (default: musicmood)
+//   ANDROID_KEY_PASSWORD       key password (default: the store password)
+def keystoreFilePath = System.getenv('ANDROID_KEYSTORE_FILE')
+def hasUploadKey = keystoreFilePath && file(keystoreFilePath).isFile() && System.getenv('ANDROID_KEYSTORE_PASSWORD')
+
 android {
     namespace = "uk.co.musicmood"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -28,11 +38,33 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (hasUploadKey) {
+            upload {
+                storeFile file(keystoreFilePath)
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS') ?: 'musicmood'
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD') ?: System.getenv('ANDROID_KEYSTORE_PASSWORD')
+            }
+        }
+    }
     buildTypes {
+        debug {
+            // Same key as release when available, so test builds carry the SHA-1 registered for Google sign-in.
+            if (hasUploadKey) signingConfig signingConfigs.upload
+        }
         release {
+            if (hasUploadKey) signingConfig signingConfigs.upload
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+    }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    def wantsRelease = graph.allTasks.any { it.project == project && it.name ==~ /(assemble|bundle|package)\w*Release/ }
+    if (wantsRelease && !hasUploadKey) {
+        throw new GradleException('Release builds need the upload key: set ANDROID_KEYSTORE_FILE and ANDROID_KEYSTORE_PASSWORD (see ANDROID_BUILD.md).')
     }
 }
 

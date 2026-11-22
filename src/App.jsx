@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
 import './App.css';
 import { signInWithGoogle, signInAsGuest, getSession, getYouTubeToken, watchAuthState, logout } from './services/auth';
 import FeedbackModal from './components/FeedbackModal';
@@ -48,7 +49,8 @@ function App() {
     setIsLoading(true);
     setAuthError(null);
     try {
-      await signInWithGoogle(); // redirects to Google
+      await signInWithGoogle(); // website: redirects to Google; Android app: returns when done
+      if (Capacitor.isNativePlatform()) setIsLoading(false);
     } catch (err) {
       console.warn('[App Auth] Login notice:', err.message);
       setAuthError(err.message || 'Failed to start Google sign-in.');

@@ -123,9 +123,9 @@ Starts only after Phases 0–3 are complete.
 
 * [x] ~~**Engine portability**~~ — not needed: the app uses Capacitor, which runs the same React code (including `localStorage`) inside Android's WebView.
 * [~] **Android client (Capacitor 8):** shell in `android/`, versioned builds, background pause, visible TV player, phone layout fixes. *(Started in v0.8.8e.)*
-* [ ] **Native Google sign-in** via Credential Manager + `supabase.auth.signInWithIdToken` (needs an Android OAuth client in Google Cloud: package name + signing-key SHA-1).
+* [~] **Native Google sign-in** via Credential Manager + `supabase.auth.signInWithIdToken` (code and upload-key signing done in v0.8.9; still to do: test on a phone, add the Play App Signing SHA-1 before the first Play release).
 * [ ] **Phone polish:** compact Calibrate window and welcome screen on phones; prefer YouTube audio uploads so the TV mostly shows a still cover.
-* [ ] **Minimum-version check** ("Please update") and a signed Android build workflow attached to the auto-release.
+* [~] **Minimum-version check** ("Please update"); signed Android build workflow exists (manual, v0.8.9), attaching it to the auto-release is still open.
 * [ ] **Play Store:** developer account ($25), closed test with 12 testers for 14 days, store listing (icon, banner, screenshots, texts, data safety, content rating), Render paid plan so the server does not sleep.
 
 ### 🌐 Custom domain switch: `musicmood.co.uk` (do before the first Play Store release)
@@ -526,6 +526,7 @@ graph TD
 * [x] **v0.8.8h:** Site live on `https://musicmood.co.uk` through Cloudflare; old address forwards; Android test builds use the domain.
 * [x] **v0.8.8i:** Release history tidy-up (milestones in order, 0.8.8a/b added).
 * [x] **v0.8.8j:** Android build guide (`ANDROID_BUILD.md`), `npm run android:setup` and `npm run android:apk`.
+* [x] **v0.8.9:** Native Google sign-in for the Android app; upload-key signing from GitHub secrets and a signed-build workflow.
 
 ---
 

@@ -1,0 +1,93 @@
+name: Android signed build
+
+# Builds a signed release APK + AAB with the upload key stored in repository secrets.
+# Manual only: an Android release is built from an already-tagged version when the owner decides
+# (see RELEASE_MANAGEMENT.md). Result: downloadable files on the run page (Artifacts section).
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Tag or branch to build (e.g. v0.8.9). Leave empty for main.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  # SHA-1 registered on the Android OAuth client in Google Cloud. The build stops if the
+  # keystore in the secrets is a different key (Google sign-in would silently fail otherwise).
+  EXPECTED_SHA1: '32:7F:E6:15:CF:71:17:FC:E5:44:3C:A5:8A:26:65:0B:C6:A0:8A:C9'
+
+jobs:
+  build:
+    name: Build signed APK and AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || 'main' }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Restore the upload keystore and check it is the registered key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          for v in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS; do
+            if [ -z "${!v}" ]; then echo "::error::Repository secret for $v is missing (see ANDROID_BUILD.md)."; exit 1; fi
+          done
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          actual=$(keytool -list -v -keystore "$RUNNER_TEMP/upload.jks" -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" | grep -m1 'SHA1:' | sed 's/.*SHA1: *//')
+          echo "Keystore SHA-1: $actual"
+          if [ "$actual" != "$EXPECTED_SHA1" ]; then
+            echo "::error::Keystore SHA-1 ($actual) is not the one registered in Google Cloud ($EXPECTED_SHA1)."
+            exit 1
+          fi
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+
+      - run: npm ci
+
+      - name: Build the web app into the Android shell
+        env:
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          if [ -z "$GOOGLE_WEB_CLIENT_ID" ]; then echo "::error::Repository secret GOOGLE_WEB_CLIENT_ID is missing (see ANDROID_BUILD.md)."; exit 1; fi
+          cp .env.android.example .env.android
+          sed -i "s|^VITE_GOOGLE_WEB_CLIENT_ID=.*|VITE_GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID|" .env.android
+          npm run build:android
+
+      - name: Gradle release build
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease bundleRelease --no-daemon
+
+      - name: Check the APK is signed with the registered key
+        run: |
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$apksigner" verify --print-certs android/app/build/outputs/apk/release/*.apk | tee "$RUNNER_TEMP/certs.txt"
+          grep -qi "$(echo "$EXPECTED_SHA1" | tr -d ':')" "$RUNNER_TEMP/certs.txt" || { echo "::error::APK is not signed with the expected key"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: musicmood-android-signed
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+          retention-days: 30

@@ -5,7 +5,7 @@ Goal: finish hardening, then ship an Android app on Google Play.
 
 ## Where things stand (Nov 22, 2026)
 
-- Current release: see `package.json` (`0.8.8j` at the time of writing). Full history in `RELEASE_MANAGEMENT.md`.
+- Current release: see `package.json` (`0.8.9` at the time of writing). Full history in `RELEASE_MANAGEMENT.md`.
 - `ROADMAP.md` is the plan: Phases 0–3 (security & stability) are done; **Phase 4 (Android, Capacitor) is in
   progress**. The custom-domain switch plan is in `ROADMAP.md` and must happen before the first Play release.
 - Google OAuth app is **published** (sign-in uses basic scopes only; `youtube.readonly` is requested
@@ -72,6 +72,9 @@ Goal: finish hardening, then ship an Android app on Google Play.
 - Android: Capacitor 8 shell in `android/` (app id `uk.co.musicmood`, final); version read from `package.json` in `android/app/build.gradle`. `apiFetch` prefixes `/api` with
   `VITE_API_BASE_URL` (`.env.android`); `server.js` allows the app origin via `APP_ORIGINS`.
   App-only behaviour is gated with `Capacitor.isNativePlatform()`.
+  Native Google sign-in: `nativeGoogleSignIn.js` + `auth.js` (Credential Manager → `signInWithIdToken`; needs `VITE_GOOGLE_WEB_CLIENT_ID`).
+  Builds are signed with the upload key from env vars (`ANDROID_KEYSTORE_*`); the manual workflow `android-build.yml` uses repo secrets
+  (list in `ANDROID_BUILD.md`). Each signing key needs its own Android OAuth client; add the Play App Signing SHA-1 before the first Play release.
 - Player: the YouTube player is visible inside a retro TV (min 268×201; YouTube requires ≥200×200, visible,
   nothing on top). Never hide, shrink or cover it.
 - Onboarding (`OnboardingWizard.jsx`) is two steps: radar + "Never play" chips, then mood homes.
