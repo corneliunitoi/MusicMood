@@ -80,6 +80,10 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.8.8h` — 2026-11-22
+* **[Web + Android] Live on `https://musicmood.co.uk`:** the site runs on the custom domain through Cloudflare (proxy on, SSL Full (strict)); `www` forwards to the main address, and the old `musicmood-ghx2.onrender.com` address forwards pages to the domain (`CANONICAL_HOST`; API calls are not redirected). Rate limits use Cloudflare's visitor address (`TRUST_CLOUDFLARE=1`). Supabase and Google sign-in settings include the domain; the onrender entries stay for a few weeks.
+* **[Android] Test builds call `https://musicmood.co.uk`** for track lookups.
+
 ### `v0.8.8g` — 2026-11-22
 * **[Web + Android] Ready for `musicmood.co.uk`:** two new Render settings, both off until the domain serves the site:
   * `CANONICAL_HOST=musicmood.co.uk` redirects visits to the old `*.onrender.com` address to the domain (pages only; `/api/` calls are never redirected, so installed app versions keep working).

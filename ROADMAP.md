@@ -129,7 +129,7 @@ Starts only after Phases 0–3 are complete.
 * [ ] **Play Store:** developer account ($25), closed test with 12 testers for 14 days, store listing (icon, banner, screenshots, texts, data safety, content rating), Render paid plan so the server does not sleep.
 
 ### 🌐 Custom domain switch: `musicmood.co.uk` (do before the first Play Store release)
-Status: domain bought; code ready since v0.8.8g (steps 5 and 6 done). Owner steps 1–4 open.
+Status: **live since v0.8.8h** (all steps done, Nov 22). Remaining: remove the `onrender.com` entries from Supabase redirect URLs and Google origins a few weeks after the switch.
 1. DNS on **Cloudflare** (keeps WAF, rate limiting and Turnstile available). If the domain was bought elsewhere, add it to Cloudflare and change the nameservers at the registrar.
 2. **Render:** add the domain (and `www`) under Custom Domains; add Render's DNS records in Cloudflare with the proxy (orange cloud) **off** until Render shows the certificate, then turn it on and set SSL to **Full (strict)**. Redirect `www` to the main address with a Cloudflare rule.
 3. **Supabase** (Authentication → URL Configuration): new Site URL and redirect URLs; keep the `onrender.com` entries for a few weeks, then remove them.
@@ -516,6 +516,7 @@ graph TD
 * [x] **v0.8.7g:** Unified recency rules (50-track memory, 15-artist cooldown, relaxed and last-resort tiers), session-long dislikes, busy-vs-empty fix, dead traversal/dwell code removed, first unit tests and CI.
 * [x] **v0.8.7h:** One mood vocabulary: 22 visible moods with curated genre lists and default homes, 8 retired moods redirecting, 7 dead genre ids fixed, vocabulary tests.
 * [x] **v0.8.8:** Security & stability milestone: sign-in without sensitive scopes, exact artist track counts, single YouTube resolver, admin code-split, schema housekeeping, permission regression test.
+* [x] **v0.8.8h:** Site live on `https://musicmood.co.uk` through Cloudflare; old address forwards; Android test builds use the domain.
 * [x] **v0.8.8g:** Domain `musicmood.co.uk` chosen: redirect and Cloudflare settings ready (off until switched on in Render), final Android app id `uk.co.musicmood`.
 * [x] **v0.8.8f:** Phone player shows controls above the TV; caching rules so new deploys show up at once.
 * [x] **v0.8.8e:** Phase 4 starts: Capacitor Android app, visible YouTube player in a retro TV, phone layout fixes, Web + Android release model.

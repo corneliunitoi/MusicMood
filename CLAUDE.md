@@ -67,7 +67,7 @@ Goal: finish hardening, then ship an Android app on Google Play.
   rate-limited) and `vite.config.js` (local dev).
 - Mood skins: `src/services/moodSkins.js` (looks + rules), `MoodBackdrop.jsx`, `LookSettings.jsx`;
   the Look setting lives in `user_profiles.look` via `get_my_look` / `save_my_look` (`lookService.js`).
-- Domain: `musicmood.co.uk` (switch plan in `ROADMAP.md`). Render settings: `CANONICAL_HOST` redirects
+- Domain: `https://musicmood.co.uk`, live through Cloudflare (proxy on, SSL Full (strict)). Render settings: `CANONICAL_HOST` redirects
   `*.onrender.com` pages to it (never `/api/`); `TRUST_CLOUDFLARE=1` reads `CF-Connecting-IP` for rate limits.
 - Android: Capacitor 8 shell in `android/` (app id `uk.co.musicmood`, final); version read from `package.json` in `android/app/build.gradle`. `apiFetch` prefixes `/api` with
   `VITE_API_BASE_URL` (`.env.android`); `server.js` allows the app origin via `APP_ORIGINS`.
