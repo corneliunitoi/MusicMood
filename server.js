@@ -76,7 +76,19 @@ const API_LIMITS = {
     '/api/playlist-tracks': { perUser: 10, perIp: 20 }
 };
 
+// Set TRUST_CLOUDFLARE=1 on Render once all traffic comes through Cloudflare: CF-Connecting-IP is set by
+// Cloudflare and cannot be faked by visitors, unlike the first X-Forwarded-For entry.
+const TRUST_CLOUDFLARE = process.env.TRUST_CLOUDFLARE === '1';
+// Set CANONICAL_HOST=musicmood.co.uk on Render once the domain serves the site: visits to the old
+// *.onrender.com address are then redirected there. API calls are never redirected, because installed
+// app versions still call the old address and browsers drop the sign-in token on a cross-site redirect.
+const CANONICAL_HOST = (process.env.CANONICAL_HOST || '').trim().toLowerCase();
+
 function clientIp(req) {
+    if (TRUST_CLOUDFLARE) {
+        const cfIp = req.headers['cf-connecting-ip'];
+        if (typeof cfIp === 'string' && cfIp.length > 0) return cfIp.trim();
+    }
     const forwarded = req.headers['x-forwarded-for'];
     if (typeof forwarded === 'string' && forwarded.length > 0) return forwarded.split(',')[0].trim();
     return req.socket?.remoteAddress || 'unknown';
@@ -172,6 +184,15 @@ const server = http.createServer(async (req, res) => {
         reqUrl = new URL(req.url, 'http://localhost');
     } catch {
         sendJson(res, 400, { error: 'Bad request.' });
+        return;
+    }
+
+    // Old Render address -> custom domain (pages only; see CANONICAL_HOST above).
+    const host = String(req.headers.host || '').toLowerCase().split(':')[0];
+    if (CANONICAL_HOST && host.endsWith('.onrender.com') && !reqUrl.pathname.startsWith('/api/')
+        && (req.method === 'GET' || req.method === 'HEAD')) {
+        res.writeHead(301, { Location: `https://${CANONICAL_HOST}${reqUrl.pathname}${reqUrl.search}`, 'Cache-Control': 'no-cache' });
+        res.end();
         return;
     }
 

@@ -13,10 +13,10 @@ def appVersionCode = { String v ->
 }(appVersionName)
 
 android {
-    namespace = "com.musicmood.app"
+    namespace = "uk.co.musicmood"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.musicmood.app"
+        applicationId "uk.co.musicmood"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode appVersionCode

@@ -1,4 +1,4 @@
-package com.musicmood.app;
+package uk.co.musicmood;
 
 import com.getcapacitor.BridgeActivity;
 

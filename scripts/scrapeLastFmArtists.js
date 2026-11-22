@@ -47,7 +47,7 @@ async function fetchLastFmLibraryPage(user, apiKey, page = 1, perPage = 100) {
     
     const res = await fetch(url, {
         headers: {
-            'User-Agent': 'MusicMood-Catalog-Importer/1.0.0 (https://musicmood-ghx2.onrender.com)'
+            'User-Agent': 'MusicMood-Catalog-Importer/1.0.0 (https://musicmood.co.uk)'
         }
     });
 

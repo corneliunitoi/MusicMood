@@ -80,6 +80,13 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.8.8g` — 2026-11-22
+* **[Web + Android] Ready for `musicmood.co.uk`:** two new Render settings, both off until the domain serves the site:
+  * `CANONICAL_HOST=musicmood.co.uk` redirects visits to the old `*.onrender.com` address to the domain (pages only; `/api/` calls are never redirected, so installed app versions keep working).
+  * `TRUST_CLOUDFLARE=1` makes the server's rate limits use Cloudflare's `CF-Connecting-IP` header (visitors cannot fake it) instead of the first `X-Forwarded-For` entry.
+* **[Android] Final app id `uk.co.musicmood`** (was the placeholder `com.musicmood.app`). It installs as a new app: uninstall the old test app. `.env.android.example` now points at `https://musicmood.co.uk`.
+* The Last.fm importer identifies itself with the new domain.
+
 ### `v0.8.8f` — 2026-11-22
 * **[Web + Android] Phones: controls above the TV.** On phones the track info, play/skip/like and progress bar come first and the TV sits underneath, so the controls stay near the top. Desktop keeps the TV beside the controls.
 * **[Web] Fresh pages after every deploy:** `server.js` now sends caching rules. Pages (`index.html`, the privacy and terms pages) are re-checked on every visit, so a new release shows up at once instead of a stale copy. Vite's hashed files in `/assets/` are kept for a year, which also makes repeat visits faster.

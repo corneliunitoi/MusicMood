@@ -1,5 +1,5 @@
 {
-  "appId": "com.musicmood.app",
+  "appId": "uk.co.musicmood",
   "appName": "MusicMood",
   "webDir": "dist",
   "android": {
