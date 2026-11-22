@@ -74,14 +74,34 @@ export default function GuidedTour({ onFinish, onOpenCalibrate, onOpenArtists })
     const currentStep = TOUR_STEPS[stepIndex];
     const isFirst = stepIndex === 0;
     const isLast = stepIndex === TOUR_STEPS.length - 1;
+    // Phones: the card docks to the bottom as a sheet and the target scrolls into the top half,
+    // so the card never covers what it describes.
+    const [isCompact, setIsCompact] = useState(() => window.innerWidth <= 600);
+    useEffect(() => {
+        const onResize = () => setIsCompact(window.innerWidth <= 600);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+    // Extra room at the bottom of the page so targets near the end can scroll above the sheet.
+    useEffect(() => {
+        if (!isCompact) return undefined;
+        const previous = document.body.style.paddingBottom;
+        document.body.style.paddingBottom = '60vh';
+        return () => { document.body.style.paddingBottom = previous; };
+    }, [isCompact]);
 
     // Update target element bounding rect whenever step changes or on resize
     useEffect(() => {
         const updateRect = () => {
             const el = document.querySelector(currentStep.targetSelector);
             if (el) {
-                // Scroll into view if needed
-                el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                // Scroll into view if needed (on phones: near the top, above the bottom sheet)
+                if (isCompact) {
+                    el.style.scrollMarginTop = '72px';
+                    el.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+                } else {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                }
                 const rect = el.getBoundingClientRect();
                 setTargetRect({
                     top: rect.top,
@@ -106,7 +126,7 @@ export default function GuidedTour({ onFinish, onOpenCalibrate, onOpenArtists })
             window.removeEventListener('resize', updateRect);
             window.removeEventListener('scroll', updateRect, true);
         };
-    }, [stepIndex, currentStep.targetSelector]);
+    }, [stepIndex, currentStep.targetSelector, isCompact]);
 
     const handleNext = () => {
         if (isLast) {
@@ -128,6 +148,20 @@ export default function GuidedTour({ onFinish, onOpenCalibrate, onOpenArtists })
         const padding = 16;
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
+
+        if (isCompact) {
+            return {
+                position: 'fixed',
+                left: 'max(12px, env(safe-area-inset-left, 0px))',
+                right: 'max(12px, env(safe-area-inset-right, 0px))',
+                bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
+                width: 'auto',
+                maxHeight: '45vh',
+                overflowY: 'auto',
+                zIndex: 2500,
+                transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+            };
+        }
 
         if (!targetRect) {
             return {
