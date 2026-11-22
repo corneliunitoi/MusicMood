@@ -5,9 +5,9 @@ Goal: finish hardening, then ship an Android app on Google Play.
 
 ## Where things stand (Nov 22, 2026)
 
-- Current release: see `package.json` (`0.8.8b` at the time of writing). Full history in `RELEASE_MANAGEMENT.md`.
-- `ROADMAP.md` is the plan: Phases 0–3 (security & stability) are done; remaining owner tasks are
-  listed under "Before Android: open owner tasks"; **next is Phase 4: Android migration**.
+- Current release: see `package.json` (`0.8.8e` at the time of writing). Full history in `RELEASE_MANAGEMENT.md`.
+- `ROADMAP.md` is the plan: Phases 0–3 (security & stability) are done; **Phase 4 (Android, Capacitor) is in
+  progress**. The custom-domain switch plan is in `ROADMAP.md` and must happen before the first Play release.
 - Google OAuth app is **published** (sign-in uses basic scopes only; `youtube.readonly` is requested
   separately for playlist import and shows Google's "unverified app" screen until verified).
 
@@ -21,6 +21,12 @@ Goal: finish hardening, then ship an Android app on Google Play.
   The owner has approved Claude pushing to `main`.
 - **Tags/releases are automatic**: `.github/workflows/auto-release.yml` tags the version-bump commit
   and publishes the GitHub Release when the version reaches `main`. Cloud sessions cannot push tags.
+- Changelog entries start with a platform label: **[Web]**, **[Android]** or **[Web + Android]**.
+- **Web + Android model** (details in `RELEASE_MANAGEMENT.md`): one `main`, one version. The website ships every
+  version; an Android release is built from an already-tagged version when the owner decides, and is
+  recorded in the Android release log. No long-lived platform branches.
+- **Backward compatibility:** installed app versions keep calling the database and `server.js` for months.
+  Database/API changes must be additive; rename or remove only when no supported app version uses it.
 - Render deploys `main`. The owner's local copy (`C:\Visual studio\MusicMood`) does NOT update itself:
   tell them to `git pull origin main` (and `npm run build` if they use `npm start`).
 
@@ -31,6 +37,9 @@ Goal: finish hardening, then ship an Android app on Google Play.
 - Database changes: test in a rolled-back transaction first, then apply as a migration and save the
   file in `supabase/migrations/` with the applied version as its timestamp.
 - `supabase/tests/permissions.sql`: 25 rolled-back permission checks; must stay all-PASS.
+- Android (when touched): `npm run build:android`, then `cd android && ./gradlew assembleDebug`
+  (needs the Android SDK; the cloud environment "musicmood" allows Google's and Gradle's download hosts).
+  Output: `android/app/build/outputs/apk/debug/MusicMood-<version>-debug.apk`.
 
 ## Supabase (project `wgrucrcdcpgvnxduftow`)
 
@@ -58,6 +67,12 @@ Goal: finish hardening, then ship an Android app on Google Play.
   rate-limited) and `vite.config.js` (local dev).
 - Mood skins: `src/services/moodSkins.js` (looks + rules), `MoodBackdrop.jsx`, `LookSettings.jsx`;
   the Look setting lives in `user_profiles.look` via `get_my_look` / `save_my_look` (`lookService.js`).
+- Android: Capacitor 8 shell in `android/` (app id `com.musicmood.app`, placeholder until the domain is
+  chosen); version read from `package.json` in `android/app/build.gradle`. `apiFetch` prefixes `/api` with
+  `VITE_API_BASE_URL` (`.env.android`); `server.js` allows the app origin via `APP_ORIGINS`.
+  App-only behaviour is gated with `Capacitor.isNativePlatform()`.
+- Player: the YouTube player is visible inside a retro TV (min 268×201; YouTube requires ≥200×200, visible,
+  nothing on top). Never hide, shrink or cover it.
 - Onboarding (`OnboardingWizard.jsx`) is two steps: radar + "Never play" chips, then mood homes.
 
 ## Owner preferences

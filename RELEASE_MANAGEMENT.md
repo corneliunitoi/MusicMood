@@ -49,6 +49,26 @@ Whenever a release or milestone patch is prepared:
 5. [ ] **Git Commit:** Commit changes with message `chore(release): bump version to vX.Y.Za`.
 6. [ ] **Push to `main`:** `git push origin main`. The `Auto-Tag & Release on Version Bump` workflow (`.github/workflows/auto-release.yml`) then creates the annotated `vX.Y.Za` tag on the version-bump commit and publishes the GitHub Release from this changelog.
 7. [ ] **Manual fallback:** if the workflow is unavailable, run `npm run tag-release vX.Y.Za` and `git push origin vX.Y.Za`.
+8. [ ] **Platform label:** start each changelog entry's first bullet with **[Web]**, **[Android]** or **[Web + Android]** (who sees the change). Labels are for readers only; every build contains all of `main`.
+
+---
+
+## 📱 Web + Android Release Model (since v0.8.8e)
+
+One codebase, one `main` branch, one version number, two release speeds.
+
+* **Branches:** work on short `claude/<topic>` branches, fast-forward `main`. No long-lived platform branches.
+* **Web = continuous:** every version that reaches `main` is tagged automatically and deployed by Render within minutes.
+* **Android = release trains:** an app release is a *decision*, not a new version. Pick an already-tagged version and build the app from exactly that tag. It contains everything on `main` up to that tag. The app's version comes from `package.json`; the Play `versionCode` is derived automatically (`0.8.8e` → 80805, `0.8.9` → 80900, `1.0.0` → 1000000) and only ever increases.
+* **Play Store stages:** internal testing → closed testing (new personal accounts: 12 testers for 14 days before the first production release) → production with a staged rollout (e.g. 10% → 50% → 100%), which can be paused.
+* **Backward compatibility (the key rule):** older app versions stay installed for months and keep calling the database and `server.js`. Database and API changes must be additive: add columns, functions and endpoints; rename or remove them only once no supported app version uses them. Removing something needs a note in the changelog saying which app versions it breaks.
+* **Before the first public Android release:** a minimum-supported-version check ("Please update") and an automated, signed Android build workflow attached to the auto-release.
+
+### Android release log
+
+| App version (tag) | Track | Date | Notes |
+| :--- | :--- | :--- | :--- |
+| — | — | — | No Play Store release yet; debug test builds only. |
 
 ---
 
@@ -59,6 +79,13 @@ Whenever a release or milestone patch is prepared:
 ---
 
 ## 📜 Release Changelog
+
+### `v0.8.8e` — 2026-11-22
+* **[Web + Android] Visible player in a retro TV:** the YouTube player is no longer a hidden 1×1 frame. It plays on a 268×201 TV screen (YouTube requires a visible player of at least 200×200), with a faded bezel, speaker, mood-coloured power light and knobs around and below the screen, never on top. Two columns on desktop, stacked on phones. The cover shows behind the player while it loads.
+* **[Web + Android] Phone layout:** the player fits one phone screen (one-line header; the Active Node label, mood name and energy readout are hidden on phones), smaller phone headline (the old 480px rules were overridden by the later 768px block), and picking a mood on a phone scrolls to the player. The guided tour card docks to the bottom on phones so it no longer covers what it describes.
+* **[Android] Android app (Capacitor 8) — Phase 4 starts:** `android/` holds a thin Android shell around the same React app (app id `com.musicmood.app`, a placeholder until the domain is chosen). `npm run build:android` builds it; `/api` calls use `VITE_API_BASE_URL` (see `.env.android.example`). Playback pauses when the app goes to the background (Google Play policy). Debug test builds only; not on the Play Store.
+* **[Web] Server:** `server.js` answers CORS requests from the app (`APP_ORIGINS`, default `https://localhost`). No change for website visitors.
+* **Release model:** new *Web + Android Release Model* section above (one main branch and version, Android release trains, Play stages, backward-compatibility rule, Android release log).
 
 ### `v0.8.8d` — 2026-11-22
 * **Look setting saved to your profile:**

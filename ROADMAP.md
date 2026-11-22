@@ -121,8 +121,21 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
 
 Starts only after Phases 0–3 are complete.
 
-* [ ] **Engine portability:** extract the state machine / taste graph into pure logic, free of `localStorage`, `window` and direct Supabase calls.
-* [ ] **Android client** (TWA, Capacitor, or native), with Google sign-in via Credential Manager + `supabase.auth.signInWithIdToken`.
+* [x] ~~**Engine portability**~~ — not needed: the app uses Capacitor, which runs the same React code (including `localStorage`) inside Android's WebView.
+* [~] **Android client (Capacitor 8):** shell in `android/`, versioned builds, background pause, visible TV player, phone layout fixes. *(Started in v0.8.8e.)*
+* [ ] **Native Google sign-in** via Credential Manager + `supabase.auth.signInWithIdToken` (needs an Android OAuth client in Google Cloud: package name + signing-key SHA-1).
+* [ ] **Phone polish:** compact Calibrate window and welcome screen on phones; prefer YouTube audio uploads so the TV mostly shows a still cover.
+* [ ] **Minimum-version check** ("Please update") and a signed Android build workflow attached to the auto-release.
+* [ ] **Play Store:** developer account ($25), closed test with 12 testers for 14 days, store listing (icon, banner, screenshots, texts, data safety, content rating), Render paid plan so the server does not sleep.
+
+### 🌐 Custom domain switch (do before the first Play Store release)
+1. Buy the domain on **Cloudflare Registrar** (DNS on Cloudflare keeps WAF, rate limiting and Turnstile available).
+2. **Render:** add the domain (and `www`) under Custom Domains; add Render's DNS records in Cloudflare with the proxy (orange cloud) **off** until Render shows the certificate, then turn it on and set SSL to **Full (strict)**. Redirect `www` to the main address with a Cloudflare rule.
+3. **Supabase** (Authentication → URL Configuration): new Site URL and redirect URLs; keep the `onrender.com` entries for a few weeks, then remove them.
+4. **Google Cloud** (OAuth app): add the domain as an authorized domain; update homepage and privacy-policy links.
+5. **Code:** `server.js` redirects `*.onrender.com` to the new domain and reads the visitor address from `CF-Connecting-IP`; `.env.android` points `VITE_API_BASE_URL` at the domain.
+6. **App ID:** set the final Android app id (reverse domain, e.g. `app.musicmood`) before the first Play upload; it can never change afterwards.
+7. **Cloudflare rules:** never put browser challenges (or Bot Fight Mode) in front of `/api/` — the Android app cannot solve them; use rate-limit and block rules instead.
 
 > Google Play / YouTube policy compliance (playback model, store listing requirements) is intentionally out of scope for now and will be planned separately after the security work.
 
@@ -502,6 +515,7 @@ graph TD
 * [x] **v0.8.7g:** Unified recency rules (50-track memory, 15-artist cooldown, relaxed and last-resort tiers), session-long dislikes, busy-vs-empty fix, dead traversal/dwell code removed, first unit tests and CI.
 * [x] **v0.8.7h:** One mood vocabulary: 22 visible moods with curated genre lists and default homes, 8 retired moods redirecting, 7 dead genre ids fixed, vocabulary tests.
 * [x] **v0.8.8:** Security & stability milestone: sign-in without sensitive scopes, exact artist track counts, single YouTube resolver, admin code-split, schema housekeeping, permission regression test.
+* [x] **v0.8.8e:** Phase 4 starts: Capacitor Android app, visible YouTube player in a retro TV, phone layout fixes, Web + Android release model.
 * [x] **v0.8.8d:** Look setting stored in the user profile (`get_my_look` / `save_my_look`), follows the listener across devices; 25-check permission test.
 * [x] **v0.8.8c:** Mood skins: nine moods subtly tint the app with a faint moving background; Settings › Look to switch looks off or lock one (owner-requested ahead of the Android port).
 
