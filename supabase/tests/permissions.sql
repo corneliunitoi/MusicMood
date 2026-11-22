@@ -73,6 +73,10 @@ begin
   select count(*) into n from public.listening_history where user_id <> auth.uid();
   insert into perm_results values ('guest', 'read others'' listening history', 'blocked', case when n > 0 then 'allowed' else 'blocked' end);
 
+  r := public.save_my_look('{"mode":"fixed","fixed":"rainy","off":[]}');
+  insert into perm_results values ('guest', 'save own Look setting', 'allowed',
+    case when r->>'success' = 'true' and public.get_my_look()->>'fixed' = 'rainy' then 'allowed' else 'blocked' end);
+
   r := public.upvote_track((select mapped_video from fx), 'x', 1);
   insert into perm_results values ('guest', 'upvote a track', 'allowed', case when r->>'status' = 'voted' then 'allowed' else 'blocked' end);
   r := public.upvote_track((select mapped_video from fx), 'x', 1000000);
@@ -94,6 +98,9 @@ begin
   insert into perm_results values ('admin', 'moderate a staged artist', 'allowed', case when n > 0 then 'allowed' else 'blocked' end);
   delete from public.tracks where id = (select mapped_track from fx); get diagnostics n = row_count;
   insert into perm_results values ('admin', 'delete a track', 'allowed', case when n > 0 then 'allowed' else 'blocked' end);
+  -- The guest saved a Look above; get_my_look must only ever return the caller's own setting.
+  insert into perm_results values ('admin', 'read another user''s Look setting', 'blocked',
+    case when public.get_my_look() is not null then 'allowed' else 'blocked' end);
 end $$;
 reset role;
 
@@ -127,6 +134,10 @@ begin
   begin select count(*) into n from public.tracks;
         insert into perm_results values ('anon', 'read the catalog', 'allowed', case when n > 0 then 'allowed' else 'blocked' end);
   exception when others then insert into perm_results values ('anon', 'read the catalog', 'allowed', 'blocked'); end;
+
+  begin perform public.save_my_look('{"mode":"auto","fixed":"classic","off":[]}');
+        insert into perm_results values ('anon', 'save a Look setting', 'blocked', 'allowed');
+  exception when others then insert into perm_results values ('anon', 'save a Look setting', 'blocked', 'blocked'); end;
 
   begin update public.tracks set title = title where id = (select mapped_track from fx);
         insert into perm_results values ('anon', 'edit the catalog', 'blocked', 'allowed');

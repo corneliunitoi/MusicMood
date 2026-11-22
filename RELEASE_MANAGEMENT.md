@@ -60,6 +60,13 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.8d` — 2026-11-22
+* **Look setting saved to your profile:**
+  * The Look setting (mood skins: *Match my mood* with switched-off looks, or one locked look) is now stored in `user_profiles.look`, so it follows the listener across browsers and devices, and will carry over to the Android app. Guests keep theirs when they sign in with Google (same account).
+  * New database functions `get_my_look()` and `save_my_look(p_look)`: signed-in users and guests only, always acting on the caller's own profile; the input is validated and unknown fields are dropped. No-session visitors are refused.
+  * The browser copy stays for an instant first paint; the profile copy wins once loaded. A listener with a browser-only setting from v0.8.8c has it uploaded on their next visit.
+  * Migration `20261122074222_look_setting` (rollback script in `supabase/rollbacks/`). Permission test: 25 checks (3 new), all passing against the live database.
+
 ### `v0.8.8c` — 2026-11-22
 * **Mood Skins (subtle per-mood look):**
   * **🎨 Nine moods tint the app:** Happy (Golden Hour), Sad (Blue Hour), Chill (Tide), Energetic (Ember), Focus (Ink), Party (Afterglow), Rainy Day (Rain Glass), Romantic (Velvet) and Cyberpunk (Neon Grid) each change the background tint, the accent colour (selected mood chip and tab, play button) and add a faint moving background (floating light, mist, rain, a neon grid, …). Layout, fonts and shapes never change, and colours fade over about 1.4 seconds.

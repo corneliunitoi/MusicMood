@@ -30,7 +30,7 @@ Goal: finish hardening, then ship an Android app on Google Play.
   (73 pre-existing problems; don't add new ones).
 - Database changes: test in a rolled-back transaction first, then apply as a migration and save the
   file in `supabase/migrations/` with the applied version as its timestamp.
-- `supabase/tests/permissions.sql`: 22 rolled-back permission checks; must stay all-PASS.
+- `supabase/tests/permissions.sql`: 25 rolled-back permission checks; must stay all-PASS.
 
 ## Supabase (project `wgrucrcdcpgvnxduftow`)
 
@@ -56,6 +56,8 @@ Goal: finish hardening, then ship an Android app on Google Play.
 - `src/services/auth.js`: Supabase sign-in (Google OAuth redirect, anonymous guests, `linkIdentity`).
 - `server/youtubeResolver.js`: shared YouTube lookup used by `server.js` (production, requires sign-in,
   rate-limited) and `vite.config.js` (local dev).
+- Mood skins: `src/services/moodSkins.js` (looks + rules), `MoodBackdrop.jsx`, `LookSettings.jsx`;
+  the Look setting lives in `user_profiles.look` via `get_my_look` / `save_my_look` (`lookService.js`).
 - Onboarding (`OnboardingWizard.jsx`) is two steps: radar + "Never play" chips, then mood homes.
 
 ## Owner preferences

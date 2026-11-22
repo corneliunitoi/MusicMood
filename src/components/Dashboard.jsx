@@ -19,7 +19,8 @@ import AboutModal from './AboutModal';
 import GlobalSearchModal from './GlobalSearchModal';
 import MoodBackdrop from './MoodBackdrop';
 import LookSettings from './LookSettings';
-import { loadLook, saveLook, resolveSkinId, skinMoodFor } from '../services/moodSkins';
+import { loadLook, saveLook, resolveSkinId, skinMoodFor, DEFAULT_LOOK } from '../services/moodSkins';
+import { fetchProfileLook, saveProfileLook } from '../services/lookService';
 import { getFavoritesCount, subscribeFavorites } from '../services/favoritesService';
 import {
     initUserProfile,
@@ -84,7 +85,26 @@ function Dashboard({ session, token, onLogout }) {
     // Last picked mood that owns a skin; moods without one keep the current look.
     const [lastSkinMood, setLastSkinMood] = useState(() => skinMoodFor(selectedMood));
     const skinId = resolveSkinId(lastSkinMood, look);
-    const handleLookChange = (next) => { setLook(next); saveLook(next); };
+    const handleLookChange = (next) => { setLook(next); saveLook(next); saveProfileLook(next); };
+
+    // Once the profile is known, the saved Look setting wins over this browser's copy.
+    // If the profile has none yet, upload this browser's choice so it follows the listener.
+    const profileId = profile?.id;
+    useEffect(() => {
+        if (!profileId) return undefined;
+        let cancelled = false;
+        fetchProfileLook().then(saved => {
+            if (cancelled) return;
+            if (saved) {
+                setLook(saved);
+                saveLook(saved);
+            } else {
+                const local = loadLook();
+                if (JSON.stringify(local) !== JSON.stringify(DEFAULT_LOOK)) saveProfileLook(local);
+            }
+        });
+        return () => { cancelled = true; };
+    }, [profileId]);
 
     // Global shortcut (Ctrl+K / Cmd+K) for Universal Search
     useEffect(() => {
