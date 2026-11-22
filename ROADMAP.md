@@ -525,6 +525,7 @@ graph TD
 * [x] **v0.8.8g:** Domain `musicmood.co.uk` chosen: redirect and Cloudflare settings ready (off until switched on in Render), final Android app id `uk.co.musicmood`.
 * [x] **v0.8.8h:** Site live on `https://musicmood.co.uk` through Cloudflare; old address forwards; Android test builds use the domain.
 * [x] **v0.8.8i:** Release history tidy-up (milestones in order, 0.8.8a/b added).
+* [x] **v0.8.8j:** Android build guide (`ANDROID_BUILD.md`), `npm run android:setup` and `npm run android:apk`.
 
 ---
 

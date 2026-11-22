@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.8.8j` — 2026-11-22
+* **[Android] Build guide and one-command builds:** new `ANDROID_BUILD.md` (Linux/cloud quick start, Windows with Android Studio, installing test builds, emulator troubleshooting). `npm run android:setup` (`scripts/setup-android-sdk.sh`) installs the Android SDK, writes `android/local.properties` and creates `.env.android`; `npm run android:apk` builds the test app. Tested from an empty SDK folder. No app changes.
+
 ### `v0.8.8i` — 2026-11-22
 * **[Web + Android] Documentation only, no app changes:** the roadmap's completed-milestones list is back in release order and now includes v0.8.8a and v0.8.8b; `CLAUDE.md` shows the current release.
 
