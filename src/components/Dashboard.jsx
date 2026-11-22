@@ -17,6 +17,9 @@ import GuidedTour from './GuidedTour';
 import FeedbackModal from './FeedbackModal';
 import AboutModal from './AboutModal';
 import GlobalSearchModal from './GlobalSearchModal';
+import MoodBackdrop from './MoodBackdrop';
+import LookSettings from './LookSettings';
+import { loadLook, saveLook, resolveSkinId, skinMoodFor } from '../services/moodSkins';
 import { getFavoritesCount, subscribeFavorites } from '../services/favoritesService';
 import {
     initUserProfile,
@@ -76,6 +79,12 @@ function Dashboard({ session, token, onLogout }) {
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [showAboutModal, setShowAboutModal] = useState(false);
     const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+    const [showLookSettings, setShowLookSettings] = useState(false);
+    const [look, setLook] = useState(() => loadLook());
+    // Last picked mood that owns a skin; moods without one keep the current look.
+    const [lastSkinMood, setLastSkinMood] = useState(() => skinMoodFor(selectedMood));
+    const skinId = resolveSkinId(lastSkinMood, look);
+    const handleLookChange = (next) => { setLook(next); saveLook(next); };
 
     // Global shortcut (Ctrl+K / Cmd+K) for Universal Search
     useEffect(() => {
@@ -274,6 +283,8 @@ function Dashboard({ session, token, onLogout }) {
 
     const handleMoodSelect = async (moodId) => {
         setSelectedMood(moodId);
+        const skinMood = skinMoodFor(moodId);
+        if (skinMood) setLastSkinMood(skinMood);
         setIsDiscovering(true);
         setError(null);
 
@@ -337,6 +348,7 @@ function Dashboard({ session, token, onLogout }) {
 
     return (
         <div className="dashboard">
+            <MoodBackdrop skinId={skinId} />
             <header className="dashboard-header-simple">
                 <div className="header-top-bar">
                     {profile ? (
@@ -437,6 +449,16 @@ function Dashboard({ session, token, onLogout }) {
                         >
                             <span className="feedback-icon">🔍</span>
                             <span className="feedback-label">Search</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            className="btn-feedback"
+                            onClick={() => setShowLookSettings(true)}
+                            title="Look: mood colours and backgrounds"
+                        >
+                            <span className="feedback-icon">🎨</span>
+                            <span className="feedback-label">Look</span>
                         </button>
 
                         <button
@@ -736,6 +758,14 @@ function Dashboard({ session, token, onLogout }) {
                 <AboutModal
                     isOpen={showAboutModal}
                     onClose={() => setShowAboutModal(false)}
+                />
+
+                {/* LOOK SETTINGS (mood skins) */}
+                <LookSettings
+                    isOpen={showLookSettings}
+                    onClose={() => setShowLookSettings(false)}
+                    look={look}
+                    onChange={handleLookChange}
                 />
 
                 {/* GUIDED SPOTLIGHT TOUR ACROSS LIVE INTERFACE */}

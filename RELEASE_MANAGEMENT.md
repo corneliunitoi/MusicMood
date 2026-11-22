@@ -60,6 +60,13 @@ Whenever a release or milestone patch is prepared:
 
 ## 📜 Release Changelog
 
+### `v0.8.8c` — 2026-11-22
+* **Mood Skins (subtle per-mood look):**
+  * **🎨 Nine moods tint the app:** Happy (Golden Hour), Sad (Blue Hour), Chill (Tide), Energetic (Ember), Focus (Ink), Party (Afterglow), Rainy Day (Rain Glass), Romantic (Velvet) and Cyberpunk (Neon Grid) each change the background tint, the accent colour (selected mood chip and tab, play button) and add a faint moving background (floating light, mist, rain, a neon grid, …). Layout, fonts and shapes never change, and colours fade over about 1.4 seconds.
+  * **Other moods keep the current look:** picking Late Night, Epic, Dark Academia and the other 10 moods leaves the look as it is. Retired moods follow their replacement (e.g. Workout → Ember).
+  * **🎛️ Settings › Look (new header button):** *Match my mood* (default) with a switch per look; a switched-off look falls back to Classic, the original look. Or *Always use one look* to lock any look, Classic included, for every mood. Saved in the browser (`musicMood_look`).
+  * Respects reduced-motion settings (no animation, no fades). New `src/services/moodSkins.js`, `MoodBackdrop.jsx`, `LookSettings.jsx`; 5 new unit tests (31 total).
+
 ### `v0.8.8b` — 2026-11-21
 * **Simpler Two-Step Onboarding:**
   * **Step 1 — Shape your sound:** the 6-point Sonic Radar, now with a **"Never play"** row underneath: the dealbreaker chips plus an **🤖 AI-generated music** chip (replaces the separate Anti-AI toggle; still on by default).
