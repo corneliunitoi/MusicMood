@@ -141,6 +141,10 @@ function applySecurityHeaders(res) {
     res.setHeader('Content-Security-Policy-Report-Only', CSP_REPORT_ONLY);
 }
 
+// Origins allowed to call /api cross-origin: the Android app (Capacitor serves it from
+// https://localhost). Override with APP_ORIGINS="https://a,https://b" if needed.
+const APP_ORIGINS = new Set((process.env.APP_ORIGINS || 'https://localhost').split(',').map(s => s.trim()).filter(Boolean));
+
 const MAX_TEXT_PARAM = 300;
 const PLAYLIST_ID_RE = /^[A-Za-z0-9_-]{2,64}$/;
 
@@ -169,6 +173,23 @@ const server = http.createServer(async (req, res) => {
     } catch {
         sendJson(res, 400, { error: 'Bad request.' });
         return;
+    }
+
+    // The Android app runs from its own origin and calls the API cross-origin.
+    if (reqUrl.pathname.startsWith('/api/')) {
+        const origin = req.headers.origin;
+        if (origin && APP_ORIGINS.has(origin)) {
+            res.setHeader('Access-Control-Allow-Origin', origin);
+            res.setHeader('Vary', 'Origin');
+            res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+            res.setHeader('Access-Control-Max-Age', '600');
+        }
+        if (req.method === 'OPTIONS') {
+            res.writeHead(204);
+            res.end();
+            return;
+        }
     }
 
     if (reqUrl.pathname.startsWith('/api/') && req.method !== 'GET') {

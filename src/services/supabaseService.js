@@ -25,6 +25,10 @@ export function getActiveUserId() {
  * fetch() for MusicMood's own /api/* endpoints. Attaches the signed-in user's
  * Supabase access token, which the server requires (guests included).
  */
+// Server address for /api calls. Empty on the website (same origin); the Android app sets
+// VITE_API_BASE_URL at build time (e.g. https://musicmood.app) because it runs from the device.
+export const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+
 export async function apiFetch(url, options = {}) {
     let token = null;
     try {
@@ -35,7 +39,8 @@ export async function apiFetch(url, options = {}) {
     }
     const headers = { ...(options.headers || {}) };
     if (token) headers.Authorization = `Bearer ${token}`;
-    return fetch(url, { ...options, headers });
+    const target = typeof url === 'string' && url.startsWith('/api/') ? API_BASE_URL + url : url;
+    return fetch(target, { ...options, headers });
 }
 
 /**

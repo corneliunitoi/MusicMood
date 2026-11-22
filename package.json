@@ -40,9 +40,13 @@
     "inflate:staged": "node scripts/inflateStagedArtists.js --status=approved --tracks=10",
     "inflate:staged:all": "node scripts/inflateStagedArtists.js --status=approved --tracks=10 --all",
     "seed:staged": "node scripts/seedStagedTopArtists.js",
-    "seed:staged:dry": "node scripts/seedStagedTopArtists.js --dry-run"
+    "seed:staged:dry": "node scripts/seedStagedTopArtists.js --dry-run",
+    "build:android": "vite build --mode android && cap sync android",
+    "android:open": "cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/core": "^8.6.2",
     "@supabase/supabase-js": "^2.97.0",
     "dotenv": "^17.3.1",
     "music-metadata": "^11.12.1",
@@ -51,6 +55,7 @@
     "react-youtube": "^10.1.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.6.2",
     "@eslint/js": "^9.39.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

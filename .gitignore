@@ -41,3 +41,6 @@ TASTE_GRAPH_ARCHITECTURE.md
 genres.svg
 *.diagram.svg
 
+
+# Android build settings (copy from .env.android.example)
+.env.android

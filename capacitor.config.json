@@ -1,0 +1,8 @@
+{
+  "appId": "com.musicmood.app",
+  "appName": "MusicMood",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false
+  }
+}
