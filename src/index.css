@@ -1642,6 +1642,9 @@ iframe[src*="youtube.com/embed"] {
   .player-body.player-stage { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 1rem; }
   .player-deck { width: 100%; }
   .player-deck .player-track-info { flex: 0 0 auto; }
+  /* Phones: controls first, TV underneath, so play/skip/like stay near the top. */
+  .player-deck { order: 1; }
+  .player-tv-wrap { order: 2; }
 }
 
 /* ---------- Phones: keep the player within the first screens ----------

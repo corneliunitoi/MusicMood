@@ -264,14 +264,19 @@ const server = http.createServer(async (req, res) => {
         if (!err && stats.isFile()) {
             const ext = path.extname(filePath).toLowerCase();
             const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-            res.writeHead(200, { 'Content-Type': contentType });
+            // Vite's /assets/ files have a content hash in their name, so they can be kept for a year;
+            // everything else (index.html above all) must be re-checked so a new deploy shows up at once.
+            const cacheControl = safePath.replace(/\\/g, '/').startsWith('/assets/')
+                ? 'public, max-age=31536000, immutable'
+                : 'no-cache';
+            res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': cacheControl });
             fs.createReadStream(filePath).pipe(res);
         } else {
             // SPA fallback: return index.html for client-side routing
             const indexPath = path.join(DIST_DIR, 'index.html');
             fs.stat(indexPath, (indexErr, indexStats) => {
                 if (!indexErr && indexStats.isFile()) {
-                    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
                     fs.createReadStream(indexPath).pipe(res);
                 } else {
                     res.writeHead(404, { 'Content-Type': 'text/plain' });

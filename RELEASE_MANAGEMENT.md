@@ -80,6 +80,10 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.8.8f` — 2026-11-22
+* **[Web + Android] Phones: controls above the TV.** On phones the track info, play/skip/like and progress bar come first and the TV sits underneath, so the controls stay near the top. Desktop keeps the TV beside the controls.
+* **[Web] Fresh pages after every deploy:** `server.js` now sends caching rules. Pages (`index.html`, the privacy and terms pages) are re-checked on every visit, so a new release shows up at once instead of a stale copy. Vite's hashed files in `/assets/` are kept for a year, which also makes repeat visits faster.
+
 ### `v0.8.8e` — 2026-11-22
 * **[Web + Android] Visible player in a retro TV:** the YouTube player is no longer a hidden 1×1 frame. It plays on a 268×201 TV screen (YouTube requires a visible player of at least 200×200), with a faded bezel, speaker, mood-coloured power light and knobs around and below the screen, never on top. Two columns on desktop, stacked on phones. The cover shows behind the player while it loads.
 * **[Web + Android] Phone layout:** the player fits one phone screen (one-line header; the Active Node label, mood name and energy readout are hidden on phones), smaller phone headline (the old 480px rules were overridden by the later 768px block), and picking a mood on a phone scrolls to the player. The guided tour card docks to the bottom on phones so it no longer covers what it describes.
