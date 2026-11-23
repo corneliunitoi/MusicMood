@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0d` — 2026-11-23
+* **[Web + Android]** Phonk starter list grown to 14 tracks (Kordhell, PlayaPhonk and others, plus the owner's YouTube example). `npm run add:phonk` now also accepts a bare YouTube video id and reads the title and artist from the video. Still no new genre (`trap_modern`); dry run unless `-- --apply`.
+
 ### `v0.9.0c` — 2026-11-23
 * **[Web + Android]** Phonk tracks, with no new genre: `npm run add:phonk` looks up each song's real YouTube video, checks the title matches, skips tracks already in the catalog and files the rest under the existing `trap_modern` genre (so they play in Energetic, Party and Dark Intense). Dry run by default; `-- --apply` writes (needs `SUPABASE_SERVICE_ROLE_KEY`). Starts with *No Batidão (Montagem Tomada Funk)* and eight well-known phonk tracks; add more in `scripts/addPhonkTracks.js`.
 

@@ -18,14 +18,17 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
-import { resolveTrack, titlesMatch } from '../server/youtubeResolver.js';
+import { resolveTrack, titlesMatch, parseTitleAndArtist } from '../server/youtubeResolver.js';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 const GENRE_ID = 'trap_modern';
 const SOURCE = 'canonical_seed';
 
+// An entry is { artist, title } (the video is looked up and title-checked) or { youtube_video_id }
+// on its own (artist and title are read from the video; add artist/title to override them).
 export const PHONK_TRACKS = [
+    { youtube_video_id: 'ovj8Gb_cVgY' }, // the owner's example link
     { artist: 'Galactico', title: 'No Batidão (Montagem Tomada Funk)' },
     { artist: 'ATLXS', title: 'PASSO BEM SOLTO' },
     { artist: 'Kordhell', title: 'Murder In My Mind' },
@@ -34,8 +37,21 @@ export const PHONK_TRACKS = [
     { artist: 'Interworld', title: 'Metamorphosis' },
     { artist: 'Hensonn', title: 'Sahara' },
     { artist: 'Eternxlkz', title: 'SLAY!' },
-    { artist: 'MoonDeity', title: 'NEON BLADE' }
+    { artist: 'MoonDeity', title: 'NEON BLADE' },
+    { artist: 'Kordhell', title: 'Scopin' },
+    { artist: 'Kordhell', title: 'Power' },
+    { artist: 'Kordhell', title: 'Killers From The Northern Haunt' },
+    { artist: 'PlayaPhonk', title: 'Phonky Town' }
 ];
+
+/** Reads title + channel of a video from YouTube's public oEmbed endpoint. */
+async function describeVideo(videoId) {
+    const url = `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`YouTube could not describe video ${videoId} (HTTP ${res.status})`);
+    const info = await res.json();
+    return parseTitleAndArtist(info.title, info.author_name);
+}
 
 const isApply = process.argv.includes('--apply');
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -54,10 +70,16 @@ async function run() {
     console.log(`🎧 Phonk tracks → genre "${GENRE_ID}" (${isApply ? 'APPLY' : 'dry run, nothing is written'})\n`);
     const counts = { added: 0, present: 0, skipped: 0, errors: 0 };
 
-    for (const entry of PHONK_TRACKS) {
-        const label = `${entry.artist} - ${entry.title}`;
+    for (const listed of PHONK_TRACKS) {
+        let entry = listed;
+        let label = listed.artist ? `${listed.artist} - ${listed.title}` : `video ${listed.youtube_video_id}`;
         try {
             let videoId = entry.youtube_video_id || null;
+            if (videoId && !(entry.artist && entry.title)) {
+                const described = await describeVideo(videoId);
+                entry = { ...entry, artist: entry.artist || described.artist, title: entry.title || described.title };
+                label = `${entry.artist} - ${entry.title}`;
+            }
             if (!videoId) {
                 const found = await resolveTrack(entry.artist, entry.title);
                 videoId = found?.videoId || null;
