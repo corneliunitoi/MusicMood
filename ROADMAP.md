@@ -547,6 +547,7 @@ graph TD
 * [x] **v0.9.0s:** MusicBrainz tag-search bug fixed, gap-fill harvest for nine thin sub-genres, flagged-mistakes log.
 * [x] **v0.9.0t:** Indie folk harvest filter loosened.
 * [x] **v0.9.0u:** P-funk and nature soundscape harvest options, with length and title guards.
+* [x] **v0.9.0v:** Nature soundscape harvest filters out noise-colour videos.
 
 ---
 

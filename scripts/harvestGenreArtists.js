@@ -181,7 +181,7 @@ export const GENRE_TARGET_CONFIGS = {
         rejectGenres: [...LOUD_OR_EDGY, ...POP_LIKE],
         // No hours-long loops: songs over 15 minutes and "10 hours / loop / white noise / ASMR" videos are skipped.
         maxTrackSeconds: 900,
-        rejectVideoTitle: /(\d+\s*(hours?|hrs?)\b|\bhours?\b|\bloop\b|\bwhite noise\b|\basmr\b|\binsomnia\b)/i,
+        rejectVideoTitle: /(\d+\s*(hours?|hrs?)\b|\bhours?\b|\bloop\b|\b(white|pink|brown) noise\b|\basmr\b|\binsomnia\b)/i,
         tags: ['nature sounds', 'field recordings', 'soundscape', 'nature', 'environmental'],
         anchors: ['Chris Watson', 'Bernie Krause', 'Jana Winderen', 'Lawrence English', 'Dan Gibson', 'Kevin Kendle', 'Biosphere']
     },
