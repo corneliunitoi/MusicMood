@@ -119,6 +119,23 @@ VITE_GOOGLE_WEB_CLIENT_ID=<web client id>.apps.googleusercontent.com
 
 ---
 
+### If Google sign-in fails with "[16] Account reauth failed"
+
+Confirmed working on an emulator with the upload-key build (v0.9.0i). The error is Google rejecting the app, and it was caused by two
+typos in this setup. Check, in order:
+
+1. **Android client, Package name** is exactly `uk.co.musicmood` (no trailing dot or space) and **SHA-1** is exactly the one printed by
+   `keytool -list -v -keystore <upload keystore> -alias musicmood` (the build prints it too). Press **Save**; new or edited clients can take
+   a few minutes to a few hours to apply.
+2. `GOOGLE_WEB_CLIENT_ID` / `VITE_GOOGLE_WEB_CLIENT_ID` is the **Web client ID** (`<number>-<letters>.apps.googleusercontent.com`), never the
+   Android client's ID and never a `GOCSPX-` client secret. The build and the app refuse a value that is not a client ID.
+3. The Android and Web clients are in the **same** Google Cloud project (their IDs start with the same number) and the OAuth app is **In production**.
+4. Test on an emulator image with **Google Play**, with a screen lock set and your Google account added.
+
+`adb logcat -d | Select-String "GoogleProvider"` prints the package, signing SHA-1 and the last characters of the Web client ID the app really sends.
+
+---
+
 ## Signed builds (upload key)
 
 `android/app/build.gradle` signs **debug and release** builds with the upload key when these environment variables

@@ -123,7 +123,7 @@ Starts only after Phases 0–3 are complete.
 
 * [x] ~~**Engine portability**~~ — not needed: the app uses Capacitor, which runs the same React code (including `localStorage`) inside Android's WebView.
 * [~] **Android client (Capacitor 8):** shell in `android/`, versioned builds, background pause, visible TV player, phone layout fixes. *(Started in v0.8.8e.)*
-* [~] **Native Google sign-in** via Credential Manager + `supabase.auth.signInWithIdToken` (code and upload-key signing done in v0.8.9; still to do: test on a phone, add the Play App Signing SHA-1 before the first Play release).
+* [~] **Native Google sign-in** via Credential Manager + `supabase.auth.signInWithIdToken` (done and tested on an emulator in v0.9.0i; still to do: add the Play App Signing SHA-1 as a second Android client before the first Play release).
 * [ ] **Phone polish:** compact Calibrate window and welcome screen on phones; prefer YouTube audio uploads so the TV mostly shows a still cover.
 * [~] **Minimum-version check** ("Please update"); signed Android build workflow exists (manual, v0.8.9), attaching it to the auto-release is still open.
 * [ ] **Play Store:** developer account ($25), closed test with 12 testers for 14 days, store listing (icon, banner, screenshots, texts, data safety, content rating), Render paid plan so the server does not sleep.
@@ -535,6 +535,7 @@ graph TD
 * [x] **v0.9.0g:** Signed-build workflow: clearer missing-secret message, short secret names accepted.
 * [x] **v0.9.0h:** Signed-build download named with the app version.
 * [x] **v0.9.0i:** Guard against a client secret being used as the Web client ID.
+* [x] **v0.9.0j:** Native Google sign-in confirmed on an emulator; troubleshooting checklist added.
 
 ---
 
