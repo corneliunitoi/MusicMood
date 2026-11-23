@@ -73,12 +73,16 @@ One codebase, one `main` branch, one version number, two release speeds.
 ---
 
 > [!IMPORTANT]
-> **VERSION CEILING LOCK (v0.8.x Stability & Hardening Period):**
-> Do **NOT** bump the project version past `0.8.x` (e.g., do not increment to `0.9.0` or `1.0.0`) until explicitly authorized by the project owner. The entire `v0.8.x` release series is strictly reserved for **stability, reliability, performance hardening, and bug fixes**. Any incremental updates must follow patch/minor notation within `0.8.x` (e.g. `0.8.0a`, `0.8.0b`, `0.8.1`, etc.).
+> **VERSION CEILING LOCK (now v0.9.x; the owner authorized the move from 0.8.x on 2026-11-23):**
+> Do **NOT** bump the project version past `0.9.x` (e.g., do not increment to `1.0.0`) until explicitly authorized by the project owner. The entire `v0.8.x` release series is strictly reserved for **stability, reliability, performance hardening, and bug fixes**. Any incremental updates must follow patch/minor notation within `0.8.x` (e.g. `0.8.0a`, `0.8.0b`, `0.8.1`, etc.).
 
 ---
 
 ## 📜 Release Changelog
+
+### `v0.9.0b` — 2026-11-23
+* **[Web + Android]** Guest access: "Continue as Guest" was failing for everyone with `anonymous_provider_disabled` because Supabase's *Allow anonymous sign-ins* project setting was off (0 guest accounts existed). The setting must be ON (Authentication → Sign In / Providers); this is now documented in `CLAUDE.md`. No app or database change: guests already get their own account, a private favourites store, vote weight 0.25 and a 100-actions-per-30-minutes cap, and upgrade to Google without losing data.
+* Version series moved from 0.8.x to 0.9.x at the owner's request.
 
 ### `v0.8.9` — 2026-11-22
 * **[Android]** Native Google sign-in: Credential Manager account chooser + `supabase.auth.signInWithIdToken` (guests are upgraded with `linkIdentity`, keeping favourites). Needs `VITE_GOOGLE_WEB_CLIENT_ID` and an Android OAuth client (package `uk.co.musicmood` + signing SHA-1). Unused plugin providers (Facebook, Apple, Twitter) are switched off.

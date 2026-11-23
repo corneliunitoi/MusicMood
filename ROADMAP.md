@@ -527,6 +527,7 @@ graph TD
 * [x] **v0.8.8i:** Release history tidy-up (milestones in order, 0.8.8a/b added).
 * [x] **v0.8.8j:** Android build guide (`ANDROID_BUILD.md`), `npm run android:setup` and `npm run android:apk`.
 * [x] **v0.8.9:** Native Google sign-in for the Android app; upload-key signing from GitHub secrets and a signed-build workflow.
+* [x] **v0.9.0b:** Guest access documented (Supabase *Allow anonymous sign-ins* must be ON); version series moved to 0.9.x.
 
 ---
 

@@ -5,7 +5,7 @@ Goal: finish hardening, then ship an Android app on Google Play.
 
 ## Where things stand (Nov 22, 2026)
 
-- Current release: see `package.json` (`0.8.9` at the time of writing). Full history in `RELEASE_MANAGEMENT.md`.
+- Current release: see `package.json` (`0.9.0b` at the time of writing). Full history in `RELEASE_MANAGEMENT.md`.
 - `ROADMAP.md` is the plan: Phases 0–3 (security & stability) are done; **Phase 4 (Android, Capacitor) is in
   progress**. The custom-domain switch plan is in `ROADMAP.md` and must happen before the first Play release.
 - Google OAuth app is **published** (sign-in uses basic scopes only; `youtube.readonly` is requested
@@ -13,8 +13,8 @@ Goal: finish hardening, then ship an Android app on Google Play.
 
 ## Release process (follow it for every change that reaches `main`)
 
-- Versions stay within `0.8.x` until the owner authorizes `1.0`. Use letter releases for fixes
-  (`0.8.8a`, `0.8.8b`, …) and bump the patch (`0.8.9`) for milestone/feature releases when asked.
+- Versions stay within `0.9.x` until the owner authorizes `1.0` (the owner moved the series from `0.8.x` to `0.9.0b` on Nov 23, 2026).
+  Use letter releases for fixes (`0.9.0b`, `0.9.0c`, …) and bump the patch (`0.9.1`) for milestone/feature releases when asked.
 - For each release: bump `package.json` + `package-lock.json`, the README version badge, add a
   changelog entry at the top of `RELEASE_MANAGEMENT.md`, add a milestone line in `ROADMAP.md`.
 - Work on a `claude/<topic>` branch, then fast-forward `main` (`git push origin HEAD:main`).
@@ -44,6 +44,8 @@ Goal: finish hardening, then ship an Android app on Google Play.
 ## Supabase (project `wgrucrcdcpgvnxduftow`)
 
 - Identity = Supabase Auth only (`auth.uid()` = `user_profiles.id`). Google users and anonymous guests.
+  **Authentication → Sign In / Providers → "Allow anonymous sign-ins" must stay ON**: when it is off, "Continue as Guest" fails
+  with `anonymous_provider_disabled` (422 on `/signup`; shown in the app as "Guest access is temporarily unavailable").
   Roles live in `user_profiles` and are protected by `trg_protect_profile_privileges`.
 - Catalog tables (`tracks`, `artists`, `local_metadata`, …): signed-in users may add rows and fill a
   missing `youtube_video_id`; edits/deletes are admin-only (`is_admin()`) or service role.
