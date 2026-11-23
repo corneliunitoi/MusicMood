@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0f` — 2026-11-23
+* **[Android]** New app icon, "Midnight" cut gem: a faceted indigo gem with a pearl music note, drawn inside Android's safe circle so round and squircle masks never crop it. Adaptive icon (background + foreground layers), legacy and round icons for all densities, and the 512 px Play Store icon (`branding/play-store-icon-512.png`). Sources in `branding/*.svg`; regenerate with `scripts/generateAndroidIcons.mjs`.
+
 ### `v0.9.0e` — 2026-11-23
 * **[Web + Android]** New manual GitHub workflow *Add phonk tracks* runs `scripts/addPhonkTracks.js` with the repository's service key (dry run unless "apply" is ticked), because tracks without a YouTube id never play and YouTube is only reachable from there. Rows are tagged `source = 'phonk_seed'`. No inflation: only the listed songs are added.
 

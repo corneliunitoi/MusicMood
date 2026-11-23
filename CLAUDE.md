@@ -5,7 +5,7 @@ Goal: finish hardening, then ship an Android app on Google Play.
 
 ## Where things stand (Nov 22, 2026)
 
-- Current release: see `package.json` (`0.9.0e` at the time of writing). Full history in `RELEASE_MANAGEMENT.md`.
+- Current release: see `package.json` (`0.9.0f` at the time of writing). Full history in `RELEASE_MANAGEMENT.md`.
 - `ROADMAP.md` is the plan: Phases 0–3 (security & stability) are done; **Phase 4 (Android, Capacitor) is in
   progress**. The custom-domain switch plan is in `ROADMAP.md` and must happen before the first Play release.
 - Google OAuth app is **published** (sign-in uses basic scopes only; `youtube.readonly` is requested

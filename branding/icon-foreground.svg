@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108">
+  <!-- MusicMood icon, "Midnight" finish. Foreground layer: transparent, gem + note inside Android's safe circle. -->
+  <defs>
+    <linearGradient id="table" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4d4fc9"/><stop offset="1" stop-color="#14143f"/></linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.55"/><stop offset="0.6" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <linearGradient id="note" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e6d6ff"/></linearGradient>
+    <filter id="blur" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="2.2"/></filter>
+  </defs>
+  <ellipse cx="54" cy="92" rx="22" ry="3.2" fill="#000" fill-opacity="0.55" filter="url(#blur)"/>
+  <polygon points="25.42,37.5 54,21 54,33 35.81,43.5" fill="#5b5fe0"/>
+  <polygon points="25.42,70.5 25.42,37.5 35.81,43.5 35.81,64.5" fill="#4a4ccc"/>
+  <polygon points="54,87 25.42,70.5 35.81,64.5 54,75" fill="#26267a"/>
+  <polygon points="82.58,70.5 54,87 54,75 72.19,64.5" fill="#1b1b5c"/>
+  <polygon points="82.58,37.5 82.58,70.5 72.19,64.5 72.19,43.5" fill="#2c2c8f"/>
+  <polygon points="54,21 82.58,37.5 72.19,43.5 54,33" fill="#3f3fb5"/>
+  <polygon points="54,33 72.19,43.5 72.19,64.5 54,75 35.81,64.5 35.81,43.5" fill="url(#table)"/>
+  <polygon points="25.42,37.5 54,21 82.58,37.5 54,54" fill="url(#sheen)" fill-opacity="0.6"/>
+  <g fill="none" stroke="#a78bfa" stroke-opacity="0.85" stroke-width="0.8" stroke-linejoin="round">
+    <polygon points="54,21 82.58,37.5 82.58,70.5 54,87 25.42,70.5 25.42,37.5"/>
+    <polygon points="54,33 72.19,43.5 72.19,64.5 54,75 35.81,64.5 35.81,43.5"/>
+    <path d="M54 21V33M82.58 37.5L72.19 43.5M82.58 70.5L72.19 64.5M54 87V75M25.42 70.5L35.81 64.5M25.42 37.5L35.81 43.5"/>
+  </g>
+  <g transform="translate(55.6 54.4) scale(0.8) translate(-54 -52)"><g fill="#000" fill-opacity="0.5">
+    <ellipse cx="46" cy="65" rx="8.5" ry="6.5" transform="rotate(-20 46 65)"/>
+    <path d="M52.4 63V33.5H55.6V63Z M55.6 33.5C61 38 69 39.5 68 51C66.2 45.5 61 43.5 55.6 42.5Z"/>
+  </g></g>
+  <g transform="translate(54 53) scale(0.8) translate(-54 -52)">
+    <ellipse cx="46" cy="65" rx="8.5" ry="6.5" transform="rotate(-20 46 65)" fill="url(#note)"/>
+    <path d="M52.4 63V33.5H55.6V63Z M55.6 33.5C61 38 69 39.5 68 51C66.2 45.5 61 43.5 55.6 42.5Z" fill="url(#note)"/>
+  </g>
+  <path d="M36.5 25L37.8 29.2L42 30.5L37.8 31.8L36.5 36L35.2 31.8L31 30.5L35.2 29.2Z" fill="#c4b5fd"/>
+</svg>

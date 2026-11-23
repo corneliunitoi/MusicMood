@@ -531,6 +531,7 @@ graph TD
 * [x] **v0.9.0c:** Phonk tracks added to the catalog under `trap_modern` (`npm run add:phonk`), no new genre.
 * [x] **v0.9.0d:** Phonk starter list grown to 14 tracks; `add:phonk` accepts bare YouTube ids.
 * [x] **v0.9.0e:** Manual *Add phonk tracks* workflow (dry run by default).
+* [x] **v0.9.0f:** New "Midnight" cut-gem app icon (all Android densities + Play Store 512 px).
 
 ---
 

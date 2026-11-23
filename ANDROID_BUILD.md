@@ -82,6 +82,14 @@ downloads Gradle itself (~200 MB) and takes a few minutes; later builds take und
 
 ---
 
+## App icon
+
+Sources are `branding/icon-background.svg`, `icon-foreground.svg` and `icon-full.svg` (the "Midnight" cut gem). After editing them,
+run `node scripts/generateAndroidIcons.mjs` (needs Playwright) to rewrite every `mipmap-*` icon and
+`branding/play-store-icon-512.png`, the file to upload as the Play Store icon.
+
+---
+
 ## Native Google sign-in (v0.8.9)
 
 The app shows Android's own Google account chooser (Credential Manager) and hands the resulting ID token to
