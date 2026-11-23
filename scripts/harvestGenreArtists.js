@@ -17,6 +17,7 @@
  *   node scripts/harvestGenreArtists.js --genre=country --count=200 --tracks=5
  *   node scripts/harvestGenreArtists.js --genre=folk_acoustic --count=200 --tracks=5
  *   node scripts/harvestGenreArtists.js --genre=avant_garde --count=200 --tracks=5
+ *   node scripts/harvestGenreArtists.js --genre=darksynth --count=80 --tracks=5   (dark synth / cyberpunk; not part of "all")
  *   node scripts/harvestGenreArtists.js --genre=all --count=200 --tracks=5
  *   node scripts/harvestGenreArtists.js --genre=blues --count=10 --dry-run
  */
@@ -77,6 +78,19 @@ export const GENRE_TARGET_CONFIGS = {
             'indie folk', 'anti-folk', 'fingerstyle', 'folk'
         ],
         anchors: ['Bob Dylan', 'Joni Mitchell', 'Nick Drake', 'Joan Baez', 'Fairport Convention', 'Bert Jansch']
+    },
+    darksynth: {
+        id: 'darksynth',
+        label: 'Dark Synth / Cyberpunk',
+        primaryDefault: 'darksynth',
+        // Artists must carry one of these Last.fm tags (substring match) to be accepted, and are then
+        // filed under darksynth even when their first tag is the broader "synthwave".
+        forceTags: ['darksynth', 'dark synth', 'cyberpunk', 'horror synth', 'dark synthwave'],
+        tags: [
+            'darksynth', 'dark synth', 'cyberpunk', 'horror synth', 'dark synthwave',
+            'synthwave', 'retrowave', 'outrun'
+        ],
+        anchors: ['Carpenter Brut', 'Perturbator', 'GosT', 'Dance With the Dead', 'Mega Drive', 'Scandroid']
     },
     avant_garde: {
         id: 'avant_garde',
@@ -351,6 +365,19 @@ async function harvestGenre(config) {
             primaryGenre = config.primaryDefault;
         }
 
+        // Configs with forceTags accept only artists carrying one of those tags, filed under the target genre
+        if (config.forceTags) {
+            const hit = rawTags.some(t => config.forceTags.some(f => t.includes(f)));
+            if (!hit) {
+                console.log(`   ⏭️ Skipped "${candidate.name}": no ${config.label} tag in [${rawTags.slice(0, 5).join(', ')}].`);
+                continue;
+            }
+            if (primaryGenre !== config.primaryDefault) {
+                if (primaryGenre && !secondaryGenres.includes(primaryGenre)) secondaryGenres.unshift(primaryGenre);
+                primaryGenre = config.primaryDefault;
+            }
+        }
+
         // Check if primary or secondary matches the target genre family
         const targetFamilyId = config.id;
         const allAssociatedGenres = [primaryGenre, ...secondaryGenres];
@@ -519,7 +546,7 @@ async function run() {
     } else if (GENRE_TARGET_CONFIGS[TARGET_GENRE]) {
         targetsToRun.push(GENRE_TARGET_CONFIGS[TARGET_GENRE]);
     } else {
-        console.error(`Unknown target genre: "${TARGET_GENRE}". Valid options: blues, country, folk_acoustic, avant_garde, all`);
+        console.error(`Unknown target genre: "${TARGET_GENRE}". Valid options: blues, country, folk_acoustic, avant_garde, darksynth, all`);
         process.exit(1);
     }
 

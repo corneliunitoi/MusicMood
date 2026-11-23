@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0o` — 2026-11-23
+* **[Web + Android]** Dark synth / cyberpunk catalog growth: the *Targeted Genre Inflation Pipeline* gains a `darksynth` option (Last.fm darksynth / cyberpunk / horror-synth tags and similar-artist links from Carpenter Brut, Perturbator, GosT, Dance With the Dead, Mega Drive and Scandroid). Only artists carrying a dark-synth tag are accepted and they are filed under `darksynth`. Same quality gates as before (no bootlegs or live rips, studio audio, no duplicates). Not part of the `all` option.
+
 ### `v0.9.0n` — 2026-11-23
 * **[Web + Android]** No more em dashes in the app's text: the guided tour (badge and three descriptions) and the artist explorer (heading and helper line) now use plain punctuation. The code that cleans artist names still treats dashes as separators, on purpose.
 
