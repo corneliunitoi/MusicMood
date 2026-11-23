@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0q` — 2026-11-23
+* **[Web + Android]** Dark synth harvest skips artists that also read as classical, film-score or pop (found in the first dry run: an orchestral film composer carried a "darksynth" tag).
+
 ### `v0.9.0p` — 2026-11-23
 * **[Web + Android]** The genre inflation pipeline now stops with a clear error when `LASTFM_API_KEY` is missing instead of finishing "successfully" with nothing added (found when the first dark synth dry run returned zero artists: the repository has no Last.fm key secret).
 

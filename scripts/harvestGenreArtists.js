@@ -91,6 +91,8 @@ export const GENRE_TARGET_CONFIGS = {
         // Artists must carry one of these Last.fm tags (substring match) to be accepted, and are then
         // filed under darksynth even when their first tag is the broader "synthwave".
         forceTags: ['darksynth', 'dark synth', 'cyberpunk', 'horror synth', 'dark synthwave'],
+        // Artists that also read as any of these are skipped (e.g. orchestral film composers tagged "darksynth").
+        rejectGenres: ['classical', 'cinematic_orchestral', 'chamber_music', 'neo_classical', 'contemporary_classical', 'baroque', 'opera', 'pop', 'mainstream_pop', 'dance_pop', 'country', 'folk_acoustic'],
         tags: [
             'darksynth', 'dark synth', 'cyberpunk', 'horror synth', 'dark synthwave',
             'synthwave', 'retrowave', 'outrun'
@@ -375,6 +377,11 @@ async function harvestGenre(config) {
             const hit = rawTags.some(t => config.forceTags.some(f => t.includes(f)));
             if (!hit) {
                 console.log(`   ⏭️ Skipped "${candidate.name}": no ${config.label} tag in [${rawTags.slice(0, 5).join(', ')}].`);
+                continue;
+            }
+            const rejected = (config.rejectGenres || []).filter(g => primaryGenre === g || secondaryGenres.includes(g));
+            if (rejected.length) {
+                console.log(`   ⏭️ Skipped "${candidate.name}": also reads as [${rejected.join(', ')}], not ${config.label}.`);
                 continue;
             }
             if (primaryGenre !== config.primaryDefault) {
