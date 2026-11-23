@@ -1,7 +1,7 @@
 {
   "name": "musicmood",
   "private": true,
-  "version": "0.9.0b",
+  "version": "0.9.0c",
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
@@ -37,6 +37,7 @@
     "resolve:flags:apply": "node scripts/resolveFlaggedTracks.js --apply",
     "populate:avatars": "node scripts/populateArtistAvatars.js",
     "populate:demos": "node scripts/populateStagedDemos.js",
+    "add:phonk": "node scripts/addPhonkTracks.js",
     "inflate:staged": "node scripts/inflateStagedArtists.js --status=approved --tracks=10",
     "inflate:staged:all": "node scripts/inflateStagedArtists.js --status=approved --tracks=10 --all",
     "seed:staged": "node scripts/seedStagedTopArtists.js",

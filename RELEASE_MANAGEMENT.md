@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0c` — 2026-11-23
+* **[Web + Android]** Phonk tracks, with no new genre: `npm run add:phonk` looks up each song's real YouTube video, checks the title matches, skips tracks already in the catalog and files the rest under the existing `trap_modern` genre (so they play in Energetic, Party and Dark Intense). Dry run by default; `-- --apply` writes (needs `SUPABASE_SERVICE_ROLE_KEY`). Starts with *No Batidão (Montagem Tomada Funk)* and eight well-known phonk tracks; add more in `scripts/addPhonkTracks.js`.
+
 ### `v0.9.0b` — 2026-11-23
 * **[Web + Android]** Guest access: "Continue as Guest" was failing for everyone with `anonymous_provider_disabled` because Supabase's *Allow anonymous sign-ins* project setting was off (0 guest accounts existed). The setting must be ON (Authentication → Sign In / Providers); this is now documented in `CLAUDE.md`. No app or database change: guests already get their own account, a private favourites store, vote weight 0.25 and a 100-actions-per-30-minutes cap, and upgrade to Google without losing data.
 * Version series moved from 0.8.x to 0.9.x at the owner's request.
