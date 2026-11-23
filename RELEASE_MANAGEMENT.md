@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0l` — 2026-11-23
+* **[Web + Android]** Friendlier welcome text on the sign-in screen and the welcome splash: leads with what MusicMood gives you ("Your mood, your music…") instead of what is wrong with other services. The Android app picks it up in the next APK.
+
 ### `v0.9.0k` — 2026-11-23
 * **[Web + Android]** Abuse limits for signed-in accounts, guests included (migration `20261123210654_abuse_limits`, additive; rollback saved):
   * catalog inserts are limited per account per hour (tracks, artists, archive rows: 60 for guests / 300 for signed-in users; artist requests: 10 / 30), with sanity checks on new tracks (text length, well-formed video id);

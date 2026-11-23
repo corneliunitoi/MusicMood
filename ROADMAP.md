@@ -537,6 +537,7 @@ graph TD
 * [x] **v0.9.0i:** Guard against a client secret being used as the Web client ID.
 * [x] **v0.9.0j:** Native Google sign-in confirmed on an emulator; troubleshooting checklist added.
 * [x] **v0.9.0k:** Abuse limits for guests and signed-in accounts (catalog inserts, feedback, video-id fill).
+* [x] **v0.9.0l:** Positive welcome text on the sign-in screen and welcome splash.
 
 ---
 

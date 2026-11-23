@@ -126,7 +126,7 @@ export default function WelcomeSplash({ onStartTour, onClose }) {
                         maxWidth: '640px'
                     }}
                 >
-                    Most streaming platforms trap you in a predictable loop after three songs. <strong style={{ color: '#ffffff' }}>MusicMood</strong> asks a few quick questions about your tastes, then learns and evolves with you—curating authentic music for each headspace without algorithmic drift.
+                    Your mood, your music. Answer a few quick questions and <strong style={{ color: '#ffffff' }}>MusicMood</strong> builds a soundtrack for how you feel today, and keeps getting better the more you listen.
                 </p>
 
                 {/* 3 Value Pillar Cards */}

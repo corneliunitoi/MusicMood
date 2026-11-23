@@ -100,7 +100,7 @@ function App() {
       <section className="hero">
         <h1>Music for Each Mood</h1>
         <p className="subtitle" style={{ maxWidth: '620px', margin: '0 auto 1.5rem auto', lineHeight: '1.5' }}>
-          Tired of AI algorithms telling you what you should listen to? MusicMood learns your taste baseline, respects your boundaries, and steers playback by your state of mind with zero algorithmic drift.
+          Your mood, your music. Answer a few quick questions and MusicMood builds a soundtrack for how you feel today, and keeps getting better the more you listen.
         </p>
 
         <div className="glass-card">
