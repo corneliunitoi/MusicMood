@@ -48,6 +48,11 @@ const ARTIST_COUNT = parseInt(getArg('--count=', '200'), 10);
 const TRACKS_PER_ARTIST = parseInt(getArg('--tracks=', '5'), 10);
 const IS_DRY_RUN = args.includes('--dry-run');
 
+if (!API_KEY) {
+    console.error('❌ LASTFM_API_KEY is missing. Artist and track discovery needs a free Last.fm API key: create one at https://www.last.fm/api/account/create and add it as the repository secret LASTFM_API_KEY (or put it in .env).');
+    process.exit(1);
+}
+
 export const GENRE_TARGET_CONFIGS = {
     blues: {
         id: 'blues',

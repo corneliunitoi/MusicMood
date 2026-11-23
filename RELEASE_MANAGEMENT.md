@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0p` — 2026-11-23
+* **[Web + Android]** The genre inflation pipeline now stops with a clear error when `LASTFM_API_KEY` is missing instead of finishing "successfully" with nothing added (found when the first dark synth dry run returned zero artists: the repository has no Last.fm key secret).
+
 ### `v0.9.0o` — 2026-11-23
 * **[Web + Android]** Dark synth / cyberpunk catalog growth: the *Targeted Genre Inflation Pipeline* gains a `darksynth` option (Last.fm darksynth / cyberpunk / horror-synth tags and similar-artist links from Carpenter Brut, Perturbator, GosT, Dance With the Dead, Mega Drive and Scandroid). Only artists carrying a dark-synth tag are accepted and they are filed under `darksynth`. Same quality gates as before (no bootlegs or live rips, studio audio, no duplicates). Not part of the `all` option.
 

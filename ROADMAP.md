@@ -541,6 +541,7 @@ graph TD
 * [x] **v0.9.0m:** Player uses a plain hyphen between title and artist.
 * [x] **v0.9.0n:** Em dashes removed from all visible app text.
 * [x] **v0.9.0o:** Dark synth / cyberpunk harvest option for the genre inflation workflow.
+* [x] **v0.9.0p:** Genre inflation fails loudly when the Last.fm key is missing.
 
 ---
 
