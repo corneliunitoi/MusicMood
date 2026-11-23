@@ -146,6 +146,35 @@ end $$;
 reset role;
 
 -- ---------------------------------------------------------------------
+-- Abuse limits (v0.9.0k): per-account insert limits, feedback limits, safe video-id fill
+-- ---------------------------------------------------------------------
+insert into public.tracks (title, artist, youtube_video_id, source) values ('__perm_fill__', 'Perm Real Artist', null, 'test');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-00000000a002","role":"authenticated","is_anonymous":true}', true);
+set local role authenticated;
+do $$
+declare ok int := 0; i int; a text; v text;
+begin
+  for i in 1..65 loop
+    begin insert into public.tracks (title, artist, youtube_video_id, source) values ('__perm_q__' || i, '__perm_qa__', 'pq' || lpad(i::text, 9, '0'), 'test'); ok := ok + 1;
+    exception when others then null; end;
+  end loop;
+  insert into perm_results values ('guest', 'add more than 60 tracks in an hour', 'blocked', case when ok > 60 then 'allowed' else 'blocked' end);
+
+  begin insert into public.tracks (title, artist, youtube_video_id, source) values ('x', 'y', 'not-valid', 'test');
+        insert into perm_results values ('guest', 'add a track with a malformed video id', 'blocked', 'allowed');
+  exception when others then insert into perm_results values ('guest', 'add a track with a malformed video id', 'blocked', 'blocked'); end;
+
+  begin insert into public.feedback (user_id, name, comment) values (null, 'perm', repeat('x', 2001));
+        insert into perm_results values ('guest', 'send a 2001-character feedback', 'blocked', 'allowed');
+  exception when others then insert into perm_results values ('guest', 'send a 2001-character feedback', 'blocked', 'blocked'); end;
+
+  update public.tracks set youtube_video_id = 'permfill001', artist = 'Hacked' where title = '__perm_fill__';
+  select artist, youtube_video_id into a, v from public.tracks where title = '__perm_fill__';
+  insert into perm_results values ('guest', 'rename a real artist while filling a video id', 'blocked', case when a = 'Hacked' then 'allowed' else 'blocked' end);
+end $$;
+reset role;
+
+-- ---------------------------------------------------------------------
 -- Report and fail on any regression
 -- ---------------------------------------------------------------------
 do $$

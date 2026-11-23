@@ -80,6 +80,13 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0k` — 2026-11-23
+* **[Web + Android]** Abuse limits for signed-in accounts, guests included (migration `20261123210654_abuse_limits`, additive; rollback saved):
+  * catalog inserts are limited per account per hour (tracks, artists, archive rows: 60 for guests / 300 for signed-in users; artist requests: 10 / 30), with sanity checks on new tracks (text length, well-formed video id);
+  * feedback is limited to 2000 characters and 5 (guest) / 10 (signed-in) per hour, or 5 per network address without a session;
+  * filling a missing video id now rejects malformed ids and only changes a track's artist name when it was empty or a placeholder.
+  Scripts, the service role and admins are not limited. The permission test grows from 25 to 29 checks (all pass on the live database).
+
 ### `v0.9.0j` — 2026-11-23
 * **[Android]** Native Google sign-in confirmed working (emulator, upload-key build). `ANDROID_BUILD.md` gains a troubleshooting checklist for the "[16] Account reauth failed" error (package-name typo, wrong client ID, project and consent checks).
 

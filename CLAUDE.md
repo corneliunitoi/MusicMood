@@ -5,7 +5,7 @@ Goal: finish hardening, then ship an Android app on Google Play.
 
 ## Where things stand (Nov 22, 2026)
 
-- Current release: see `package.json` (`0.9.0j` at the time of writing). Full history in `RELEASE_MANAGEMENT.md`.
+- Current release: see `package.json` (`0.9.0k` at the time of writing). Full history in `RELEASE_MANAGEMENT.md`.
 - `ROADMAP.md` is the plan: Phases 0–3 (security & stability) are done; **Phase 4 (Android, Capacitor) is in
   progress**. The custom-domain switch plan is in `ROADMAP.md` and must happen before the first Play release.
 - Google OAuth app is **published** (sign-in uses basic scopes only; `youtube.readonly` is requested
@@ -36,7 +36,7 @@ Goal: finish hardening, then ship an Android app on Google Play.
   (73 pre-existing problems; don't add new ones).
 - Database changes: test in a rolled-back transaction first, then apply as a migration and save the
   file in `supabase/migrations/` with the applied version as its timestamp.
-- `supabase/tests/permissions.sql`: 25 rolled-back permission checks; must stay all-PASS.
+- `supabase/tests/permissions.sql`: 29 rolled-back permission checks; must stay all-PASS.
 - Android (when touched): follow **`ANDROID_BUILD.md`**. In a cloud session: `npm run android:setup` once
   (installs the SDK; needs the "musicmood" environment, which allows Google's and Gradle's download hosts),
   then `npm run android:apk`. Output: `android/app/build/outputs/apk/debug/MusicMood-<version>-debug.apk`.
@@ -49,6 +49,11 @@ Goal: finish hardening, then ship an Android app on Google Play.
   Roles live in `user_profiles` and are protected by `trg_protect_profile_privileges`.
 - Catalog tables (`tracks`, `artists`, `local_metadata`, …): signed-in users may add rows and fill a
   missing `youtube_video_id`; edits/deletes are admin-only (`is_admin()`) or service role.
+- Abuse limits (v0.9.0k, migration `20261123210654_abuse_limits`): per account per hour, guests / signed-in: 60 / 300 inserts each into
+  `tracks`, `artists`, `local_metadata`; 10 / 30 into `artist_suggestions`; feedback 5 / 10 (no session: 5 per network address) and max 2000
+  characters. New tracks need a well-formed 11-character video id. Filling a missing video id ignores malformed ids, and a track's artist only
+  changes when it was empty or a placeholder. Counters live in `insert_quota`. Service role, scripts and admins are never limited
+  (limits apply only to the `anon` / `authenticated` API roles). A blocked insert fails quietly in the app. Rollback in `supabase/rollbacks/`.
 - Votes: one per user per track (`user_upvotes`); guest weight 0.25, Google users 1.0; max 100
   influencing actions per 30 minutes. Weighted totals in `upvote_score`; `upvotes` is the rounded value.
 - `listening_history`: one row per play, updated with the outcome (seconds, completed/skipped/liked/disliked).
