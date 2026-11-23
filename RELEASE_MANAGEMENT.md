@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0r` — 2026-11-23
+* **[Web + Android]** Welcome splash: the headline is now "Your mood, your music." (it still showed the old "Are you tired of AI algorithms..." question; only the paragraph below it had been changed in 0.9.0l).
+
 ### `v0.9.0q` — 2026-11-23
 * **[Web + Android]** Dark synth harvest skips artists that also read as classical, film-score or pop (found in the first dry run: an orchestral film composer carried a "darksynth" tag).
 

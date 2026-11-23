@@ -113,7 +113,7 @@ export default function WelcomeSplash({ onStartTour, onClose }) {
                         maxWidth: '680px'
                     }}
                 >
-                    Are you tired of AI algorithms telling you what you should listen to?
+                    Your mood, your music.
                 </h1>
 
                 {/* Narrative Subtitle */}
@@ -126,7 +126,7 @@ export default function WelcomeSplash({ onStartTour, onClose }) {
                         maxWidth: '640px'
                     }}
                 >
-                    Your mood, your music. Answer a few quick questions and <strong style={{ color: '#ffffff' }}>MusicMood</strong> builds a soundtrack for how you feel today, and keeps getting better the more you listen.
+                    Answer a few quick questions and <strong style={{ color: '#ffffff' }}>MusicMood</strong> builds a soundtrack for how you feel today, and keeps getting better the more you listen.
                 </p>
 
                 {/* 3 Value Pillar Cards */}
