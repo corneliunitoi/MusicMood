@@ -539,6 +539,7 @@ graph TD
 * [x] **v0.9.0k:** Abuse limits for guests and signed-in accounts (catalog inserts, feedback, video-id fill).
 * [x] **v0.9.0l:** Positive welcome text on the sign-in screen and welcome splash.
 * [x] **v0.9.0m:** Player uses a plain hyphen between title and artist.
+* [x] **v0.9.0n:** Em dashes removed from all visible app text.
 
 ---
 

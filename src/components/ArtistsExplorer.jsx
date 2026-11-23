@@ -1181,7 +1181,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
                         <span style={{ fontSize: '1.2rem' }}>⏳</span>
                         <div>
                             <div style={{ fontSize: '0.88rem', fontWeight: '700', color: '#e9d5ff' }}>
-                                {searchQuery ? `Staged Candidates Matching "${searchQuery}"` : 'Potential Matches — 50 Random Gems'}
+                                {searchQuery ? `Staged Candidates Matching "${searchQuery}"` : 'Potential Matches: 50 Random Gems'}
                             </div>
                             <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
                                 {searchQuery
@@ -1331,7 +1331,7 @@ export default function ArtistsExplorer({ onPlayTrack, onClose, initialArtistNam
                                             {artist.isStagedOnly ? `Found ${artist.count} Staged Candidate${artist.count > 1 ? 's' : ''}` : `Available to Request from Staging (${artist.count})`}
                                         </span>
                                         <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                                            — {artist.isStagedOnly ? 'Not in catalog yet. Click "+ Request" to admit & inflate!' : 'Click "+ Request" to prioritize for catalog admission'}
+                                            - {artist.isStagedOnly ? 'Not in catalog yet. Click "+ Request" to admit & inflate!' : 'Click "+ Request" to prioritize for catalog admission'}
                                         </span>
                                     </div>
                                 </div>

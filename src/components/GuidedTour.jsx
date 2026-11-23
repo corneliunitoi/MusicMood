@@ -18,11 +18,11 @@ const TOUR_STEPS = [
     {
         id: 'artists',
         targetSelector: '[data-tour="artists"]',
-        badge: 'Step 2 of 7 — ✨ Fresh Discovery',
+        badge: 'Step 2 of 7: ✨ Fresh Discovery',
         icon: '💎',
         title: 'Discover New Artists to Your Liking',
         isFlashy: true,
-        description: 'Tired of the same artists on repeat? Dive into Potential Matches—a treasure trove of 17,500+ uncataloged gems! Hit "Roll 50 Fresh" to audition instant demo tracks, discover incredible new artists matching your vibe, and vote with 1-click "+ Request" to admit them directly into the catalog.'
+        description: 'Tired of the same artists on repeat? Dive into Potential Matches, a treasure trove of 17,500+ uncataloged gems! Hit "Roll 50 Fresh" to audition instant demo tracks, discover incredible new artists matching your vibe, and vote with 1-click "+ Request" to admit them directly into the catalog.'
     },
     {
         id: 'playlists',
@@ -38,7 +38,7 @@ const TOUR_STEPS = [
         badge: 'Step 4 of 7',
         icon: '🧠',
         title: 'Listen by Emotion, Not Rigid Genres',
-        description: 'Choose how you want to feel right now across Focus, Chill, Energetic, Happy, Sad, or Party. Each mood is anchored to your calibrated Home genre—so clicking "Focus" instantly delivers your concentration flow state (e.g. Baroque or Lo-Fi Beats).'
+        description: 'Choose how you want to feel right now across Focus, Chill, Energetic, Happy, Sad, or Party. Each mood is anchored to your calibrated Home genre, so clicking "Focus" instantly delivers your concentration flow state (e.g. Baroque or Lo-Fi Beats).'
     },
     {
         id: 'player',
@@ -54,7 +54,7 @@ const TOUR_STEPS = [
         badge: 'Step 6 of 7',
         icon: '🎲',
         title: 'Instant Variety on Demand',
-        description: 'Ready for something different? Hit "Surprise Me" to leap to a new genre that naturally fits your flow—no jarring tempo drops, no mood killers.'
+        description: 'Ready for something different? Hit "Surprise Me" to leap to a new genre that naturally fits your flow, with no jarring tempo drops and no mood killers.'
     },
     {
         id: 'discovery',

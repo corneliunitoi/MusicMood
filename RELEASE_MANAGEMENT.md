@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0n` — 2026-11-23
+* **[Web + Android]** No more em dashes in the app's text: the guided tour (badge and three descriptions) and the artist explorer (heading and helper line) now use plain punctuation. The code that cleans artist names still treats dashes as separators, on purpose.
+
 ### `v0.9.0m` — 2026-11-23
 * **[Web + Android]** Player: a plain hyphen instead of an em dash between track title and artist (now playing line and the playlist list).
 
