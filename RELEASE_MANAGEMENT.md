@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0e` — 2026-11-23
+* **[Web + Android]** New manual GitHub workflow *Add phonk tracks* runs `scripts/addPhonkTracks.js` with the repository's service key (dry run unless "apply" is ticked), because tracks without a YouTube id never play and YouTube is only reachable from there. Rows are tagged `source = 'phonk_seed'`. No inflation: only the listed songs are added.
+
 ### `v0.9.0d` — 2026-11-23
 * **[Web + Android]** Phonk starter list grown to 14 tracks (Kordhell, PlayaPhonk and others, plus the owner's YouTube example). `npm run add:phonk` now also accepts a bare YouTube video id and reads the title and artist from the video. Still no new genre (`trap_modern`); dry run unless `-- --apply`.
 

@@ -1,0 +1,52 @@
+name: Add phonk tracks
+
+# Manual only. Looks up each song in scripts/addPhonkTracks.js on YouTube and adds it to the
+# catalog under the existing trap_modern genre. "apply" off = dry run (shows the plan, writes nothing).
+# No inflation: this adds only the listed songs and never pulls extra tracks for their artists.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Write the tracks to the catalog (leave off for a dry run)'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  add-phonk:
+    name: Add phonk tracks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wgrucrcdcpgvnxduftow.supabase.co' }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LLIcnNawT3dcqz7k7ZkBVA_f5oxMIy6' }}
+      INPUT_APPLY: ${{ github.event.inputs.apply }}
+    steps:
+      - name: Require service-role key
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::Repository secret SUPABASE_SERVICE_ROLE_KEY is missing."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Add phonk tracks
+        run: |
+          if [ "$INPUT_APPLY" = "true" ]; then
+            node scripts/addPhonkTracks.js --apply
+          else
+            node scripts/addPhonkTracks.js
+          fi

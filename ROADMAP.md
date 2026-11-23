@@ -530,6 +530,7 @@ graph TD
 * [x] **v0.9.0b:** Guest access documented (Supabase *Allow anonymous sign-ins* must be ON); version series moved to 0.9.x.
 * [x] **v0.9.0c:** Phonk tracks added to the catalog under `trap_modern` (`npm run add:phonk`), no new genre.
 * [x] **v0.9.0d:** Phonk starter list grown to 14 tracks; `add:phonk` accepts bare YouTube ids.
+* [x] **v0.9.0e:** Manual *Add phonk tracks* workflow (dry run by default).
 
 ---
 

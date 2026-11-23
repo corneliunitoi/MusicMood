@@ -9,6 +9,7 @@
  * catalog (same video id) and inserts the rest. Nothing is invented: an entry that cannot be
  * resolved or whose video title does not match is reported and skipped.
  *
+ *   GitHub: Actions → "Add phonk tracks" → Run workflow ("apply" off = dry run) needs no PC.
  *   npm run add:phonk            dry run: shows what would be added, writes nothing
  *   npm run add:phonk -- --apply  writes to the catalog (needs SUPABASE_SERVICE_ROLE_KEY in .env)
  *
@@ -23,7 +24,7 @@ import { resolveTrack, titlesMatch, parseTitleAndArtist } from '../server/youtub
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 const GENRE_ID = 'trap_modern';
-const SOURCE = 'canonical_seed';
+const SOURCE = 'phonk_seed'; // marks these rows so they are easy to find (or remove) later
 
 // An entry is { artist, title } (the video is looked up and title-checked) or { youtube_video_id }
 // on its own (artist and title are read from the video; add artist/title to override them).
