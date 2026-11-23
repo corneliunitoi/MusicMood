@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0h` — 2026-11-23
+* **[Android]** *Android signed build*: the downloadable zip is now named with the app version (`musicmood-android-signed-0.9.0h`); the APK and AAB inside already carried it.
+
 ### `v0.9.0g` — 2026-11-23
 * **[Android]** *Android signed build* workflow: a missing secret now names the exact secret to add (`ANDROID_KEYSTORE_BASE64`, …) instead of the internal variable name, and the short names (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`) are accepted as well.
 

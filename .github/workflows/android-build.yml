@@ -84,9 +84,12 @@ jobs:
           "$apksigner" verify --print-certs android/app/build/outputs/apk/release/*.apk | tee "$RUNNER_TEMP/certs.txt"
           grep -qi "$(echo "$EXPECTED_SHA1" | tr -d ':')" "$RUNNER_TEMP/certs.txt" || { echo "::error::APK is not signed with the expected key"; exit 1; }
 
+      - name: Read the app version for the download name
+        run: echo "APP_VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+
       - uses: actions/upload-artifact@v4
         with:
-          name: musicmood-android-signed
+          name: musicmood-android-signed-${{ env.APP_VERSION }}
           path: |
             android/app/build/outputs/apk/release/*.apk
             android/app/build/outputs/bundle/release/*.aab

@@ -138,7 +138,7 @@ Output: `android/app/build/outputs/apk/release/MusicMood-<version>-release.apk` 
 ### GitHub Actions: `Android signed build` (manual)
 
 Actions tab → *Android signed build* → *Run workflow* → type the tag (e.g. `v0.8.9`) → download
-`musicmood-android-signed` from the run page. It reads these **repository secrets** (Settings → Secrets and variables
+`musicmood-android-signed-<version>` from the run page. It reads these **repository secrets** (Settings → Secrets and variables
 → Actions → New repository secret):
 
 | Secret | Value |
