@@ -534,6 +534,7 @@ graph TD
 * [x] **v0.9.0f:** New "Midnight" cut-gem app icon (all Android densities + Play Store 512 px).
 * [x] **v0.9.0g:** Signed-build workflow: clearer missing-secret message, short secret names accepted.
 * [x] **v0.9.0h:** Signed-build download named with the app version.
+* [x] **v0.9.0i:** Guard against a client secret being used as the Web client ID.
 
 ---
 

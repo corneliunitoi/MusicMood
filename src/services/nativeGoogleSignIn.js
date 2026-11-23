@@ -15,6 +15,11 @@
 
 const GOOGLE_WEB_CLIENT_ID = import.meta.env?.VITE_GOOGLE_WEB_CLIENT_ID || '';
 
+/** A Google OAuth client ID looks like 123456789-abc.apps.googleusercontent.com. A client *secret* (GOCSPX-...) must never be used here. */
+export function isWebClientId(value) {
+    return typeof value === 'string' && /^[0-9]+-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/.test(value.trim());
+}
+
 function toHex(bytes) {
     return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
@@ -67,6 +72,9 @@ function isCancellation(err) {
 export async function requestGoogleIdToken() {
     if (!GOOGLE_WEB_CLIENT_ID) {
         throw new Error('Google sign-in is not configured in this build (VITE_GOOGLE_WEB_CLIENT_ID is missing).');
+    }
+    if (!isWebClientId(GOOGLE_WEB_CLIENT_ID)) {
+        throw new Error('Google sign-in is misconfigured in this build: VITE_GOOGLE_WEB_CLIENT_ID must be the Web client ID (ending in .apps.googleusercontent.com), not a client secret.');
     }
     const plugin = await loadPlugin();
     const nonce = await createNonce();

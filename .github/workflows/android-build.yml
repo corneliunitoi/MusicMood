@@ -66,6 +66,10 @@ jobs:
           GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID || secrets.VITE_GOOGLE_WEB_CLIENT_ID }}
         run: |
           if [ -z "$GOOGLE_WEB_CLIENT_ID" ]; then echo "::error::Repository secret GOOGLE_WEB_CLIENT_ID is missing (see ANDROID_BUILD.md)."; exit 1; fi
+          if ! echo "$GOOGLE_WEB_CLIENT_ID" | grep -Eq '^[0-9]+-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$'; then
+            echo "::error::GOOGLE_WEB_CLIENT_ID is not a Web client ID. It must look like 123456789-abc.apps.googleusercontent.com (not a GOCSPX- client secret)."
+            exit 1
+          fi
           cp .env.android.example .env.android
           sed -i "s|^VITE_GOOGLE_WEB_CLIENT_ID=.*|VITE_GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID|" .env.android
           npm run build:android

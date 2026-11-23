@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0i` — 2026-11-23
+* **[Android]** Guard against a wrong Google ID: the signed-build workflow and the app now refuse a `GOOGLE_WEB_CLIENT_ID` that is not a Web client ID (must end in `.apps.googleusercontent.com`), after a client *secret* was pasted by mistake and made Google sign-in fail with "[16] Account reauth failed". The app shows a clear message instead.
+
 ### `v0.9.0h` — 2026-11-23
 * **[Android]** *Android signed build*: the downloadable zip is now named with the app version (`musicmood-android-signed-0.9.0h`); the APK and AAB inside already carried it.
 
