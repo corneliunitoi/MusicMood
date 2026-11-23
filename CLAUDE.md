@@ -5,7 +5,7 @@ Goal: finish hardening, then ship an Android app on Google Play.
 
 ## Where things stand (Nov 22, 2026)
 
-- Current release: see `package.json` (`0.9.0r` at the time of writing). Full history in `RELEASE_MANAGEMENT.md`.
+- Current release: see `package.json` (`0.9.0s` at the time of writing). Full history in `RELEASE_MANAGEMENT.md`.
 - `ROADMAP.md` is the plan: Phases 0–3 (security & stability) are done; **Phase 4 (Android, Capacitor) is in
   progress**. The custom-domain switch plan is in `ROADMAP.md` and must happen before the first Play release.
 - Google OAuth app is **published** (sign-in uses basic scopes only; `youtube.readonly` is requested
@@ -82,6 +82,9 @@ Goal: finish hardening, then ship an Android app on Google Play.
   Native Google sign-in: `nativeGoogleSignIn.js` + `auth.js` (Credential Manager → `signInWithIdToken`; needs `VITE_GOOGLE_WEB_CLIENT_ID`).
   Builds are signed with the upload key from env vars (`ANDROID_KEYSTORE_*`); the manual workflow `android-build.yml` uses repo secrets
   (list in `ANDROID_BUILD.md`). Each signing key needs its own Android OAuth client; add the Play App Signing SHA-1 before the first Play release.
+- Flagged mistakes: genre flags (`track_genre_flags`) and playback reports are reviewed, logged by pattern and turned into rules in
+  `docs/flagged-mistakes.md`. Never infer a genre from a song title; MusicBrainz tag searches must be quoted (`buildTagQuery`).
+  Gap-fill harvests (`harvestGenreArtists.js --genre=gaps`) use `forceTags` + `rejectGenres` per genre.
 - Player: the YouTube player is visible inside a retro TV (min 268×201; YouTube requires ≥200×200, visible,
   nothing on top). Never hide, shrink or cover it.
 - Onboarding (`OnboardingWizard.jsx`) is two steps: radar + "Never play" chips, then mood homes.

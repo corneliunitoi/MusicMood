@@ -18,6 +18,7 @@
  *   node scripts/harvestGenreArtists.js --genre=folk_acoustic --count=200 --tracks=5
  *   node scripts/harvestGenreArtists.js --genre=avant_garde --count=200 --tracks=5
  *   node scripts/harvestGenreArtists.js --genre=darksynth --count=80 --tracks=5   (dark synth / cyberpunk; not part of "all")
+ *   node scripts/harvestGenreArtists.js --genre=gaps --count=20 --tracks=5   (nine thin sub-genres, see GENRE_TARGET_CONFIGS)
  *   node scripts/harvestGenreArtists.js --genre=all --count=200 --tracks=5
  *   node scripts/harvestGenreArtists.js --genre=blues --count=10 --dry-run
  */
@@ -52,6 +53,10 @@ if (!API_KEY) {
     console.error('❌ LASTFM_API_KEY is missing. Artist and track discovery needs a free Last.fm API key: create one at https://www.last.fm/api/account/create and add it as the repository secret LASTFM_API_KEY (or put it in .env).');
     process.exit(1);
 }
+
+// Look-alike genres that must not leak into the gentler sub-genres below.
+const LOUD_OR_EDGY = ['metal', 'heavy_metal', 'black_metal', 'death_metal', 'thrash_metal', 'doom_metal', 'metalcore', 'nu_metal', 'symphonic_metal', 'power_metal', 'prog_metal', 'punk_rock', 'post_punk', 'industrial', 'noise'];
+const POP_LIKE = ['pop', 'mainstream_pop', 'dance_pop', 'edm_mainstream'];
 
 export const GENRE_TARGET_CONFIGS = {
     blues: {
@@ -98,6 +103,70 @@ export const GENRE_TARGET_CONFIGS = {
             'synthwave', 'retrowave', 'outrun'
         ],
         anchors: ['Carpenter Brut', 'Perturbator', 'GosT', 'Dance With the Dead', 'Mega Drive', 'Scandroid']
+    },
+    // ---- Gap-fill configs (v0.9.0s): thin sub-genres, seeded from artists listeners liked ----
+    ambient_electronic: {
+        id: 'ambient_electronic', label: 'Ambient Electronic', primaryDefault: 'ambient_electronic',
+        forceTags: ['ambient electronic', 'electronic ambient', 'ambient techno', 'ambient house', 'ambient dub', 'downtempo'],
+        rejectGenres: [...LOUD_OR_EDGY, ...POP_LIKE],
+        tags: ['ambient electronic', 'electronic ambient', 'ambient techno', 'ambient house', 'downtempo'],
+        anchors: ['Aphex Twin', 'Boards of Canada', 'Brian Eno', 'Tycho', 'Biosphere', 'Special Request', 'Aglepta Musik']
+    },
+    soul_blues: {
+        id: 'soul_blues', label: 'Soul Blues', primaryDefault: 'soul_blues',
+        forceTags: ['soul blues', 'southern soul', 'blues soul'],
+        rejectGenres: [...LOUD_OR_EDGY, ...POP_LIKE, 'classical'],
+        tags: ['soul blues', 'southern soul', 'memphis soul'],
+        anchors: ['Bobby Bland', 'O.V. Wright', 'Al Green', 'Little Milton', 'Johnnie Taylor', 'Bettye LaVette', 'The Holmes Brothers', 'Southern Avenue']
+    },
+    outlaw_country: {
+        id: 'outlaw_country', label: 'Outlaw Country', primaryDefault: 'outlaw_country',
+        forceTags: ['outlaw country'],
+        rejectGenres: [...LOUD_OR_EDGY, ...POP_LIKE],
+        tags: ['outlaw country', 'red dirt', 'country rock'],
+        anchors: ['Waylon Jennings', 'Johnny Cash', 'Kris Kristofferson', 'Willie Nelson', 'Merle Haggard', 'The Highwaymen', 'Townes Van Zandt', 'David Allan Coe']
+    },
+    classic_country: {
+        id: 'classic_country', label: 'Classic Country / Honky-Tonk', primaryDefault: 'classic_country',
+        forceTags: ['classic country', 'honky tonk', 'traditional country', 'bakersfield', 'nashville sound', 'country classics'],
+        rejectGenres: [...LOUD_OR_EDGY, ...POP_LIKE],
+        tags: ['classic country', 'honky tonk', 'traditional country', 'bakersfield sound', 'nashville sound'],
+        anchors: ['Hank Williams', 'Patsy Cline', 'George Jones', 'Loretta Lynn', 'Tammy Wynette', 'Chet Atkins', 'Ray Price', 'Buck Owens']
+    },
+    quiet_storm: {
+        id: 'quiet_storm', label: 'Quiet Storm', primaryDefault: 'quiet_storm',
+        forceTags: ['quiet storm', 'slow jam', 'smooth soul'],
+        rejectGenres: [...LOUD_OR_EDGY, 'classical'],
+        tags: ['quiet storm', 'slow jam', 'smooth soul'],
+        anchors: ['Luther Vandross', 'Natalie Cole', 'The Spinners', 'The Manhattans', 'Anita Baker', 'Sade', 'Teddy Pendergrass', 'Atlantic Starr']
+    },
+    acoustic_folk: {
+        id: 'acoustic_folk', label: 'Acoustic Folk', primaryDefault: 'acoustic_folk',
+        forceTags: ['acoustic folk', 'contemporary folk', 'folk revival', 'british folk', 'american folk'],
+        rejectGenres: [...LOUD_OR_EDGY, ...POP_LIKE],
+        tags: ['acoustic folk', 'contemporary folk', 'british folk', 'folk revival'],
+        anchors: ['Woody Guthrie', 'Dar Williams', 'Johnny Flynn', 'Bob Dylan', 'Joan Baez', 'Nick Drake', 'Fairport Convention', 'Megson']
+    },
+    bossa_nova_jazz: {
+        id: 'bossa_nova_jazz', label: 'Bossa Nova Jazz', primaryDefault: 'bossa_nova_jazz',
+        forceTags: ['bossa nova', 'brazilian jazz', 'jazz bossa'],
+        rejectGenres: [...LOUD_OR_EDGY, ...POP_LIKE],
+        tags: ['bossa nova', 'brazilian jazz', 'latin jazz'],
+        anchors: ['Antonio Carlos Jobim', 'Stan Getz', 'João Gilberto', 'Astrud Gilberto', 'Roberto Menescal', 'Nana Caymmi', 'Charlie Byrd', 'Sergio Mendes']
+    },
+    contemporary_classical: {
+        id: 'contemporary_classical', label: 'Contemporary Classical', primaryDefault: 'contemporary_classical',
+        forceTags: ['contemporary classical', 'minimalism', 'modern classical', 'post-minimal', 'neoclassical'],
+        rejectGenres: [...LOUD_OR_EDGY, ...POP_LIKE],
+        tags: ['contemporary classical', 'minimalism', 'modern classical', 'neoclassical'],
+        anchors: ['Philip Glass', 'Steve Reich', 'Arvo Pärt', 'John Adams', 'Max Richter', 'Ólafur Arnalds', 'Nils Frahm', 'Balanescu Quartet', 'Daniel Hope']
+    },
+    indie_folk: {
+        id: 'indie_folk', label: 'Indie Folk', primaryDefault: 'indie_folk',
+        forceTags: ['indie folk', 'chamber folk', 'freak folk', 'folktronica'],
+        rejectGenres: [...LOUD_OR_EDGY, ...POP_LIKE, 'country'],
+        tags: ['indie folk', 'chamber folk', 'freak folk'],
+        anchors: ['Andrew Bird', 'Calexico', 'The Microphones', 'Smoke Fairies', 'Bon Iver', 'Fleet Foxes', 'Sufjan Stevens', 'Iron & Wine', 'Dark Dark Dark']
     },
     avant_garde: {
         id: 'avant_garde',
@@ -555,10 +624,14 @@ async function run() {
             GENRE_TARGET_CONFIGS.folk_acoustic,
             GENRE_TARGET_CONFIGS.avant_garde
         );
+    } else if (TARGET_GENRE === 'gaps') {
+        // The thin sub-genres: ambient_electronic, soul_blues, outlaw/classic country, quiet_storm, folk, bossa, contemporary classical
+        ['ambient_electronic', 'soul_blues', 'outlaw_country', 'classic_country', 'quiet_storm', 'acoustic_folk', 'bossa_nova_jazz', 'contemporary_classical', 'indie_folk']
+            .forEach(id => targetsToRun.push(GENRE_TARGET_CONFIGS[id]));
     } else if (GENRE_TARGET_CONFIGS[TARGET_GENRE]) {
         targetsToRun.push(GENRE_TARGET_CONFIGS[TARGET_GENRE]);
     } else {
-        console.error(`Unknown target genre: "${TARGET_GENRE}". Valid options: blues, country, folk_acoustic, avant_garde, darksynth, all`);
+        console.error(`Unknown target genre: "${TARGET_GENRE}". Valid options: blues, country, folk_acoustic, avant_garde, darksynth, gaps, all, or any config id above`);
         process.exit(1);
     }
 

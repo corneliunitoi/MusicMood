@@ -213,6 +213,24 @@ async function fallbackWikipedia(cleanArtist, mbid = null) {
 }
 
 /**
+ * MusicBrainz search syntax: a multi-word tag must be quoted. Unquoted, `tag:quiet storm` means
+ * tag "quiet" plus any song whose TITLE contains "storm" (this filed songs called "Storm", "Folk"
+ * and "Classical" under the wrong genre). Always send tag:"quiet storm".
+ */
+export function buildTagQuery(tag) {
+    const clean = String(tag || '').replace(/["\\]/g, ' ').replace(/\s+/g, ' ').trim();
+    return `tag:"${clean}"`;
+}
+
+/** True when a song title is made only of the genre's own words ("Storm" for "quiet storm", "Classical"). */
+export function titleIsJustGenreWords(title, tag) {
+    const words = (s) => String(s || '').toLowerCase().split(/[^a-z0-9\u00c0-\u024f]+/).filter(Boolean);
+    const t = words(title);
+    const g = new Set(words(tag));
+    return t.length > 0 && t.every((w) => g.has(w));
+}
+
+/**
  * Fetches popular, iconic recordings for a specific genre tag directly from MusicBrainz.
  * Used by the JIT Engine to pull authoritative tracks inside the active genre.
  * 
@@ -225,7 +243,7 @@ export async function fetchMusicBrainzGenreRecordings(tag, limit = 15) {
     await throttle();
 
     try {
-        const url = `https://musicbrainz.org/ws/2/recording/?query=tag:${encodeURIComponent(tag)}&fmt=json&limit=${limit}`;
+        const url = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(buildTagQuery(tag))}&fmt=json&limit=${limit}`;
         const res = await fetch(url, {
             headers: {
                 'User-Agent': 'MusicMood/1.0.0 ( contact@musicmood.local )'
@@ -246,6 +264,7 @@ export async function fetchMusicBrainzGenreRecordings(tag, limit = 15) {
             if (!artist || !title) continue;
             if (dur && (dur < 90 || dur > 700)) continue;
             if (/live|interview|remix|version|demo|tribute/i.test(title)) continue;
+            if (titleIsJustGenreWords(title, tag)) continue;
 
             candidates.push({ artist: artist.trim(), title: title.trim(), duration: dur });
         }

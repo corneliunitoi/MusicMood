@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       genre:
-        description: 'Target genre (blues, country, folk_acoustic, avant_garde, darksynth, or all; all does not include darksynth)'
+        description: 'Target genre (blues, country, folk_acoustic, avant_garde, darksynth, gaps (nine thin sub-genres), or all; all excludes darksynth and gaps)'
         required: true
         type: choice
         options:
@@ -14,6 +14,7 @@ on:
           - folk_acoustic
           - avant_garde
           - darksynth
+          - gaps
         default: 'all'
       count:
         description: 'Number of artists to ingest per genre'
