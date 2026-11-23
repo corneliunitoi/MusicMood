@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0m` — 2026-11-23
+* **[Web + Android]** Player: a plain hyphen instead of an em dash between track title and artist (now playing line and the playlist list).
+
 ### `v0.9.0l` — 2026-11-23
 * **[Web + Android]** Friendlier welcome text on the sign-in screen and the welcome splash: leads with what MusicMood gives you ("Your mood, your music…") instead of what is wrong with other services. The Android app picks it up in the next APK.
 

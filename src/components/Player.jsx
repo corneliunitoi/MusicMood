@@ -184,7 +184,7 @@ function Player({ initialTrack, token, onOpenArtist }) {
     const youtubeUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : null;
     const activeArtist = currentTrack?.artist || sessionState?.currentTrack?.artist || currentTrack?.channelTitle || '';
     const fullSongTitle = currentTrack?.title
-        ? `${currentTrack.title}${activeArtist ? ` — ${activeArtist}` : ''}`
+        ? `${currentTrack.title}${activeArtist ? ` - ${activeArtist}` : ''}`
         : 'Loading session...';
 
     const handleCopyLink = () => {
@@ -1395,7 +1395,7 @@ function Player({ initialTrack, token, onOpenArtist }) {
                                         <span style={{ color: '#64748b', fontSize: '0.78rem', minWidth: '1.2rem' }}>#{idx + 1}</span>
                                         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             <span style={{ color: '#f1f5f9', fontSize: '0.84rem', fontWeight: '500' }}>{t.title}</span>
-                                            <span style={{ color: '#94a3b8', fontSize: '0.78rem', marginLeft: '0.5rem' }}>— {t.artist}</span>
+                                            <span style={{ color: '#94a3b8', fontSize: '0.78rem', marginLeft: '0.5rem' }}>- {t.artist}</span>
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
