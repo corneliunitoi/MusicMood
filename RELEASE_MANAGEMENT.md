@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0w` — 2026-11-23
+* **[Web + Android]** Roadmap re-planned (docs only): every open item is now labelled Before 1.0 or After 1.0, with a counts table (14 before, 12 after); new items #23 to #26 from the Nov 23 review of feedback, flags and playback reports; feedback matrix updated.
+
 ### `v0.9.0v` — 2026-11-23
 * **[Web + Android]** Nature soundscape harvest also skips pink, brown and white noise videos (found in the check run: "Pink Noise Slow Down" and similar).
 

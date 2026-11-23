@@ -1,21 +1,28 @@
 # 🗺️ MusicMood Strategic Roadmap
 
-> **Current focus: security and stability only, then the Android migration.**
-> No new features are scheduled until Phase 4 is done. Every earlier feature item is frozen in the
-> [Frozen Feature Backlog](#-frozen-feature-backlog-not-scheduled) at the bottom of this file.
+> **Current focus (Nov 23, 2026): finish the Android launch and the catalog-quality work labelled _Before 1.0_.**
+> Everything labelled _After 1.0_ stays in the [Frozen Feature Backlog](#-frozen-feature-backlog-not-scheduled) until then.
+> Labels: 🏁 **Before 1.0** (needed for the launch) · 🌱 **After 1.0** (nice to have, comes later).
 
-Order is strict: each phase depends on the one before it.
+Order is strict inside Phase 4: each step depends on the one before it.
 
-### 🏷️ Release plan to `1.0`
+### 🏷️ What 1.0 means
 
-Every fix ships as a letter release within `0.8.7x`, following [RELEASE_MANAGEMENT.md](RELEASE_MANAGEMENT.md). The version ceiling lock stays in place: no `0.9.0` and no other minor or major bump until all major issues below are fixed. `1.0.0` is reserved for the launch once Phases 0–3 are complete.
+`1.0.0` is the public launch: the Android app is on Google Play and every item labelled **Before 1.0** below is done. Versions stay in the
+`0.9.x` series (letter releases for fixes, a new patch for milestones) until the owner authorizes `1.0` (see [RELEASE_MANAGEMENT.md](RELEASE_MANAGEMENT.md)).
+Phases 0 to 3 (security and stability) are finished.
 
-| Release | Scope |
-|---|---|
-| `v0.8.7a` | Phase 0: emergency hardening |
-| `v0.8.7b`… | Phase 1: Supabase Auth, with one letter per shippable step (sign-in, guests, roles, user migration) |
-| next letters | Phase 2: RLS and RPC rewrite, then Phase 3 stability fixes, each in small letter releases |
-| `v1.0.0` | All major issues fixed; launch baseline for the Android migration |
+### 📊 Where we stand (Nov 23, 2026)
+
+| Area | 🏁 Before 1.0 | 🌱 After 1.0 |
+|---|:---:|:---:|
+| Android launch (Phase 4) | 6 | 0 |
+| Catalog and product quality (backlog #8, #10, #15, #20, #21 and new #23, #24, #25) | 8 | 0 |
+| New capabilities (backlog #1 to #5, #7, #16, #17, #19, #22 and new #26) | 0 | 12 |
+| **Features still to do** | **14** | **12** |
+
+26 features remain in total, 8 of them already started. Three small owner tasks are tracked separately below. Source of the labels: the owner's
+feedback forms plus the Nov 23 review (flagged mistakes, playback reports, catalog gaps). Move any item between the columns by editing its label.
 
 ---
 
@@ -112,24 +119,24 @@ Goal: `auth.uid()` is the only source of user identity. Today only 1 of 11 profi
 
 ## ✅ Before Android: open owner tasks
 
-* [ ] **Publish the Google OAuth app** (Google Cloud → Google Auth Platform → Audience → *Publish app*). Since v0.8.8 sign-in uses only basic scopes, so no verification is needed for sign-in. YouTube playlist import stays behind Google's "unverified app" warning until the app is verified for `youtube.readonly`.
+* [x] **Publish the Google OAuth app** *(In production, confirmed Nov 23.)* (Google Cloud → Google Auth Platform → Audience → *Publish app*). Since v0.8.8 sign-in uses only basic scopes, so no verification is needed for sign-in. YouTube playlist import stays behind Google's "unverified app" warning until the app is verified for `youtube.readonly`.
 * [ ] **Branding:** set the OAuth app name to "MusicMood" (Google Auth Platform → Branding) so the consent screen stops showing the Supabase project domain. With the custom domain, also add it as an authorized domain.
 * [ ] **Optional: add `SUPABASE_DB_URL`** as a repository secret to enable the weekly permission test.
-* [ ] **Rotate the old Last.fm key; add `SUPABASE_SERVICE_ROLE_KEY` to local `.env`.**
+* [~] **Rotate the old Last.fm key; add `SUPABASE_SERVICE_ROLE_KEY` to local `.env`.** *(`LASTFM_API_KEY` is now a GitHub secret since Nov 23; rotating the old key and the local `.env` remain.)*
 
 ## 📱 Phase 4 — Android Migration
 
 Starts only after Phases 0–3 are complete.
 
 * [x] ~~**Engine portability**~~ — not needed: the app uses Capacitor, which runs the same React code (including `localStorage`) inside Android's WebView.
-* [~] **Android client (Capacitor 8):** shell in `android/`, versioned builds, background pause, visible TV player, phone layout fixes. *(Started in v0.8.8e.)*
-* [~] **Native Google sign-in** via Credential Manager + `supabase.auth.signInWithIdToken` (done and tested on an emulator in v0.9.0i; still to do: add the Play App Signing SHA-1 as a second Android client before the first Play release).
-* [ ] **Phone polish:** compact Calibrate window and welcome screen on phones; prefer YouTube audio uploads so the TV mostly shows a still cover.
-* [~] **Minimum-version check** ("Please update"); signed Android build workflow exists (manual, v0.8.9), attaching it to the auto-release is still open.
-* [ ] **Play Store:** developer account ($25), closed test with 12 testers for 14 days, store listing (icon, banner, screenshots, texts, data safety, content rating), Render paid plan so the server does not sleep.
+* [~] **Android client (Capacitor 8):** shell in `android/`, versioned builds, background pause, visible TV player, phone layout fixes. *(Started in v0.8.8e.)* — 🏁 Before 1.0
+* [~] **Native Google sign-in** via Credential Manager + `supabase.auth.signInWithIdToken` (done and tested on an emulator in v0.9.0i; still to do: add the Play App Signing SHA-1 as a second Android client before the first Play release). — 🏁 Before 1.0
+* [ ] **Phone polish:** compact Calibrate window and welcome screen on phones; prefer YouTube audio uploads so the TV mostly shows a still cover. — 🏁 Before 1.0
+* [~] **Minimum-version check** ("Please update"); signed Android build workflow exists (manual, v0.8.9), attaching it to the auto-release is still open. — 🏁 Before 1.0
+* [ ] **Play Store:** developer account ($25), closed test with 12 testers for 14 days, store listing (icon, banner, screenshots, texts, data safety, content rating), Render paid plan so the server does not sleep. — 🏁 Before 1.0
 
 ### 🌐 Custom domain switch: `musicmood.co.uk` (do before the first Play Store release)
-Status: **live since v0.8.8h** (all steps done, Nov 22). Remaining: remove the `onrender.com` entries from Supabase redirect URLs and Google origins a few weeks after the switch.
+Status: **live since v0.8.8h** (all steps done, Nov 22). Remaining (🏁 Before 1.0): remove the `onrender.com` entries from Supabase redirect URLs and Google origins a few weeks after the switch.
 1. DNS on **Cloudflare** (keeps WAF, rate limiting and Turnstile available). If the domain was bought elsewhere, add it to Cloudflare and change the nameservers at the registrar.
 2. **Render:** add the domain (and `www`) under Custom Domains; add Render's DNS records in Cloudflare with the proxy (orange cloud) **off** until Render shows the certificate, then turn it on and set SSL to **Full (strict)**. Redirect `www` to the main address with a Cloudflare rule.
 3. **Supabase** (Authentication → URL Configuration): new Site URL and redirect URLs; keep the `onrender.com` entries for a few weeks, then remove them.
@@ -148,7 +155,7 @@ Kept for reference only. Nothing below is worked on until Phase 4 ships.
 
 ### 🎯 Former High Priority (v0.6.1)
 
-### 1. 🎛️ Custom Default Subgenres per Mood (Core 6 Moods)
+### 1. 🎛️ Custom Default Subgenres per Mood (Core 6 Moods) — **🌱 After 1.0 · not started**
 * **Problem:** Clicking a mood (such as *Party* or *Happy*) currently routes to a hardcoded genre cluster (`MOOD_GENRE_MAP`), often defaulting to genres the user rarely listens to (e.g. `funk` or `classic_soul`). Listeners must manually select their preferred genre each time.
 * **Scope:**
   * Allow listeners to define and persist their preferred starting subgenre for at least the **6 core moods**:
@@ -169,13 +176,13 @@ Kept for reference only. Nothing below is worked on until Phase 4 ships.
 
 ### 🚀 Near-Term Enhancements
 
-### 2. 🔍 "Add Your Own Artist" (On-Demand Metadata & 10-Track Harvest)
+### 2. 🔍 "Add Your Own Artist" (On-Demand Metadata & 10-Track Harvest) — **🌱 After 1.0 · not started**
 * Search any artist on demand via MusicBrainz API (`https://musicbrainz.org/ws/2/artist/`).
 * Automatically normalize community tags into MusicMood's 115-node taxonomy.
 * Harvest the top 10 iconic tracks via YouTube zero-quota resolver (`/api/resolve-track`) and ingest them into `public.tracks`.
 * Instantly create an on-demand artist radio station or anchor seed.
 
-### 3. 🤖 "Ask AI What You Want" (Conversational Sonic Intent Parser)
+### 3. 🤖 "Ask AI What You Want" (Conversational Sonic Intent Parser) — **🌱 After 1.0 · not started**
 * Natural language prompt input (e.g., *"I'm working late at night in the rain, give me something instrumental with deep bass and melancholic piano but no harsh drops"*).
 * Converts semantic intent into mathematical engine parameters: Target Energy ($E$), Target Valence ($V$), Vocal Policy (`instrumental_strict`), and taxonomy anchor nodes.
 * Strict Anti-AI Audio Integrity: Operates strictly as an intelligent acoustic curator—every selected song is authentic human music from our verified catalog.
@@ -183,11 +190,11 @@ Kept for reference only. Nothing below is worked on until Phase 4 ships.
   * Hands-free voice prompting via Web Speech API / microphone dictation.
   * Explicit vocal texture steering: strict instrumental, vocal-prominent, vocal chops/chants, or vocal gender/timbre preferences.
 
-### 4. 🌍 User-Selected Localized / Regional Music
+### 4. 🌍 User-Selected Localized / Regional Music — **🌱 After 1.0 · not started**
 * Optional language filter (e.g., French, Romanian, Japanese, Spanish, Italian) on demand.
 * Kept strictly opt-in so regional music never plays unless explicitly activated.
 
-### 5. ❤️ YouTube "MusicMood Favorites" Auto-Sync
+### 5. ❤️ YouTube "MusicMood Favorites" Auto-Sync — **🌱 After 1.0 · not started**
 * Optional two-way or append-only sync from in-app Favorites into a dedicated playlist titled `"MusicMood Favorites"` on the user's authentic YouTube account.
 
 ### 6. 🔊 In-App Master Volume Slider & Mute Control *(Completed in v0.8.3)*
@@ -197,7 +204,7 @@ Kept for reference only. Nothing below is worked on until Phase 4 ships.
   * Add a sleek, glassmorphic volume slider + mute toggle directly into the player control bar.
   * Persist the listener's preferred volume level across sessions in `localStorage`.
 
-### 7. 📑 Dynamic Playlist Creation & Smart Favorites Curation (Concept Backlog)
+### 7. 📑 Dynamic Playlist Creation & Smart Favorites Curation (Concept Backlog) — **🌱 After 1.0 · not started**
 * **Idea & Purpose:** Provide the ability to create, assemble, and manage playlists without cluttering the airy player interface.
 * **Smart Auto-Pick from Favorites:**
   * Automatically analyze and cluster the listener's favorited / liked tracks by headspace, energy profile, or genre adjacency.
@@ -206,7 +213,7 @@ Kept for reference only. Nothing below is worked on until Phase 4 ships.
   * Devise a clean, decluttered flow (e.g., initiated from a dedicated Favorites view, post-session recap, or minimal popup rather than overcrowding the playback bar).
   * Flexible export: option to keep as a virtual MusicMood session or sync directly to YouTube.
 
-### 7. 📊 Sonic Analytics & Community Insights Dashboard
+### 7. 📊 Sonic Analytics & Community Insights Dashboard — **🌱 After 1.0 · not started**
 * **Purpose:** Celebrate listening habits, surface top hits across the community, and spotlight listener dedication with personal and global analytics.
 * **Core Analytics Features:**
   * 🎵 **Most Popular Songs:** Top-streamed, most-favorited, and highest-completion tracks across all listening sessions (filterable by All-Time, Month, Week).
@@ -218,7 +225,8 @@ Kept for reference only. Nothing below is worked on until Phase 4 ships.
 * **Engine & Database Architecture:**
   * Backed by efficient, cached Supabase PostgreSQL RPCs (`get_platform_analytics()`, `get_listener_stats(user_id)`) querying existing `listening_history`, `user_favorites`, and `artists.affinity_score` with zero client-side calculation overhead.
 
-### 8. ⚡ Catalog Rebalancing & Underrepresented Genre Overhaul (Bottom-Up Inverted Seeding)
+### 8. ⚡ Catalog Rebalancing & Underrepresented Genre Overhaul (Bottom-Up Inverted Seeding) — **🏁 Before 1.0 · in progress**
+* **Progress (Nov 23):** dark synth grew from 211 to about 650 songs; gap-fill harvest (`harvestGenreArtists.js --genre=gaps`) for nine thin sub-genres plus `pfunk` and `nature_soundscape`; the discovery search bug that mis-filed songs by title is fixed (v0.9.0s). **Next:** hip-hop sub-genres (West Coast, boom bap, conscious, UK drill, cloud rap, trap), seeded from the owner's likes.
 * **The Root Cause (The "Top of the List" Skew):**
   * An audit of our 50,000+ track catalog reveals a massive structural imbalance caused by legacy folder scans and top-to-bottom sequential processing:
     * **The "Big 4" (Over 36,600 tracks — 75% of catalog):**
@@ -252,7 +260,7 @@ Kept for reference only. Nothing below is worked on until Phase 4 ships.
   * **4. Energy & Instrumental Filtering:**
     * Ensure electronic/ambient tracks have verified instrumental flags and hip-hop/pop have proper energy baselines so the 6 Core Moods (Focus, Chill, Party, Workout) never pull the wrong sonic texture.
 
-### 9. 🏷️ In-Player "Wrong Genre / Misclassified" Flag & Re-Assignment Button
+### 9. 🏷️ In-Player "Wrong Genre / Misclassified" Flag & Re-Assignment Button — **✅ done (v0.7.5)**
 * **The Problem:**
   * When a track plays in the wrong genre (e.g., Dire Straits in Pop, or an ambient drone in Techno), listeners currently only have the Dislike (👎) button.
   * Disliking penalizes the artist's affinity score and risks purging a masterpiece song, when the song is actually great and simply has an incorrect genre tag.
@@ -265,7 +273,8 @@ Kept for reference only. Nothing below is worked on until Phase 4 ships.
 * **Automated Self-Healing Backend:**
   * Tracks flagged with misclassification reports can also trigger a background lookup through our MusicBrainz / iTunes genre normalizer to re-verify the community consensus tags.
 
-### 10. 🎛️ Taxonomy Rebalancing: Re-group `synth_pop` into `Electronic` & Reconcile Artist Plurality
+### 10. 🎛️ Taxonomy Rebalancing: Re-group `synth_pop` into `Electronic` & Reconcile Artist Plurality — **🏁 Before 1.0 · not started**
+* **Added Nov 23:** also merge near-duplicate pairs (`bossa_nova` / `bossa_nova_jazz`, `folk_acoustic` / `acoustic_folk`, `chill` / `chillout` / `ambient_chill`) and decide on the nine genres that exist in the database with no songs and are not in the app's list (celtic, dark_ambient, darkwave, downtempo, drone, experimental, krautrock, power_metal, reggae). Darkwave and dark_ambient suit the dark synth audience. See `docs/flagged-mistakes.md` (P5).
 * **The Problem:**
   * In `src/services/tasteGraph.js`, `synth_pop` was historically categorized under `group: 'Pop'` alongside `dance_pop` and `mainstream_pop`.
   * Consequently, foundational electronic and darkwave pioneers like **Depeche Mode**, **New Order**, **Orchestral Manoeuvres in the Dark (OMD)**, and **Pet Shop Boys** are automatically mapped to the **✨ Pop** parent genre family in the Artist Explorer.
@@ -278,7 +287,7 @@ Kept for reference only. Nothing below is worked on until Phase 4 ships.
      * Update `public.artists.primary_genre_id` to reflect actual track plurality (e.g. Depeche Mode -> `electronic`).
      * Ensure the sync script and nightly cron resolve plurality accurately when artists straddle related electronic subgenres.
 
-### 11. ⚖️ Track Upvote vs. Artist Affinity Rebalancing & Anti-Runaway Gating
+### 11. ⚖️ Track Upvote vs. Artist Affinity Rebalancing & Anti-Runaway Gating — **✅ done (v0.8.7d: weights and caps)**
 * **The Question & Dilemma:**
   * When a listener upvotes a specific track, should the artist also receive an upvote/affinity boost?
   * While intuitive, unmitigated 1:1 artist upvoting threatens recommendation balance in two key ways:
@@ -306,7 +315,7 @@ Kept for reference only. Nothing below is worked on until Phase 4 ships.
   * **Background Audio Persistence:**
     * Evaluate audio keep-alive and iframe visibility handling to minimize mobile browser suspension when screens lock.
 
-### 13. 🛡️ Authenticated User Upvote Isolation & Anti-Bot Protection (`public.user_upvotes`)
+### 13. 🛡️ Authenticated User Upvote Isolation & Anti-Bot Protection (`public.user_upvotes`) — **✅ done (v0.8.7d)**
 * **Feedback Origin:** *User Feedback (Nov 10)*: *"remember upvotes as well...otherwise bots might be able to destroy your library"*.
 * **Scope & Implementation:**
   * **Database Architecture:**
@@ -326,13 +335,13 @@ Kept for reference only. Nothing below is worked on until Phase 4 ships.
     * The external YouTube icon/pill remains the sole link that opens the video on `youtube.com`.
   * Keeps the listener inside MusicMood's focused audio environment without accidental redirects.
 
-### 15. ☁️ Cross-Device Database Sync for Genre & Mood Preferences
+### 15. ☁️ Cross-Device Database Sync for Genre & Mood Preferences — **🏁 Before 1.0 · in progress**
 * **Feedback Origin:** *User Feedback (Nov 10)*: *"save genre preferences into db so it's consistent across session and devices"*.
 * **Scope & Implementation:**
   * Store active genre selections, pinned mood defaults (Item #1), and acoustic steering toggles (vocal preferences, energy level) in `public.user_profiles.calibration` or a dedicated preferences JSONB column in Supabase.
   * On login across any desktop, tablet, or phone, load the listener's preferences seamlessly so sessions never revert to blank defaults.
 
-### 16. 📻 Last.fm & External Profile Library Scraper / Importer
+### 16. 📻 Last.fm & External Profile Library Scraper / Importer — **🌱 After 1.0 · in progress**
 * **Feedback Origin:** *User Feedback (Nov 12)*: *"Scrape https://www.last.fm/user/octakhan888/library/artists profile for bands"*.
 * **Scope & Implementation:**
   * Add an import utility allowing users to supply their Last.fm username or library URL (`https://www.last.fm/user/<username>/library/artists`).
@@ -340,12 +349,12 @@ Kept for reference only. Nothing below is worked on until Phase 4 ships.
   * Cross-reference imported artists against MusicMood's 115-genre taxonomy.
   * Automatically harvest or anchor the user's favorite artists in the database, generating a customized personal radio profile.
 
-### 17. 🪟 Auto-Dismiss Modals & Panels on Playback Trigger
+### 17. 🪟 Auto-Dismiss Modals & Panels on Playback Trigger — **🌱 After 1.0 · partly done (favorites drawer, v0.8.4)**
 * **Feedback Origin:** *User Feedback (Nov 09)*: *"bug, when playing from favorites the window doesn't disappear in it's own"*.
 * **Scope & Implementation:**
   * In `FavoritesModal.jsx` and `ArtistsExplorer.jsx`, automatically dismiss or collapse the modal/drawer when a listener clicks "▶ Play" on a song, immediately revealing the main player and visualization.
 
-### 18. 🧭 Universal Sonic Profiler: Redesign Step 2 Onboarding as Natural Harmonic Bridge
+### 18. 🧭 Universal Sonic Profiler: Redesign Step 2 Onboarding as Natural Harmonic Bridge — **✅ done (v0.8.8b: two-step onboarding)**
 * **Feedback Origin:** *User Feedback (Nov 13)*: *"emotional reflexes screen doesn't make much sense : (onboarding screen 2) - it needs to be a natural progression of step 1 (the star checker) and lead you into step 3 genre home for each state"*.
 * **The Disconnect:**
   * **Step 1 (The Sonic Star)** sculpts the listener's broad acoustic identity across 6 poles (Rock, Electronic, Hip-Hop, Jazz, Folk, Classical) yielding an active flavor archetype.
@@ -363,7 +372,7 @@ Kept for reference only. Nothing below is worked on until Phase 4 ships.
   * **4. Algorithmic Prediction Engine for Step 3:**
     * Combine Step 1's Radar Pole weights with Step 2's Energy & Catharsis reflexes to compute exact, personalized home recommendations for all 6 moods in Step 3 (e.g., A Rock fan who chooses "Atmospheric Catharsis" gets `post_rock` or `doom_metal` predicted for Sad; an Electronic fan who chooses "Groove" gets `house` or `synthwave` for Party).
 
-### 19. ⚖️ Automated Staged Ingestion Algorithm: Tiered Hybrid Pipeline (Option C)
+### 19. ⚖️ Automated Staged Ingestion Algorithm: Tiered Hybrid Pipeline (Option C) — **🌱 After 1.0 · in progress (hourly workflows are live)**
 * **Context & Problem Statement:**
   * MusicMood currently maintains thousands of high-potential candidate artists and tracks in staging (`public.artist_suggestions`, `public.local_metadata`, and live discovery feeds). While listeners can manually audition and request candidates (`+ Request`), expanding the playable library (`public.tracks` / `public.artists`) requires an autonomous, mathematically balanced ingestion algorithm.
   * A naive automated pull creates major risks:
@@ -451,7 +460,7 @@ graph TD
      * *Discovery Floor:* Maintain 40–50% discovery ratio so promoted candidates complement established catalog anchors without overwhelming familiar hits.
      * *Status:* **Documented in Strategic Roadmap; implementation targeted post-v0.8.x stabilization.**
 
-### 20. 🗂️ Player Header Real Estate & "Up Next" Button Compactification
+### 20. 🗂️ Player Header Real Estate & "Up Next" Button Compactification — **🏁 Before 1.0 · not started**
 * **Feedback Origin:** *User Feedback (Nov 16, 2026)*: *"up next button is not very useful and might be worth removing or making smaller to make more room for the name"*.
 * **Problem:** On smaller screens, tablets, or compact desktop windows, the "Up Next: [Song Title]" button occupies significant horizontal width in the player bar, truncating long artist names or track titles.
 * **Scope & UX Implementation:**
@@ -459,7 +468,7 @@ graph TD
   * Reclaim 120–160px of horizontal flex space dedicated to track and artist title display.
   * Add automatic responsive collapse on screens < 900px.
 
-### 21. 🧬 Catch-All Taxonomy Decomposition ("General Rock" / "General Metal" to Leaf Subgenres)
+### 21. 🧬 Catch-All Taxonomy Decomposition ("General Rock" / "General Metal" to Leaf Subgenres) — **🏁 Before 1.0 · not started**
 * **Feedback Origin:** *User Feedback (Nov 16 & Nov 20, 2026)*: *"what is the music that falls in to 'General rock' are other general categories ? - lots of misclassified ones there"* & *"how do generic genres work, like rock, jazz metal general, are those the vaguely catalogued tracks or do they encompass or subgenres technically under that genre ?"*.
 * **Problem:**
   * When third-party sources (MusicBrainz, Last.fm, iTunes) provide coarse tags, tracks default to top-level umbrella buckets (`rock`, `metal`, `jazz`, `electronic`).
@@ -468,7 +477,7 @@ graph TD
   * **Automated Subgenre Decomposition Cron:** Implement an offline classification pass that inspects tracks labeled simply `rock` or `metal`, queries MusicBrainz release and artist release group tags, and promotes them to specific leaf subgenres (e.g. `prog_rock`, `grunge`, `classic_rock`, `hard_rock`, `blues_rock`, `thrash_metal`, `death_metal`).
   * **Interactive Misclassification Sweep:** Run the consensus healing engine on tracks tagged with generic parent labels that have low confidence scores.
 
-### 22. 📖 Taxonomy Hierarchy & Subgenre Inheritance Guide in UI
+### 22. 📖 Taxonomy Hierarchy & Subgenre Inheritance Guide in UI — **🌱 After 1.0 · not started**
 * **Feedback Origin:** *User Feedback (Nov 20, 2026)*: *"how do generic genres work, like rock, jazz metal general, are those the vaguely catalogued tracks or do they encompass or subgenres technically under that genre ?"*.
 * **Scope & Implementation:**
   * Add an informative badge / tooltip in Artists Explorer and Taste Calibration explaining that:
@@ -476,6 +485,23 @@ graph TD
     2. Browsing "Rock" seamlessly aggregates tracks from Prog Rock, Alt Rock, Post-Rock, Grunge, Classic Rock, etc., while legacy tracks with coarse tags reside in the baseline parent category until promoted by the healing pipeline.
 
 ---
+
+---
+
+### 23. 🧹 Flagged-Mistakes Loop & Catalog Cleanup — **🏁 Before 1.0 · in progress**
+* Every flag batch is reviewed, logged by pattern and turned into a rule in [`docs/flagged-mistakes.md`](docs/flagged-mistakes.md) (started Nov 23: 10 flags, patterns P1 to P7).
+* **To do:** the owner decides what happens to about 40 older songs filed by title match (P1); mark handled flags `resolved`; fix the open patterns: multi-genre artists (P2), classical granularity (P4), duplicate genres (P5, see #10), loosely related imports in niche genres (P7, harvests now carry tag requirements).
+
+### 24. ▶️ Unplayable Videos: Auto-Replace After Embed Errors — **🏁 Before 1.0 · not started**
+* 14 playback reports so far, all error 150 (embedding blocked or video unavailable), including at least one hand-typed video id from a seed script (pattern P6).
+* **Plan:** a scheduled job reads `track_playback_reports`, finds another upload with the same resolver, updates the song's `youtube_video_id` (service role), and clears the report. Stop typing video ids by hand in seed scripts.
+
+### 25. 🚫 Non-Music Content Blocklist (Remove a Channel) — **🏁 Before 1.0 · not started**
+* From the Nov 23 feedback: *"this is not music, remove channel"*. There is no way to remove a whole channel or stop it coming back.
+* **Plan:** admin action "remove channel" plus a `blocked_channels` list that ingestion and the resolver check before adding songs.
+
+### 26. 📲 YouTube Playlist Import in the Android App — **🌱 After 1.0 · not started**
+* The native sign-in does not request the YouTube permission, so playlist import only works on the website (the app shows a message). Needs Android's authorization step for the `youtube.readonly` scope, or an in-app browser flow.
 
 ---
 
@@ -548,6 +574,7 @@ graph TD
 * [x] **v0.9.0t:** Indie folk harvest filter loosened.
 * [x] **v0.9.0u:** P-funk and nature soundscape harvest options, with length and title guards.
 * [x] **v0.9.0v:** Nature soundscape harvest filters out noise-colour videos.
+* [x] **v0.9.0w:** Roadmap re-planned: Before 1.0 / After 1.0 labels on every open item, new items #23 to #26 from the Nov 23 review, feedback matrix brought up to date.
 
 ---
 
@@ -555,6 +582,11 @@ graph TD
 
 | Date | User Feedback Summary | Status | Resolution / Action Item in Roadmap |
 | :--- | :--- | :---: | :--- |
+| **Nov 23** | *Not music, remove this channel (YouTube link)* | 📌 **Active Roadmap** | **Item #25**: Non-music content blocklist |
+| **Nov 23** | *Reword the introduction to be more positive* | ✅ **Shipped (v0.9.0l, v0.9.0r)** | New welcome text on the sign-in screen and the welcome splash |
+| **Nov 23** | *Replace em dashes with regular dashes* | ✅ **Shipped (v0.9.0m, v0.9.0n)** | Plain hyphen in the player and no em dashes in the visible app text |
+| **Nov 23** | *10 genre flags (Storm, Classical, Folk, Beck...)* | ⏳ **In Progress** | **Item #23**: root cause fixed in v0.9.0s (unquoted MusicBrainz tag search); log in `docs/flagged-mistakes.md` |
+| **Nov 21** | *Add some themes (default one is generic)* | ✅ **Shipped (v0.8.8c, v0.8.8d)** | Mood skins and the Look setting, stored in the user profile |
 | **Nov 20** | *How generic genres work (e.g. rock, metal general)* | 📌 **Active Roadmap** | **Item #21 & #22**: Subgenre decomposition & in-app taxonomy inheritance guide |
 | **Nov 17** | *Genre inflation workflows not working* | ✅ **Shipped (v0.8.7)** | Upgraded `inflateStagedArtists.js` with InnerTube + iTunes + scheduled workflow |
 | **Nov 16** | *Up Next button not useful / make smaller for title space* | 📌 **Active Roadmap** | **Item #20**: Compact `⏭️ Next` icon button with hover preview |
@@ -562,7 +594,7 @@ graph TD
 | **Nov 12** | *Hover over song title to see title clearly* | ✅ **Shipped (v0.8.3)** | Full title tooltips and hover expansion added to `Player.jsx` |
 | **Nov 12** | *Randomize songs when starting playback (stop playing same track)* | ✅ **Shipped (v0.8.4)** | Dynamic seed offset and session shuffle on genre start in state machine |
 | **Nov 12** | *Scrape Last.fm user profile for bands* | ⏳ **In Progress** | **Item #16**: Last.fm harvest scripts built; web profile import tool planned |
-| **Nov 10** | *Remember upvotes / isolate against bot spam* | 📌 **Active Roadmap** | **Item #13**: Dedicated `public.user_upvotes` table with RLS isolation |
+| **Nov 10** | *Remember upvotes / isolate against bot spam* | ✅ **Shipped (v0.8.7d)** | `public.user_upvotes` with RLS isolation, guest weighting and hourly limits (more limits in v0.9.0k) |
 | **Nov 10** | *Track link in player brings to artist, only YT to YouTube* | ✅ **Shipped (v0.8.4)** | Decoupled player track clicks: artist opens in-app Artists Explorer, icon opens YT |
 | **Nov 10** | *Save genre preferences in db for cross-device sync* | ⏳ **In Progress** | **Item #15**: Radar and calibration sync shipped; full session state sync planned |
 | **Nov 10** | *Mobile background mode buttons (skip from notification shade)* | ✅ **Shipped (v0.8.3)** | Web Media Session API wired with lock-screen next/prev/play/pause controls |

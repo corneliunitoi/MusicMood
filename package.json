@@ -1,7 +1,7 @@
 {
   "name": "musicmood",
   "private": true,
-  "version": "0.9.0v",
+  "version": "0.9.0w",
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
