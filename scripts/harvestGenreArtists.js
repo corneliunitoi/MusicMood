@@ -164,7 +164,7 @@ export const GENRE_TARGET_CONFIGS = {
     indie_folk: {
         id: 'indie_folk', label: 'Indie Folk', primaryDefault: 'indie_folk',
         forceTags: ['indie folk', 'chamber folk', 'freak folk', 'folktronica'],
-        rejectGenres: [...LOUD_OR_EDGY, ...POP_LIKE, 'country'],
+        rejectGenres: [...LOUD_OR_EDGY, ...POP_LIKE],
         tags: ['indie folk', 'chamber folk', 'freak folk'],
         anchors: ['Andrew Bird', 'Calexico', 'The Microphones', 'Smoke Fairies', 'Bon Iver', 'Fleet Foxes', 'Sufjan Stevens', 'Iron & Wine', 'Dark Dark Dark']
     },

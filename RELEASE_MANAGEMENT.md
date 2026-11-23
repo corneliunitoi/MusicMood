@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0t` — 2026-11-23
+* **[Web + Android]** Indie folk harvest no longer rejects artists that also carry a "country" tag (the check run skipped Big Thief and Faye Webster for it).
+
 ### `v0.9.0s` — 2026-11-23
 * **[Web + Android]** Discovery bug fixed: the just-in-time MusicBrainz search sent multi-word tags unquoted (`tag:quiet storm`), so the second word matched song **titles** and songs like "Storm", "Noble Folk" and "Classical" were filed under the wrong genre (all ten genre flags in the first review batch). Tags are now quoted and titles made only of the genre's words are dropped.
 * **[Web + Android]** Gap-fill harvest for nine thin sub-genres (`--genre=gaps`: ambient electronic, soul blues, outlaw and classic country, quiet storm, acoustic folk, bossa nova jazz, contemporary classical, indie folk), seeded from artists the owner liked, with per-genre tag requirements and look-alike filters.
