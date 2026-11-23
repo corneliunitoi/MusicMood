@@ -546,6 +546,7 @@ graph TD
 * [x] **v0.9.0r:** Welcome splash headline updated to the positive wording.
 * [x] **v0.9.0s:** MusicBrainz tag-search bug fixed, gap-fill harvest for nine thin sub-genres, flagged-mistakes log.
 * [x] **v0.9.0t:** Indie folk harvest filter loosened.
+* [x] **v0.9.0u:** P-funk and nature soundscape harvest options, with length and title guards.
 
 ---
 

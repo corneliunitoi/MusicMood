@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0u` — 2026-11-23
+* **[Web + Android]** Harvest options for the two thinnest sub-genres: `pfunk` (Parliament, Funkadelic, Bootsy and kin, tag-checked) and `nature_soundscape` (field recordings and nature sounds). The lookup can now skip hours-long videos (`maxTrackSeconds`) and videos whose title matches a "10 hours / loop / white noise" pattern (`rejectVideoTitle`); nature soundscapes use both.
+
 ### `v0.9.0t` — 2026-11-23
 * **[Web + Android]** Indie folk harvest no longer rejects artists that also carry a "country" tag (the check run skipped Big Thief and Faye Webster for it).
 

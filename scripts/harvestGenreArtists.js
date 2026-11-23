@@ -168,6 +168,23 @@ export const GENRE_TARGET_CONFIGS = {
         tags: ['indie folk', 'chamber folk', 'freak folk'],
         anchors: ['Andrew Bird', 'Calexico', 'The Microphones', 'Smoke Fairies', 'Bon Iver', 'Fleet Foxes', 'Sufjan Stevens', 'Iron & Wine', 'Dark Dark Dark']
     },
+    pfunk: {
+        id: 'pfunk', label: 'P-Funk / Psychedelic Funk', primaryDefault: 'pfunk',
+        forceTags: ['p-funk', 'p funk', 'psychedelic funk', 'parliament', 'funkadelic'],
+        rejectGenres: [...LOUD_OR_EDGY, ...POP_LIKE, 'classical'],
+        tags: ['p-funk', 'psychedelic funk', 'funkadelic', 'parliament'],
+        anchors: ['Parliament', 'Funkadelic', 'George Clinton', 'Bootsy Collins', 'Zapp', 'Ohio Players', 'Rick James', 'Cameo', 'Slave', 'Bernie Worrell']
+    },
+    nature_soundscape: {
+        id: 'nature_soundscape', label: 'Nature & Soundscape', primaryDefault: 'nature_soundscape',
+        forceTags: ['nature sounds', 'field recording', 'soundscape', 'nature'],
+        rejectGenres: [...LOUD_OR_EDGY, ...POP_LIKE],
+        // No hours-long loops: songs over 15 minutes and "10 hours / loop / white noise / ASMR" videos are skipped.
+        maxTrackSeconds: 900,
+        rejectVideoTitle: /(\d+\s*(hours?|hrs?)\b|\bhours?\b|\bloop\b|\bwhite noise\b|\basmr\b|\binsomnia\b)/i,
+        tags: ['nature sounds', 'field recordings', 'soundscape', 'nature', 'environmental'],
+        anchors: ['Chris Watson', 'Bernie Krause', 'Jana Winderen', 'Lawrence English', 'Dan Gibson', 'Kevin Kendle', 'Biosphere']
+    },
     avant_garde: {
         id: 'avant_garde',
         label: 'Avant-Garde & Experimental',
@@ -200,7 +217,16 @@ function titlesMatch(targetTitle, ytVideoTitle) {
 /**
  * Resolves track to YouTube Music stream via InnerTube WEB_REMIX API (zero quota).
  */
-async function resolveInnertube(artist, trackName) {
+function toSeconds(text) {
+    const parts = String(text).split(':').map(Number);
+    return parts.reduce((total, n) => total * 60 + n, 0);
+}
+
+/**
+ * Resolves a studio audio video id. Optional guards: `maxSeconds` drops results longer than that
+ * (hours-long loops), `rejectTitle` drops results whose video title matches the regex.
+ */
+async function resolveInnertube(artist, trackName, { maxSeconds = null, rejectTitle = null } = {}) {
     const cleanArtist = artist.replace(/["“”«»]/g, ' ').replace(/\s+/g, ' ').trim();
     const cleanTitle = trackName
         .replace(/\((Alternate|Remix|Live|Stem|Dublex|Prod\.|Demo|Version|Remaster).*?\)/gi, '')
@@ -252,7 +278,9 @@ async function resolveInnertube(artist, trackName) {
                     item.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.videoId;
                 const runs = item.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs;
                 const title = runs ? runs.map(r => r.text).join('') : '';
-                if (videoId) candidates.push({ videoId, title });
+                const metaRuns = item.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+                const lengthText = metaRuns.map(r => r.text).find(t => /^\d{1,2}:\d{2}(:\d{2})?$/.test(t));
+                if (videoId) candidates.push({ videoId, title, durationSec: lengthText ? toSeconds(lengthText) : null });
             }
             for (const key of Object.keys(obj)) {
                 if (Array.isArray(obj[key])) {
@@ -265,13 +293,17 @@ async function resolveInnertube(artist, trackName) {
 
         extractItems(data);
 
-        for (const cand of candidates) {
+        const usable = candidates.filter(c =>
+            !(maxSeconds && c.durationSec && c.durationSec > maxSeconds) &&
+            !(rejectTitle && rejectTitle.test(c.title || '')));
+
+        for (const cand of usable) {
             if (titlesMatch(cleanTitle, cand.title)) {
                 return cand.videoId;
             }
         }
 
-        return candidates[0]?.videoId || null;
+        return usable[0]?.videoId || null;
     } catch {
         return null;
     }
@@ -555,7 +587,7 @@ async function harvestGenre(config) {
             const gate = isSongCandidate({ title: cleanTitle, artist: candidate.name });
             if (!gate.pass) continue;
 
-            const videoId = await resolveInnertube(candidate.name, cleanTitle);
+            const videoId = await resolveInnertube(candidate.name, cleanTitle, { maxSeconds: config.maxTrackSeconds, rejectTitle: config.rejectVideoTitle });
             if (!videoId || videoId.length !== 11 || existingTrackVids.has(videoId)) continue;
 
             console.log(`   ⭐ [${tracksAddedForArtist + 1}/${TRACKS_PER_ARTIST}] "${cleanTitle}" -> ${videoId} (${primaryGenre})`);
@@ -631,7 +663,7 @@ async function run() {
     } else if (GENRE_TARGET_CONFIGS[TARGET_GENRE]) {
         targetsToRun.push(GENRE_TARGET_CONFIGS[TARGET_GENRE]);
     } else {
-        console.error(`Unknown target genre: "${TARGET_GENRE}". Valid options: blues, country, folk_acoustic, avant_garde, darksynth, gaps, all, or any config id above`);
+        console.error(`Unknown target genre: "${TARGET_GENRE}". Valid options: blues, country, folk_acoustic, avant_garde, darksynth, pfunk, nature_soundscape, gaps, all, or any config id above`);
         process.exit(1);
     }
 

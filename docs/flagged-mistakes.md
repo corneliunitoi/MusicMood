@@ -25,6 +25,7 @@ where g.status = 'pending' order by g.created_at desc;
 | **P3** | Look-alike genres leak into gentle ones (folk **metal** under Acoustic Folk). | Harvests use `rejectGenres` (metal, punk, industrial, pop...) for every gap-fill genre. | **Added in 0.9.0s** for new harvests. Old rows still to review. |
 | **P4** | Granularity: performer-led classical filed as *contemporary* classical (a Granados piece). | Contemporary classical = composed after about 1950 (minimalism, modern). Older repertoire goes to romantic / classical_period / baroque by composer era. | Open. |
 | **P5** | The same song is wrongly filed in two sibling genres, e.g. `bossa_nova` and `bossa_nova_jazz`, `folk_acoustic` and `acoustic_folk`. | Decide one genre per sound, or document the difference. | Open (taxonomy review). |
+| **P7** | Tag-seeded imports file loosely related songs under a niche genre: `nature_soundscape` holds mostly ambient music (Brian Eno, GAS) and a Beethoven movement with the wrong artist ("No. 2 in D minor"); `pfunk` holds unrelated funk-tagged artists (Bibio, Tom Browne, "The Music of A. Craze"). | Niche genres need a required-tag check (`forceTags`), look-alike filters, and for nature sounds a length cap. | **Addressed for new imports in 0.9.0u.** Existing rows still to review. |
 | **P6** | Playback error 150 (video does not allow embedding) and hand-typed video ids in seed scripts. | After error 150/101 find another upload automatically; never type video ids by hand. | Open. |
 
 ## Batch 1: 2026-11-23, ten genre flags from the owner
