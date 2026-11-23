@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.0g` — 2026-11-23
+* **[Android]** *Android signed build* workflow: a missing secret now names the exact secret to add (`ANDROID_KEYSTORE_BASE64`, …) instead of the internal variable name, and the short names (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`) are accepted as well.
+
 ### `v0.9.0f` — 2026-11-23
 * **[Android]** New app icon, "Midnight" cut gem: a faceted indigo gem with a pearl music note, drawn inside Android's safe circle so round and squircle masks never crop it. Adaptive icon (background + foreground layers), legacy and round icons for all densities, and the 512 px Play Store icon (`branding/play-store-icon-512.png`). Sources in `branding/*.svg`; regenerate with `scripts/generateAndroidIcons.mjs`.
 

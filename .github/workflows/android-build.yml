@@ -42,12 +42,13 @@ jobs:
 
       - name: Restore the upload keystore and check it is the registered key
         env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          # The ANDROID_-prefixed names are the documented ones; the short names are accepted too.
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 || secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || secrets.KEY_ALIAS }}
         run: |
           for v in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS; do
-            if [ -z "${!v}" ]; then echo "::error::Repository secret for $v is missing (see ANDROID_BUILD.md)."; exit 1; fi
+            if [ -z "${!v}" ]; then echo "::error::Repository secret ANDROID_$v is missing. Add it under Settings > Secrets and variables > Actions > Repository secrets (see ANDROID_BUILD.md)."; exit 1; fi
           done
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
           actual=$(keytool -list -v -keystore "$RUNNER_TEMP/upload.jks" -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" | grep -m1 'SHA1:' | sed 's/.*SHA1: *//')
@@ -62,7 +63,7 @@ jobs:
 
       - name: Build the web app into the Android shell
         env:
-          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID || secrets.VITE_GOOGLE_WEB_CLIENT_ID }}
         run: |
           if [ -z "$GOOGLE_WEB_CLIENT_ID" ]; then echo "::error::Repository secret GOOGLE_WEB_CLIENT_ID is missing (see ANDROID_BUILD.md)."; exit 1; fi
           cp .env.android.example .env.android
@@ -72,9 +73,9 @@ jobs:
       - name: Gradle release build
         working-directory: android
         env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || secrets.KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease bundleRelease --no-daemon
 
       - name: Check the APK is signed with the registered key
