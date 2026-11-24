@@ -6,7 +6,7 @@
  * instant first paint; the profile copy wins once it has loaded.
  */
 import { supabase } from './supabaseService';
-import { normalizeLook } from './moodSkins';
+import { normalizeLook, toStoredLook } from './moodSkins';
 
 /** Returns the saved Look setting, or null if the listener never saved one (or on error). */
 export async function fetchProfileLook() {
@@ -23,7 +23,7 @@ export async function fetchProfileLook() {
 /** Saves the Look setting to the profile. Failures are logged; the browser copy still applies. */
 export async function saveProfileLook(look) {
     try {
-        const { data, error } = await supabase.rpc('save_my_look', { p_look: normalizeLook(look) });
+        const { data, error } = await supabase.rpc('save_my_look', { p_look: toStoredLook(look) });
         if (error) throw error;
         if (data && data.success === false) throw new Error(data.error || 'save failed');
         return true;

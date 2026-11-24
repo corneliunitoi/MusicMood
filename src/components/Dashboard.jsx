@@ -20,7 +20,7 @@ import AboutModal from './AboutModal';
 import GlobalSearchModal from './GlobalSearchModal';
 import MoodBackdrop from './MoodBackdrop';
 import LookSettings from './LookSettings';
-import { loadLook, saveLook, resolveSkinId, skinMoodFor, DEFAULT_LOOK } from '../services/moodSkins';
+import { loadLook, saveLook, resolveSkinId, skinMoodFor, richSkinFor, DEFAULT_LOOK } from '../services/moodSkins';
 import { fetchProfileLook, saveProfileLook } from '../services/lookService';
 import { getFavoritesCount, subscribeFavorites } from '../services/favoritesService';
 import {
@@ -86,7 +86,8 @@ function Dashboard({ session, token, onLogout }) {
     const [look, setLook] = useState(() => loadLook());
     // Last picked mood that owns a skin; moods without one keep the current look.
     const [lastSkinMood, setLastSkinMood] = useState(() => skinMoodFor(selectedMood));
-    const skinId = resolveSkinId(lastSkinMood, look);
+    const [lastRichSkin, setLastRichSkin] = useState(() => richSkinFor(selectedMood));
+    const skinId = resolveSkinId(lastSkinMood, look, lastRichSkin);
     const handleLookChange = (next) => { setLook(next); saveLook(next); saveProfileLook(next); };
 
     // Once the profile is known, the saved Look setting wins over this browser's copy.
@@ -307,6 +308,8 @@ function Dashboard({ session, token, onLogout }) {
         setSelectedMood(moodId);
         const skinMood = skinMoodFor(moodId);
         if (skinMood) setLastSkinMood(skinMood);
+        const richSkin = richSkinFor(moodId);
+        if (richSkin) setLastRichSkin(richSkin);
         setIsDiscovering(true);
         setError(null);
 

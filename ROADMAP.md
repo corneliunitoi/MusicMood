@@ -575,6 +575,7 @@ graph TD
 * [x] **v0.9.0u:** P-funk and nature soundscape harvest options, with length and title guards.
 * [x] **v0.9.0v:** Nature soundscape harvest filters out noise-colour videos.
 * [x] **v0.9.0w:** Roadmap re-planned: Before 1.0 / After 1.0 labels on every open item, new items #23 to #26 from the Nov 23 review, feedback matrix brought up to date.
+* [x] **v0.9.1:** Rich themes tab in Settings › Look (eight bolder looks with moon, neon sun, petals and more).
 
 ---
 

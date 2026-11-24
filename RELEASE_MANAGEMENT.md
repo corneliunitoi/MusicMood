@@ -80,6 +80,9 @@ One codebase, one `main` branch, one version number, two release speeds.
 
 ## 📜 Release Changelog
 
+### `v0.9.1` — 2026-11-24
+* **[Web + Android]** **Rich themes.** Settings › Look has a new **Rich themes** tab next to **Mood looks**: eight bolder, opt-in looks with their own heading fonts and big scenery. Night Sky (glowing moon, twinkling stars, shooting star), Rain Glass (heavy rain, window drops, turning cassette reels), Old Library (candle flicker, dust, gilt frame), Meadow (hills and falling petals), Neon Grid (striped neon sun over a grid), Noir (spotlight and film grain), Poster Pop (halftone and confetti) and Still Water (ripples). Each mood maps to a theme (for example Late Night, Dreamy and Romantic use Night Sky); "Match my mood" and "Always use one look" work in both tabs. The three light designs use a deep-toned version so every panel stays readable. The scenery sits behind the app and never covers the TV player. Stored in the same Look setting, additively (`rich_...` ids and a `rich` entry in the existing fields), so older app versions simply show their basic looks. Design reference: `docs/rich-themes-reference.html`.
+
 ### `v0.9.0w` — 2026-11-23
 * **[Web + Android]** Roadmap re-planned (docs only): every open item is now labelled Before 1.0 or After 1.0, with a counts table (14 before, 12 after); new items #23 to #26 from the Nov 23 review of feedback, flags and playback reports; feedback matrix updated.
 
