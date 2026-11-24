@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--
+  RICH THEMES — design reference (not shipped; open this file in a browser to try it)
+  ===================================================================================
+  The first, "rich" version of the MusicMood mood skins, designed on 2026-11-22 before the
+  owner asked for subtler changes (those shipped as the subtle skins in v0.8.8c:
+  src/services/moodSkins.js, MoodBackdrop.jsx, LookSettings.jsx). The owner now wants these
+  rich looks added as alternative themes under a "Rich themes" tab in the same Look menu.
+
+  The 9 rich skins (moods → skin, as designed here):
+    classic   Classic       today's look (indigo/purple glass)
+    poster    Poster Pop    Happy, Energetic, Party, Roadtrip, Morning Boost
+                            yellow #FFC93C, coral #FF6B4A, ink #1A1423; Archivo Black; hard offset shadows; confetti
+    calm      Still Water   Chill, Focus, Wind Down
+                            mist #E8EEF0 → sage, deep teal #1F3B3A; Quicksand/Nunito lowercase; circle art; drifting blobs
+    rain      Rain Glass    Sad, Rainy Day, Nostalgic
+                            slate blue #2A3F5F→#3D5A80, dusty rose #C9A9A6; Special Elite/Karla; cassette art with turning reels; rain
+    night     Night Sky     Late Night, Dreamy, Romantic
+                            midnight #0B132B, lavender #B8A1D9, moonlight #F1E9DA; Outfit 200 wide caps; glowing moon disc; twinkling stars
+    academia  Old Library   Dark Academia
+                            #2A1A14, oxblood #5C1A1B, brass #B08D57; Cormorant Garamond / EB Garamond; gilt-framed portrait; candle flicker, dust
+    meadow    Meadow        Cottagecore, Fantasy
+                            cream #F7F0D8, moss #6B8F4E, clay #C97B5A; Caveat / Lora; arched window with hills; falling petals
+    neon      Neon Grid     Cyberpunk, Sci-Fi
+                            void #0D0221, hot pink #FF2A6D, cyan #05D9E8; Orbitron / Share Tech Mono; spinning neon vinyl; perspective grid floor
+    noir      Noir          Mystery / Noir, Dark / Intense, Epic (Epic uses gold #C9A227 instead of red)
+                            #111, smoke #BDBDBD, red #C1121F; Bodoni Moda italic / IBM Plex Sans Condensed; spotlight; film grain
+
+  Integration notes for the real app (read CLAUDE.md first):
+  * The YouTube player now lives inside the retro TV and MUST stay visible, uncovered and at least
+    268x201 (YouTube requires >= 200x200). The "art" treatments below (cassette, moon, vinyl, portrait,
+    arch...) were designed for an album-art slot. In the app they must NOT sit on top of the player:
+    use them around it (TV bezel styling, backdrop scenery, decorations beside/under the TV) or as the
+    still image shown behind the player while it loads.
+  * Light skins (Poster Pop, Still Water, Meadow) change text colours across the whole app; check
+    contrast in every panel, not just the player.
+  * Fonts come from Google Fonts (one <link>); give each a fallback stack.
+  * Respect prefers-reduced-motion (no animation, no fades), as the subtle skins already do.
+  * The Look setting is stored in user_profiles.look via get_my_look / save_my_look; adding rich
+    themes must stay backward compatible with saved values ({mode, fixed, off}) — additive only.
+  * Owner preference from the review: changes between looks should not feel dramatic; the subtle
+    skins fade colours over ~1.4s. Rich themes are opt-in (chosen in the Rich themes tab).
+-->
+<title>MusicMood Skins</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;600&family=Bodoni+Moda:ital,wght@0,700;1,700&family=Caveat:wght@700&family=Cormorant+Garamond:ital,wght@0,600;1,600&family=EB+Garamond:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;600&family=Inter:wght@400;600;800&family=Karla:wght@400;600&family=Lora:wght@400;500&family=Nunito:wght@400;700&family=Orbitron:wght@700;900&family=Outfit:wght@200;400;600&family=Quicksand:wght@500;700&family=Share+Tech+Mono&family=Space+Grotesk:wght@500;700&family=Special+Elite&display=swap">
+<style>
+/* Layout: two-column workbench. Phone mock on the left carries the skins; neutral settings panel on the right. Stacks on phones. */
+:root {
+  --bg: #F2F1F5;
+  --panel: #FFFFFF;
+  --fg: #1C1A24;
+  --muted: #625E70;
+  --line: #DFDCE7;
+  --accent: #0F6B6B;
+  --accent-soft: #DDEFEE;
+  --display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+  --body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121118; --panel: #1C1B23; --fg: #ECEAF2; --muted: #A29EB2; --line: #2E2C39;
+    --accent: #56C6C2; --accent-soft: #173534; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121118; --panel: #1C1B23; --fg: #ECEAF2; --muted: #A29EB2; --line: #2E2C39;
+  --accent: #56C6C2; --accent-soft: #173534; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+.intro h1 { font-family: var(--display); font-size: clamp(28px, 4vw, 40px); line-height: 1.1; margin: 0 0 8px; letter-spacing: -0.02em; text-wrap: balance; }
+.intro p { margin: 0; color: var(--muted); max-width: 66ch; }
+.bench { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 32px; align-items: start; }
+@media (max-width: 860px) { .bench { grid-template-columns: minmax(0, 1fr); } .phone { margin: 0 auto; } }
+
+/* ---------- settings panel (neutral) ---------- */
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: flex; flex-direction: column; gap: 26px; min-width: 0; }
+.panel h2 { font-family: var(--display); font-size: 18px; margin: 0; }
+.sec { display: flex; flex-direction: column; gap: 12px; }
+.sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.where { font-size: 12px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+.group { display: flex; flex-direction: column; gap: 6px; }
+.group-label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: inherit; font-size: 13.5px; display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px 5px 8px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--fg); cursor: pointer; }
+.chip .dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); flex: none; }
+.chip:hover { border-color: var(--muted); }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+.chip.off .dot { opacity: .35; }
+button:focus-visible, [role="switch"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 520px) { .modes { grid-template-columns: minmax(0, 1fr); } }
+.mode { font: inherit; text-align: left; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--fg); cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+.mode .radio { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--muted); flex: none; margin-top: 3px; }
+.mode[aria-checked="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.mode[aria-checked="true"] .radio { border-color: var(--accent); box-shadow: inset 0 0 0 3px var(--accent-soft), inset 0 0 0 8px var(--accent); }
+.mode b { display: block; font-weight: 600; }
+.mode span.d { font-size: 13px; color: var(--muted); }
+
+.skin-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.skin-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--line); }
+.skin-row:first-child { border-top: 0; }
+.swatch { width: 44px; height: 30px; border-radius: 6px; display: flex; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+.swatch i { flex: 1; }
+.skin-row .nm { font-weight: 600; font-size: 14px; }
+.skin-row .mv { font-size: 12.5px; color: var(--muted); }
+.skin-row.is-off .nm, .skin-row.is-off .swatch { opacity: .45; }
+.switch { width: 40px; height: 24px; border-radius: 999px; border: 0; background: var(--line); position: relative; cursor: pointer; flex: none; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--panel); box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s; }
+.switch[aria-checked="true"] { background: var(--accent); }
+.switch[aria-checked="true"]::after { transform: translateX(16px); }
+.hint { font-size: 13px; color: var(--muted); margin: 0; }
+
+.skin-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 520px) { .skin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.skin-card { font: inherit; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--fg); cursor: pointer; text-align: left; }
+.skin-card .swatch { width: 100%; height: 36px; }
+.skin-card .nm { font-size: 13.5px; font-weight: 600; }
+.skin-card[aria-checked="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.foot { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; margin: 0; }
+
+/* ---------- phone mock ---------- */
+.phone { width: min(352px, 100%); padding: 10px; border-radius: 44px; background: #0c0c0f; box-shadow: 0 30px 60px -20px rgba(0,0,0,.45), inset 0 0 0 1px #2a2a30; }
+.screen {
+  --s-bg: #020617; --s-fg: #f8fafc; --s-muted: #94a3b8; --s-surface: rgba(30,41,59,.5); --s-line: rgba(255,255,255,.1);
+  --s-accent: #8b5cf6; --s-accent-fg: #fff; --s-display: 'Inter', sans-serif; --s-body: 'Inter', sans-serif;
+  --s-dweight: 800; --s-dcase: none; --s-dtrack: -0.03em; --s-dstyle: normal; --s-msize: 34px; --s-radius: 16px;
+  position: relative; height: 720px; border-radius: 34px; overflow: hidden;
+  background: var(--s-bg); color: var(--s-fg); font-family: var(--s-body); text-align: center;
+  transition: color .4s ease;
+}
+#fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.ui { position: relative; height: 100%; display: flex; flex-direction: column; gap: 10px; padding: 12px 20px 18px; }
+.screen.swap .ui { animation: swap .45s ease; }
+@keyframes swap { from { opacity: .25; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.status { display: flex; justify-content: space-between; font: 600 12px/1 'Inter', sans-serif; padding: 2px 6px 0; opacity: .85; }
+.status svg { width: 38px; height: 11px; fill: currentColor; }
+.app-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.wordmark { font-family: var(--s-display); font-weight: var(--s-dweight); font-style: var(--s-dstyle); font-size: 17px; letter-spacing: var(--s-dtrack); }
+.look-btn { font: 600 11px/1 var(--s-body); padding: 6px 9px; border-radius: 999px; border: 1px solid var(--s-line); background: var(--s-surface); color: var(--s-fg); cursor: pointer; white-space: nowrap; max-width: 60%; overflow: hidden; text-overflow: ellipsis; }
+.mood-head { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 6px; }
+.eyebrow { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--s-muted); }
+.mood-name { font-family: var(--s-display); font-weight: var(--s-dweight); font-style: var(--s-dstyle); text-transform: var(--s-dcase); letter-spacing: var(--s-dtrack); font-size: var(--s-msize); line-height: 1.05; text-wrap: balance; }
+.orbit { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--s-surface); border: 1px solid var(--s-line); color: var(--s-fg); margin-top: 4px; }
+.art-wrap { height: 196px; display: grid; place-items: center; margin-top: 4px; }
+.art { position: relative; width: 186px; height: 186px; border-radius: 24px; background: linear-gradient(135deg,#6366f1,#a855f7); display: grid; place-items: center; overflow: hidden; transition: border-radius .4s; }
+.art .groove, .art .reel, .art .win { display: none; }
+.art-text { position: relative; z-index: 2; padding: 0 14px; font-family: var(--s-display); color: #fff; font-size: 15px; }
+.track { display: flex; flex-direction: column; gap: 1px; margin-top: 2px; }
+.t-title { font-size: 18px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-artist { font-size: 14px; color: var(--s-muted); }
+.progress .bar { height: 4px; border-radius: 4px; background: var(--s-line); overflow: hidden; }
+.progress .bar i { display: block; height: 100%; width: 30%; background: var(--s-accent); }
+.times { display: flex; justify-content: space-between; font-size: 11px; color: var(--s-muted); margin-top: 5px; font-variant-numeric: tabular-nums; }
+.controls { display: flex; justify-content: center; align-items: center; gap: 18px; }
+.ctl { width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--s-line); background: var(--s-surface); color: var(--s-fg); display: grid; place-items: center; cursor: pointer; }
+.ctl svg { width: 20px; height: 20px; }
+.ctl.play { width: 64px; height: 64px; border: 0; background: var(--s-accent); color: var(--s-accent-fg); }
+.ctl.play svg { width: 26px; height: 26px; }
+.ctl.on { color: var(--s-accent-fg); background: var(--s-accent); border-color: transparent; }
+.surprise { font: 600 14px/1 var(--s-body); width: 100%; padding: 12px; border-radius: var(--s-radius); border: 1px solid var(--s-line); background: var(--s-surface); color: var(--s-fg); cursor: pointer; display: inline-flex; justify-content: center; gap: 8px; align-items: center; }
+.surprise svg { width: 16px; height: 16px; }
+.leash { display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; border-radius: var(--s-radius); background: var(--s-surface); border: 1px solid var(--s-line); }
+.leash button { font: 600 12px/1 var(--s-body); padding: 8px 2px; border: 0; border-radius: calc(var(--s-radius) - 3px); background: transparent; color: var(--s-muted); cursor: pointer; }
+.leash button[aria-checked="true"] { background: var(--s-fg); color: var(--s-bgsolid, #000); }
+
+/* ----- skin-specific structure ----- */
+[data-skin="poster"] .art { border-radius: 4px; background: #FF6B4A; border: 3px solid #1A1423; box-shadow: 7px 7px 0 #1A1423; }
+[data-skin="poster"] .art-text { color: #1A1423; font-size: 30px; line-height: .95; text-transform: uppercase; }
+[data-skin="poster"] .ctl, [data-skin="poster"] .surprise, [data-skin="poster"] .leash, [data-skin="poster"] .orbit { border: 2px solid #1A1423; box-shadow: 3px 3px 0 #1A1423; }
+[data-skin="poster"] .ctl.play { border: 2px solid #1A1423; }
+[data-skin="poster"] .progress .bar { height: 6px; background: rgba(26,20,35,.15); }
+
+[data-skin="calm"] .art { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffffff 0%, #C9DCCB 45%, #8FB29A 100%); box-shadow: 0 20px 50px -10px rgba(31,59,58,.35), 0 0 0 14px rgba(255,255,255,.35); }
+[data-skin="calm"] .art-text { color: #1F3B3A; font-size: 16px; }
+
+[data-skin="rain"] .art { width: 236px; height: 150px; border-radius: 10px; background: linear-gradient(#E8DCC0 0 38%, #5C4033 38% 100%); box-shadow: 0 16px 30px -10px rgba(0,0,0,.5); place-items: start center; }
+[data-skin="rain"] .art-text { color: #3a2b20; font-family: 'Special Elite', monospace; font-size: 14px; margin-top: 16px; }
+[data-skin="rain"] .art .win { display: block; position: absolute; left: 50%; bottom: 22px; width: 150px; height: 50px; transform: translateX(-50%); border-radius: 26px; background: #1d1612; box-shadow: inset 0 0 0 3px #3e2d22; }
+[data-skin="rain"] .art .reel { display: block; position: absolute; bottom: 30px; width: 34px; height: 34px; border-radius: 50%; z-index: 2; background: repeating-conic-gradient(#E8DCC0 0 20deg, #8a7a62 20deg 60deg); box-shadow: 0 0 0 5px #2b1f18; animation: spin 3s linear infinite; animation-play-state: var(--spin, paused); }
+[data-skin="rain"] .art .reel.l { left: calc(50% - 58px); }
+[data-skin="rain"] .art .reel.r { left: calc(50% + 24px); }
+
+[data-skin="night"] .art { border-radius: 50%; background: radial-gradient(circle at 38% 35%, #FFF8EA 0%, #EDE2CB 40%, #C9BC9F 100%); box-shadow: 0 0 60px 6px rgba(241,233,218,.28), 0 0 140px 20px rgba(184,161,217,.18); }
+[data-skin="night"] .art::before { content: ""; position: absolute; width: 38px; height: 38px; left: 50px; top: 104px; border-radius: 50%; background: rgba(150,135,110,.25); box-shadow: 70px -50px 0 -8px rgba(150,135,110,.2), 80px 20px 0 -12px rgba(150,135,110,.22); }
+[data-skin="night"] .art-text { display: none; }
+
+[data-skin="academia"] .art { width: 150px; height: 192px; border-radius: 2px; background: radial-gradient(ellipse at 50% 35%, #7A2526 0%, #5C1A1B 55%, #3a0f10 100%); border: 7px double #B08D57; box-shadow: 0 0 0 3px #2A1A14, 0 0 0 5px #8a6c3e, 0 18px 30px -8px rgba(0,0,0,.6); }
+[data-skin="academia"] .art-text { color: #EDE0C8; font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 20px; line-height: 1.1; }
+
+[data-skin="meadow"] .art { width: 170px; height: 196px; border-radius: 999px 999px 18px 18px; background:
+  radial-gradient(ellipse 120% 60% at 20% 110%, #6B8F4E 0 50%, transparent 51%),
+  radial-gradient(ellipse 110% 55% at 90% 115%, #87A866 0 50%, transparent 51%),
+  radial-gradient(circle at 70% 30%, #FFF4C9 0 14%, transparent 15%),
+  linear-gradient(#F3C9A8, #F6E7B0); border: 4px solid #FBF6E6; box-shadow: 0 12px 24px -10px rgba(59,58,38,.35); }
+[data-skin="meadow"] .art-text { display: none; }
+
+[data-skin="neon"] .art { border-radius: 50%; background: radial-gradient(circle, #FF2A6D 0 17%, #0D0221 18% 19%, transparent 20%), repeating-radial-gradient(circle, #1a1030 0 2px, #0b0618 2px 4px); box-shadow: 0 0 0 2px #05D9E8, 0 0 24px 2px rgba(5,217,232,.6), 0 0 60px 8px rgba(255,42,109,.25); animation: spin 4s linear infinite; animation-play-state: var(--spin, paused); }
+[data-skin="neon"] .art::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 20deg, transparent 0 30deg, rgba(255,255,255,.12) 45deg, transparent 60deg 210deg, rgba(255,255,255,.08) 225deg, transparent 240deg); }
+[data-skin="neon"] .art-text { display: none; }
+[data-skin="neon"] .mood-name { text-shadow: 0 0 12px rgba(255,42,109,.8); }
+[data-skin="neon"] .ctl.play { box-shadow: 0 0 22px rgba(255,42,109,.7); }
+
+[data-skin="noir"] .art { border-radius: 50%; background: radial-gradient(circle at 45% 35%, #f4f4f4 0%, #9a9a9a 35%, #2a2a2a 75%, #111 100%); box-shadow: 0 0 0 1px var(--s-accent), 0 0 0 10px #111, 0 0 0 11px rgba(255,255,255,.15); filter: grayscale(1); }
+[data-skin="noir"] .art-text { color: #111; font-family: 'Bodoni Moda', serif; font-style: italic; font-size: 26px; }
+
+[data-skin="classic"] .art { box-shadow: 0 25px 50px -12px rgba(0,0,0,.5); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .art, .art .reel { animation: none !important; } .screen.swap .ui { animation: none; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="intro">
+    <h1>MusicMood Skins</h1>
+    <p>Pick a mood and the player restyles itself. The Look panel is the manual override: keep skins on auto, switch off the ones you don't like, or lock one look for every mood. The tracks are examples and no audio plays.</p>
+  </div>
+
+  <div class="bench">
+    <div class="phone">
+      <div class="screen" id="screen" data-skin="rain">
+        <canvas id="fx" aria-hidden="true"></canvas>
+        <div class="ui">
+          <div class="status"><span>9:41</span><svg viewBox="0 0 38 11" aria-hidden="true"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="6" rx="1"/><rect x="10" y="3" width="3" height="8" rx="1"/><rect x="15" y="1" width="3" height="10" rx="1"/><rect x="23" y="1" width="13" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="25" y="3" width="8" height="5" rx="1"/></svg></div>
+          <div class="app-top">
+            <span class="wordmark">MusicMood</span>
+            <button class="look-btn" id="lookChip" type="button" title="Jump to the Look settings">Look: Auto</button>
+          </div>
+          <div class="mood-head">
+            <div class="eyebrow">Listening for</div>
+            <div class="mood-name" id="moodName">Rainy Day</div>
+            <div class="orbit" id="orbit">Home · Chamber Folk</div>
+          </div>
+          <div class="art-wrap"><div class="art" id="art"><div class="win"></div><div class="reel l"></div><div class="reel r"></div><div class="art-text" id="artText"></div></div></div>
+          <div class="track"><div class="t-title" id="tTitle">Riverside</div><div class="t-artist" id="tArtist">Agnes Obel</div></div>
+          <div class="progress"><div class="bar"><i id="barFill"></i></div><div class="times"><span id="tNow">0:00</span><span id="tDur">3:52</span></div></div>
+          <div class="controls">
+            <button class="ctl" id="btnDown" type="button" aria-label="Not for me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V2M9 18.1 10 14H4.2a2 2 0 0 1-2-2.3l1.4-7A2 2 0 0 1 5.5 3H17v11l-4 8a3 3 0 0 1-4-3.9z"/></svg></button>
+            <button class="ctl play" id="btnPlay" type="button" aria-label="Pause"><svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></button>
+            <button class="ctl" id="btnSkip" type="button" aria-label="Skip"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4.5v15l10-7.5z"/><rect x="16.5" y="4.5" width="2.5" height="15" rx="1"/></svg></button>
+            <button class="ctl" id="btnLike" type="button" aria-label="Like" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-9.2-9A5 5 0 0 1 12 6a5 5 0 0 1 9.2 5C19 15.6 12 20 12 20z"/></svg></button>
+          </div>
+          <button class="surprise" id="btnSurprise" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>Surprise me</button>
+          <div class="leash" role="radiogroup" aria-label="Discovery">
+            <button type="button" role="radio" aria-checked="false" data-l="0">Familiar</button>
+            <button type="button" role="radio" aria-checked="true" data-l="1">Balanced</button>
+            <button type="button" role="radio" aria-checked="false" data-l="2">Deep Cuts</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="sec">
+        <div class="sec-head"><h2>Mood</h2><span class="where">Mood bar</span></div>
+        <div id="moodGroups" class="sec"></div>
+      </div>
+
+      <div class="sec" id="lookSec">
+        <div class="sec-head"><h2>Look</h2><span class="where">Settings › Look</span></div>
+        <div class="modes" role="radiogroup" aria-label="Look mode">
+          <button class="mode" type="button" role="radio" data-mode="auto" aria-checked="true"><span class="radio"></span><span><b>Match my mood</b><span class="d">The skin changes when you change mood.</span></span></button>
+          <button class="mode" type="button" role="radio" data-mode="fixed" aria-checked="false"><span class="radio"></span><span><b>Always use one look</b><span class="d">Pick one skin and keep it for every mood.</span></span></button>
+        </div>
+        <div id="autoBox" class="sec">
+          <p class="hint">Switch off any skin you don't like. Its moods then use Classic, the current look.</p>
+          <div class="skin-list" id="skinList"></div>
+        </div>
+        <div id="fixedBox" class="sec" hidden>
+          <p class="hint">This look applies to all 22 moods. Classic keeps the app as it is today.</p>
+          <div class="skin-grid" id="skinGrid" role="radiogroup" aria-label="Skin"></div>
+        </div>
+      </div>
+
+      <p class="foot">For Android: each skin becomes a Material 3 color and type set in Compose, and Settings › Look saves the mode, the locked skin and the switched-off skins with the user's profile.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const SKINS = {
+  classic:  { name: 'Classic', sw: ['#020617', '#6366f1', '#a855f7'], v: { bg: 'radial-gradient(circle at 50% -20%, #1e1b4b 0%, #020617 80%)', bgsolid: '#020617', fg: '#f8fafc', muted: '#94a3b8', surface: 'rgba(30,41,59,.5)', line: 'rgba(255,255,255,.1)', accent: 'linear-gradient(135deg,#6366f1,#a855f7)', 'accent-fg': '#fff', display: "'Inter', sans-serif", body: "'Inter', sans-serif", dweight: '800', dcase: 'none', dtrack: '-0.03em', dstyle: 'normal', msize: '34px', radius: '16px' } },
+  poster:   { name: 'Poster Pop', sw: ['#FFC93C', '#FF6B4A', '#1A1423'], v: { bg: '#FFC93C', bgsolid: '#FFC93C', fg: '#1A1423', muted: 'rgba(26,20,35,.68)', surface: '#FFF3CF', line: '#1A1423', accent: '#FF6B4A', 'accent-fg': '#1A1423', display: "'Archivo Black', 'Arial Black', sans-serif", body: "'Archivo', 'Arial', sans-serif", dweight: '400', dcase: 'uppercase', dtrack: '-0.01em', dstyle: 'normal', msize: '36px', radius: '4px' } },
+  calm:     { name: 'Still Water', sw: ['#E8EEF0', '#A8C3A0', '#1F3B3A'], v: { bg: 'linear-gradient(180deg,#EEF3F3 0%,#D3E3D9 100%)', bgsolid: '#E8EEF0', fg: '#1F3B3A', muted: '#5B7472', surface: 'rgba(255,255,255,.55)', line: 'rgba(31,59,58,.14)', accent: '#1F3B3A', 'accent-fg': '#E8EEF0', display: "'Quicksand', 'Nunito', sans-serif", body: "'Nunito', sans-serif", dweight: '700', dcase: 'lowercase', dtrack: '0', dstyle: 'normal', msize: '36px', radius: '999px' } },
+  rain:     { name: 'Rain Glass', sw: ['#2A3F5F', '#3D5A80', '#C9A9A6'], v: { bg: 'linear-gradient(180deg,#24364F 0%,#3D5A80 100%)', bgsolid: '#2A3F5F', fg: '#EEF2F6', muted: '#B6C2D1', surface: 'rgba(255,255,255,.08)', line: 'rgba(255,255,255,.18)', accent: '#C9A9A6', 'accent-fg': '#1D2A3D', display: "'Special Elite', 'Courier New', monospace", body: "'Karla', sans-serif", dweight: '400', dcase: 'none', dtrack: '0', dstyle: 'normal', msize: '31px', radius: '10px' } },
+  night:    { name: 'Night Sky', sw: ['#0B132B', '#B8A1D9', '#F1E9DA'], v: { bg: 'radial-gradient(ellipse at 50% 0%, #1F2A4A 0%, #0B132B 70%)', bgsolid: '#0B132B', fg: '#F1E9DA', muted: '#A9A3C4', surface: 'rgba(184,161,217,.09)', line: 'rgba(241,233,218,.15)', accent: '#B8A1D9', 'accent-fg': '#0B132B', display: "'Outfit', sans-serif", body: "'Outfit', sans-serif", dweight: '200', dcase: 'uppercase', dtrack: '0.18em', dstyle: 'normal', msize: '27px', radius: '14px' } },
+  academia: { name: 'Old Library', sw: ['#2A1A14', '#5C1A1B', '#B08D57'], v: { bg: 'radial-gradient(ellipse at 50% 20%, #3E2a1f 0%, #2A1A14 55%, #1a0f0b 100%)', bgsolid: '#2A1A14', fg: '#EDE0C8', muted: '#B9A88A', surface: 'rgba(237,224,200,.06)', line: 'rgba(176,141,87,.4)', accent: '#B08D57', 'accent-fg': '#2A1A14', display: "'Cormorant Garamond', Georgia, serif", body: "'EB Garamond', Georgia, serif", dweight: '600', dcase: 'none', dtrack: '0.01em', dstyle: 'italic', msize: '38px', radius: '2px' } },
+  meadow:   { name: 'Meadow', sw: ['#F7F0D8', '#6B8F4E', '#C97B5A'], v: { bg: 'linear-gradient(180deg,#FAF4DF 0%,#EDE3C0 100%)', bgsolid: '#F7F0D8', fg: '#3B3A26', muted: '#6E6B4E', surface: 'rgba(255,255,255,.55)', line: 'rgba(107,143,78,.3)', accent: '#6B8F4E', 'accent-fg': '#FAF4DF', display: "'Caveat', cursive", body: "'Lora', Georgia, serif", dweight: '700', dcase: 'none', dtrack: '0', dstyle: 'normal', msize: '46px', radius: '18px' } },
+  neon:     { name: 'Neon Grid', sw: ['#0D0221', '#FF2A6D', '#05D9E8'], v: { bg: 'linear-gradient(180deg,#0D0221 0%,#1b0638 60%,#2a0a45 100%)', bgsolid: '#0D0221', fg: '#F5F3FF', muted: '#9C8FC2', surface: 'rgba(5,217,232,.07)', line: 'rgba(5,217,232,.35)', accent: '#FF2A6D', 'accent-fg': '#0D0221', display: "'Orbitron', sans-serif", body: "'Share Tech Mono', monospace", dweight: '900', dcase: 'uppercase', dtrack: '0.04em', dstyle: 'normal', msize: '25px', radius: '0px' } },
+  noir:     { name: 'Noir', sw: ['#111111', '#BDBDBD', '#C1121F'], v: { bg: 'radial-gradient(ellipse at 50% 30%, #2b2b2b 0%, #111 65%)', bgsolid: '#111111', fg: '#F2F2F2', muted: '#9A9A9A', surface: 'rgba(255,255,255,.05)', line: 'rgba(255,255,255,.2)', accent: '#C1121F', 'accent-fg': '#fff', display: "'Bodoni Moda', 'Didot', serif", body: "'IBM Plex Sans Condensed', sans-serif", dweight: '700', dcase: 'none', dtrack: '-0.01em', dstyle: 'italic', msize: '38px', radius: '0px' } },
+};
+
+const GROUPS = ['Core', 'Moments', 'Nuance', 'Aesthetics', 'Cinematic'];
+const MOODS = [
+  ['happy','Happy','Core','poster','Walking on Sunshine','Katrina & The Waves','Pop','Dance Pop','3:58'],
+  ['sad','Sad','Core','rain','Holocene','Bon Iver','Indie Folk','Chamber Pop','5:36'],
+  ['chill','Chill','Core','calm','Sunset Lover','Petit Biscuit','Chillwave','Downtempo','3:57'],
+  ['energetic','Energetic','Core','poster','Breathe','The Prodigy','Big Beat','Drum & Bass','5:35'],
+  ['focus','Focus','Core','calm','Experience','Ludovico Einaudi','Modern Classical','Ambient','5:15'],
+  ['party','Party','Core','poster','Hypnotize','The Notorious B.I.G.','East Coast Hip-Hop','Funk','3:50'],
+  ['late_night','Late Night','Moments','night','Midnight City','M83','Synth-pop','Chillwave','4:03'],
+  ['driving','Roadtrip','Moments','poster','Go Your Own Way','Fleetwood Mac','Classic Rock','Heartland Rock','3:38'],
+  ['rainy','Rainy Day','Moments','rain','Riverside','Agnes Obel','Chamber Folk','Indie Folk','3:52'],
+  ['morning','Morning Boost','Moments','poster','Here Comes the Sun','The Beatles','Pop Rock','Folk Pop','3:05'],
+  ['sleep','Wind Down','Moments','calm','Weightless','Marconi Union','Ambient','Modern Classical','8:00'],
+  ['nostalgic','Nostalgic','Nuance','rain','Dreams','The Cranberries','Alternative Rock','Britpop','4:31'],
+  ['romantic','Romantic','Nuance','night','At Last','Etta James','Soul','Vocal Jazz','3:01'],
+  ['dark_intense','Dark / Intense','Nuance','noir','Closer','Nine Inch Nails','Industrial','Darkwave','6:13'],
+  ['dreamy','Dreamy','Nuance','night','Space Song','Beach House','Dream Pop','Shoegaze','5:20'],
+  ['dark_academia','Dark Academia','Aesthetics','academia','Nocturne Op. 9 No. 2','Frédéric Chopin','Romantic Era','Baroque','4:33'],
+  ['cottagecore','Cottagecore','Aesthetics','meadow','Mystery of Love','Sufjan Stevens','Indie Folk','Chamber Folk','4:08'],
+  ['cyberpunk','Cyberpunk','Aesthetics','neon','Turbo Killer','Carpenter Brut','Darksynth','Synthwave','3:23'],
+  ['cinematic_epic','Epic','Cinematic','noir','Time','Hans Zimmer','Film Score','Neoclassical','4:35', '#C9A227'],
+  ['cinematic_mystery','Mystery / Noir','Cinematic','noir','Blue in Green','Miles Davis','Cool Jazz','Modal Jazz','5:37'],
+  ['cinematic_fantasy','Fantasy','Cinematic','meadow','Concerning Hobbits','Howard Shore','Film Score','Celtic Folk','2:55'],
+  ['cinematic_scifi','Sci-Fi','Cinematic','neon','Tears in Rain','Vangelis','Ambient Electronic','Space Ambient','3:00'],
+].map(([id,label,group,skin,track,artist,genre,alt,dur,accent]) => ({id,label,group,skin,track,artist,genre,alt,dur,accent}));
+const moodById = Object.fromEntries(MOODS.map(m => [m.id, m]));
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('mm-skins-' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('mm-skins-' + k, JSON.stringify(v)); } catch (e) {} },
+};
+const state = {
+  mood: store.get('mood', 'rainy'),
+  mode: store.get('mode', 'auto'),
+  fixed: store.get('fixed', 'classic'),
+  off: new Set(store.get('off', [])),
+  playing: true, liked: false, leash: 1, orbit: 0, pos: 0,
+};
+if (!moodById[state.mood]) state.mood = 'rainy';
+if (!SKINS[state.fixed]) state.fixed = 'classic';
+
+const $ = id => document.getElementById(id);
+const screen = $('screen');
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function skinFor(moodId) {
+  if (state.mode === 'fixed') return state.fixed;
+  const s = moodById[moodId].skin;
+  return state.off.has(s) ? 'classic' : s;
+}
+function swatchHTML(id) { return '<span class="swatch">' + SKINS[id].sw.map(c => '<i style="background:' + c + '"></i>').join('') + '</span>'; }
+
+/* ---------- panel ---------- */
+function buildMoodChips() {
+  $('moodGroups').innerHTML = GROUPS.map(g => '<div class="group"><div class="group-label">' + g + '</div><div class="chips">' +
+    MOODS.filter(m => m.group === g).map(m => '<button type="button" class="chip" data-mood="' + m.id + '" aria-pressed="false"><span class="dot"></span>' + m.label + '</button>').join('') +
+    '</div></div>').join('');
+  $('moodGroups').addEventListener('click', e => { const b = e.target.closest('[data-mood]'); if (b) setMood(b.dataset.mood); });
+}
+function buildSkinControls() {
+  const auto = Object.keys(SKINS).filter(k => k !== 'classic');
+  $('skinList').innerHTML = auto.map(k => {
+    const moods = MOODS.filter(m => m.skin === k).map(m => m.label).join(', ');
+    return '<div class="skin-row" data-row="' + k + '">' + swatchHTML(k) + '<div style="min-width:0"><div class="nm">' + SKINS[k].name + '</div><div class="mv">' + moods + '</div></div>' +
+      '<button type="button" class="switch" role="switch" data-toggle="' + k + '" aria-label="Use ' + SKINS[k].name + '" aria-checked="true"></button></div>';
+  }).join('');
+  $('skinList').addEventListener('click', e => {
+    const b = e.target.closest('[data-toggle]'); if (!b) return;
+    const k = b.dataset.toggle;
+    state.off.has(k) ? state.off.delete(k) : state.off.add(k);
+    store.set('off', [...state.off]); render();
+  });
+  $('skinGrid').innerHTML = Object.keys(SKINS).map(k => '<button type="button" class="skin-card" role="radio" data-fixed="' + k + '" aria-checked="false">' + swatchHTML(k) + '<span class="nm">' + SKINS[k].name + '</span></button>').join('');
+  $('skinGrid').addEventListener('click', e => { const b = e.target.closest('[data-fixed]'); if (!b) return; state.fixed = b.dataset.fixed; store.set('fixed', state.fixed); render(); });
+  document.querySelectorAll('.mode').forEach(b => b.addEventListener('click', () => { state.mode = b.dataset.mode; store.set('mode', state.mode); render(); }));
+}
+
+/* ---------- player ---------- */
+let currentSkin = null;
+function setMood(id) {
+  state.mood = id; state.orbit = 0; state.pos = 0; state.liked = false;
+  store.set('mood', id); render();
+}
+function applySkin(id, mood) {
+  const v = SKINS[id].v;
+  for (const k in v) screen.style.setProperty('--s-' + k, v[k]);
+  if (mood.accent && id === 'noir') screen.style.setProperty('--s-accent', mood.accent);
+  if (currentSkin !== id) {
+    screen.dataset.skin = id;
+    screen.classList.remove('swap'); void screen.offsetWidth; screen.classList.add('swap');
+    currentSkin = id; fx.reset(id);
+  }
+}
+function render() {
+  const m = moodById[state.mood];
+  const skin = skinFor(m.id);
+  applySkin(skin, m);
+  $('moodName').textContent = m.label;
+  $('orbit').textContent = state.orbit ? 'Orbit +' + state.orbit + ' · ' + m.alt : 'Home · ' + m.genre;
+  $('tTitle').textContent = m.track;
+  $('tArtist').textContent = m.artist;
+  $('tDur').textContent = m.dur;
+  $('artText').textContent = skin === 'poster' ? m.label : skin === 'academia' ? m.track : skin === 'noir' ? m.label.split(' ')[0] : skin === 'rain' ? 'Side A · ' + m.label : m.genre;
+  $('lookChip').textContent = state.mode === 'fixed' ? 'Look: ' + SKINS[skin].name : 'Look: Auto · ' + SKINS[skin].name;
+  $('btnLike').classList.toggle('on', state.liked); $('btnLike').setAttribute('aria-pressed', state.liked);
+  screen.style.setProperty('--spin', state.playing && !reduced ? 'running' : 'paused');
+  $('btnPlay').setAttribute('aria-label', state.playing ? 'Pause' : 'Play');
+  $('playIcon').innerHTML = state.playing ? '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>' : '<path d="M7 4.5v15l12-7.5z"/>';
+  document.querySelectorAll('.leash button').forEach(b => b.setAttribute('aria-checked', +b.dataset.l === state.leash));
+
+  document.querySelectorAll('.chip').forEach(c => {
+    const s = skinFor(c.dataset.mood);
+    c.setAttribute('aria-pressed', c.dataset.mood === state.mood);
+    c.querySelector('.dot').style.background = SKINS[s].sw[1];
+    c.classList.toggle('off', state.mode === 'auto' && s === 'classic');
+  });
+  document.querySelectorAll('.mode').forEach(b => b.setAttribute('aria-checked', b.dataset.mode === state.mode));
+  $('autoBox').hidden = state.mode !== 'auto';
+  $('fixedBox').hidden = state.mode !== 'fixed';
+  document.querySelectorAll('[data-toggle]').forEach(b => { const on = !state.off.has(b.dataset.toggle); b.setAttribute('aria-checked', on); b.closest('.skin-row').classList.toggle('is-off', !on); });
+  document.querySelectorAll('[data-fixed]').forEach(b => b.setAttribute('aria-checked', b.dataset.fixed === state.fixed));
+  drawProgress();
+}
+function durSec() { const [a, b] = moodById[state.mood].dur.split(':').map(Number); return a * 60 + b; }
+function fmt(s) { s = Math.floor(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+function drawProgress() { const d = durSec(); $('barFill').style.width = (state.pos / d * 100) + '%'; $('tNow').textContent = fmt(state.pos); }
+
+$('btnPlay').onclick = () => { state.playing = !state.playing; render(); };
+$('btnSkip').onclick = () => { state.pos = 0; state.liked = false; render(); };
+$('btnDown').onclick = () => { state.pos = 0; state.liked = false; render(); };
+$('btnLike').onclick = () => { state.liked = !state.liked; render(); };
+$('btnSurprise').onclick = () => { state.orbit = state.orbit ? 0 : 1 + state.leash; state.pos = 0; render(); };
+document.querySelector('.leash').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { state.leash = +b.dataset.l; render(); } });
+$('lookChip').onclick = () => $('lookSec').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+setInterval(() => { if (!state.playing) return; state.pos += 1; if (state.pos >= durSec()) state.pos = 0; drawProgress(); }, 1000);
+
+/* ---------- ambient effects ---------- */
+const fx = (() => {
+  const cv = $('fx'), ctx = cv.getContext('2d');
+  let W = 0, H = 0, skin = 'classic', parts = [], raf = 0, t0 = performance.now();
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  function size() { const r = cv.getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1); W = r.width; H = r.height; cv.width = W * d; cv.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0); }
+  function seed() {
+    parts = [];
+    const n = { poster: 34, rain: 110, night: 90, academia: 36, meadow: 22, calm: 3, noir: 0, neon: 0, classic: 0 }[skin];
+    for (let i = 0; i < n; i++) parts.push({ x: rnd(0, W), y: rnd(0, H), s: rnd(0.4, 1), r: rnd(0, 6.28), v: rnd(0.3, 1), p: rnd(0, 6.28) });
+  }
+  const draw = {
+    classic() {},
+    poster(t) {
+      const cols = ['#1A1423', '#FF6B4A', '#FFFFFF'];
+      parts.forEach((q, i) => { q.y += q.v * 0.6; q.r += 0.01 * q.v; if (q.y > H + 10) { q.y = -10; q.x = rnd(0, W); }
+        ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.r); ctx.globalAlpha = .55; ctx.fillStyle = cols[i % 3]; ctx.fillRect(-4 * q.s - 2, -2, 8 * q.s + 4, 4); ctx.restore(); });
+    },
+    calm(t) {
+      const c = [[168,195,160],[255,255,255],[143,178,154]];
+      parts.forEach((q, i) => { const x = W * (0.25 + 0.5 * ((i * 0.37) % 1)) + Math.sin(t * 0.00025 + q.p) * 60, y = H * (0.2 + i * 0.3) + Math.cos(t * 0.0002 + q.p) * 50, r = 170;
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(' + c[i] + ',.55)'); g.addColorStop(1, 'rgba(' + c[i] + ',0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); });
+    },
+    rain() {
+      ctx.strokeStyle = 'rgba(220,232,245,.28)'; ctx.lineWidth = 1; ctx.beginPath();
+      parts.forEach(q => { const len = 10 + q.s * 14; q.y += 5 + q.v * 6; q.x -= 1; if (q.y > H) { q.y = -len; q.x = rnd(0, W + 40); } ctx.moveTo(q.x, q.y); ctx.lineTo(q.x + 2, q.y - len); });
+      ctx.stroke();
+    },
+    night(t) {
+      parts.forEach(q => { const a = 0.25 + 0.75 * Math.abs(Math.sin(t * 0.0012 * q.v + q.p)); ctx.fillStyle = 'rgba(241,233,218,' + a.toFixed(2) + ')'; ctx.beginPath(); ctx.arc(q.x, q.y * 0.75, q.s * 1.3, 0, 6.28); ctx.fill(); });
+    },
+    academia(t) {
+      const f = 0.16 + 0.05 * Math.sin(t * 0.009) + 0.03 * Math.sin(t * 0.023);
+      const g = ctx.createRadialGradient(W / 2, H * 0.3, 0, W / 2, H * 0.3, H * 0.6); g.addColorStop(0, 'rgba(255,190,110,' + f.toFixed(3) + ')'); g.addColorStop(1, 'rgba(255,190,110,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      parts.forEach(q => { q.y -= 0.12 * q.v; q.x += Math.sin(t * 0.001 + q.p) * 0.15; if (q.y < -5) { q.y = H + 5; q.x = rnd(0, W); } ctx.fillStyle = 'rgba(237,224,200,' + (0.15 + 0.35 * q.s).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(q.x, q.y, q.s * 1.4, 0, 6.28); ctx.fill(); });
+    },
+    meadow(t) {
+      const cols = ['rgba(201,123,90,.55)', 'rgba(243,201,168,.8)', 'rgba(255,255,255,.85)'];
+      parts.forEach((q, i) => { q.y += 0.35 * q.v; q.x += Math.sin(t * 0.0012 + q.p) * 0.5; q.r += 0.012; if (q.y > H + 10) { q.y = -10; q.x = rnd(0, W); }
+        ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.r); ctx.fillStyle = cols[i % 3]; ctx.beginPath(); ctx.ellipse(0, 0, 6 * q.s + 2, 3 * q.s + 1, 0, 0, 6.28); ctx.fill(); ctx.restore(); });
+    },
+    neon(t) {
+      const hy = H * 0.64, vx = W / 2;
+      const sun = ctx.createLinearGradient(0, hy - 90, 0, hy); sun.addColorStop(0, 'rgba(255,42,109,.0)'); sun.addColorStop(1, 'rgba(255,42,109,.18)'); ctx.fillStyle = sun; ctx.fillRect(0, hy - 90, W, 90);
+      ctx.strokeStyle = 'rgba(255,42,109,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, hy); ctx.lineTo(W, hy);
+      const off = (t * 0.00035) % 1;
+      for (let i = 0; i < 12; i++) { const z = (i + off) / 12, y = hy + (H - hy) * z * z; ctx.moveTo(0, y); ctx.lineTo(W, y); }
+      ctx.stroke(); ctx.strokeStyle = 'rgba(5,217,232,.22)'; ctx.beginPath();
+      for (let i = -8; i <= 8; i++) { ctx.moveTo(vx + i * 6, hy); ctx.lineTo(vx + i * 70, H); }
+      ctx.stroke();
+    },
+    noir(t) {
+      const x = W / 2 + Math.sin(t * 0.0004) * W * 0.35;
+      const g = ctx.createRadialGradient(x, H * 0.35, 0, x, H * 0.35, W * 0.7); g.addColorStop(0, 'rgba(255,255,255,.07)'); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 260; i++) { ctx.fillStyle = Math.random() > .5 ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.12)'; ctx.fillRect(Math.random() * W, Math.random() * H, 1, 1); }
+    },
+  };
+  function frame(now) { ctx.clearRect(0, 0, W, H); draw[skin](now - t0); if (!reduced) raf = requestAnimationFrame(frame); }
+  function reset(id) { skin = id; size(); seed(); cancelAnimationFrame(raf); frame(performance.now()); }
+  window.addEventListener('resize', () => { size(); seed(); if (reduced) frame(performance.now()); });
+  document.addEventListener('visibilitychange', () => { cancelAnimationFrame(raf); if (!document.hidden) frame(performance.now()); });
+  return { reset };
+})();
+
+buildMoodChips();
+buildSkinControls();
+render();
+</script>
+</body>
+</html>
